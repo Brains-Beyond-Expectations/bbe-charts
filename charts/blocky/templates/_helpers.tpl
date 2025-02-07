@@ -23,7 +23,7 @@ defaultPodOptions:
 
 persistence:
   config:
-    name: {{ .Release.Name }}-blocky-config
+    name: {{ .Release.Name }}-config
     enabled: true
     type: configMap
     advancedMounts:
