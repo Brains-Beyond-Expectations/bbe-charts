@@ -85,7 +85,7 @@ jobs:
         run: |
           helm package . -d ./../..
           cd ../../
-          gh auth token | helm registry login ghcr.io --username $GITHUB_ACTOR --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username $GITHUB_ACTOR --password-stdin
           helm push *.tgz oci://ghcr.io/Brains-Beyond-Expectations
           curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml || touch index.yaml
           helm repo index . --merge index.yaml --url "https://Brains-Beyond-Expectations.github.io/bbe-charts"
