@@ -3,7 +3,7 @@ name: blocky
 description: A DNS proxy as ad-blocker for local network
 type: application
 version: 0.1.0
-appVersion: "v0.24"
+appVersion: v0.24
 keywords:
   - blocky
   - dns

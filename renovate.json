@@ -1,11 +1,11 @@
 {
-  "extends": ["config:base"],
-  "regexManagers": [
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "customManagers": [
     {
+      "customType": "regex",
       "fileMatch": ["Chart.yaml"],
-      "matchStrings": [
-        "appVersion: \"(?<currentValue>v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\""
-      ],
+      "matchStrings": ["appVersion: (?<currentValue>.*)"],
       "depNameTemplate": "ghcr.io/0xerror/blocky",
       "datasourceTemplate": "docker"
     }
