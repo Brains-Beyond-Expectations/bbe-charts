@@ -68,6 +68,8 @@ jobs:
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
         run: |
+          wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
           yq e '.version = "${{ steps.draft-release.outputs.resolved_version }}"' -i Chart.yaml
       - name: Configure Git and push
         if: steps.changed-files.outputs.chart == 'true'
