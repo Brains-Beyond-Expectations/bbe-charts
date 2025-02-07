@@ -10,13 +10,13 @@ tests:
           count: 3
 
   - it: should create a deployment with correct specifications
-    documentIndex: 0
+    documentIndex: 1
     asserts:
       - isKind:
           of: Deployment
 
   - it: should create a service with correct specifications
-    documentIndex: 1
+    documentIndex: 2
     asserts:
       - isKind:
           of: Service
@@ -40,7 +40,7 @@ tests:
           value: 4000
 
   - it: should create a configmap with correct specifications
-    documentIndex: 2
+    documentIndex: 0
     asserts:
       - isKind:
           of: ConfigMap
