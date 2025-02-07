@@ -5,7 +5,9 @@
     {
       "customType": "regex",
       "fileMatch": ["Chart.yaml"],
-      "matchStrings": ["appVersion: (?<currentValue>.*)"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
       "depNameTemplate": "ghcr.io/0xerror/blocky",
       "datasourceTemplate": "docker"
     }
