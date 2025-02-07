@@ -1,8 +1,5 @@
 {
   "extends": ["config:base"],
-  "helm": {
-    "fileMatch": ["Chart.yaml"]
-  },
   "regexManagers": [
     {
       "fileMatch": ["Chart.yaml"],
