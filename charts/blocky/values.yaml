@@ -1,0 +1,65 @@
+#
+# IMPORTANT NOTE
+#
+# This chart inherits from bjw-s's common library chart. You can check the default values/options here:
+# https://github.com/bjw-s/helm-charts/tree/main/charts/library/common/values.yaml
+#
+
+controllers:
+  main:
+    replicas: 2
+    containers:
+      blocky:
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+
+service:
+  main:
+    controller: main
+    type: LoadBalancer
+    ports:
+      dns-udp:
+        port: 53
+        protocol: UDP
+      dns-tcp:
+        port: 53
+        protocol: TCP
+      http:
+        port: 4000
+        protocol: TCP
+
+configMaps:
+  blocky-config:
+    data:
+      config.yml: |
+        upstream:
+          default:
+            - 1.1.1.1
+            - 8.8.8.8
+        blocking:
+          blackLists:
+            ads:
+              - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+          clientGroupsBlock:
+            default:
+              - ads
+        port: 53
+        httpPort: 4000
+        caching:
+          minTime: 5m
+          maxTime: 30m
+
+persistence:
+  config:
+    name: blocky-config
+    enabled: true
+    type: configMap
+    advancedMounts:
+      main:
+        blocky:
+          - path: /app/config.yml
+            subPath: config.yml
