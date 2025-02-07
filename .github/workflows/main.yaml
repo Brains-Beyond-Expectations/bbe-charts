@@ -87,15 +87,18 @@ jobs:
           cd ../../
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username $GITHUB_ACTOR --password-stdin
           helm push *.tgz oci://ghcr.io/brains-beyond-expectations/bbe-charts
-          curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml || touch index.yaml
+          curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml
           helm repo index . --merge index.yaml --url "https://Brains-Beyond-Expectations.github.io/bbe-charts"
-          mv index.yaml ../../
       - name: Configure Git and push
         if: steps.changed-files.outputs.chart == 'true'
         shell: bash
         run: |
           git config user.name "GitHub Actions"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp index.yaml /tmp/index.yaml
+          git reset --hard
+          git checkout gh-pages
+          cp /tmp/index.yaml index.yaml
           git add index.yaml
           git commit -m "Updated Helm chart index"
           git push --force-with-lease origin HEAD:gh-pages
