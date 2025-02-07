@@ -10,9 +10,6 @@ controllers:
     replicas: 2
     containers:
       blocky:
-        image:
-          repository: ghcr.io/0xerr0r/blocky:v0.24
-          tag: 4.6.0
         resources:
           requests:
             memory: "128Mi"
