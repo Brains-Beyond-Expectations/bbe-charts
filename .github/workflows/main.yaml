@@ -65,6 +65,7 @@ jobs:
           config-name: ${{ matrix.chart }}-release-drafter.yaml
           publish: false
       - name: Update chart version
+        id: update-chart-version
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
         run: |
@@ -74,7 +75,9 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add ./Chart.yaml
+          git commit -m "Update chart version to ${{ steps.draft-release.outputs.resolved_version }}"
           git push --force-with-lease origin main
+          echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_ENV
       - name: Publish chart
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
@@ -100,7 +103,6 @@ jobs:
           git add index.yaml
           git commit -m "Updated Helm chart index"
           git push --force-with-lease origin HEAD:gh-pages
-          echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_ENV
       - name: Finalize release
         if: steps.changed-files.outputs.chart == 'true'
         uses: release-drafter/release-drafter@v6
@@ -109,4 +111,4 @@ jobs:
         with:
           config-name: ${{ matrix.chart }}-release-drafter.yaml
           publish: true
-          commitish: ${{ steps.draft-release.outputs.commit_sha }}
+          commitish: ${{ steps.update-chart-version.outputs.commit_sha }}
