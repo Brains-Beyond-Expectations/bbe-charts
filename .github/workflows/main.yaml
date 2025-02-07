@@ -71,14 +71,9 @@ jobs:
           wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
           chmod +x /usr/local/bin/yq
           yq e '.version = "${{ steps.draft-release.outputs.resolved_version }}"' -i Chart.yaml
-      - name: Configure Git and push
-        if: steps.changed-files.outputs.chart == 'true'
-        working-directory: charts/${{ matrix.chart }}
-        shell: bash
-        run: |
           git config user.name "GitHub Actions"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Chart.yaml
+          git add ./Chart.yaml
           git push --force-with-lease origin main
       - name: Publish chart
         if: steps.changed-files.outputs.chart == 'true'
@@ -91,7 +86,7 @@ jobs:
           helm push *.tgz oci://ghcr.io/brains-beyond-expectations/bbe-charts
           curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml
           helm repo index . --merge index.yaml --url "https://Brains-Beyond-Expectations.github.io/bbe-charts"
-      - name: Configure Git and push
+      - name: Update Github Pages
         if: steps.changed-files.outputs.chart == 'true'
         shell: bash
         run: |
