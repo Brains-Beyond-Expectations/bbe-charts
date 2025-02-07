@@ -85,25 +85,21 @@ jobs:
         run: |
           helm package . -d ./../..
           cd ../../
-          chart=$(ls | grep ${{ matrix.chart }})
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username $GITHUB_ACTOR --password-stdin
-          helm push $chart oci://ghcr.io/brains-beyond-expectations/bbe-charts
+          helm push *.tgz oci://ghcr.io/brains-beyond-expectations/bbe-charts
           curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml
-          helm repo index . --merge index.yaml --url "https://Brains-Beyond-Expectations.github.io/bbe-charts"
+          helm repo index . --merge index.yaml --url "ghcr.io/brains-beyond-expectations/bbe-charts"
       - name: Update Github Pages
         if: steps.changed-files.outputs.chart == 'true'
         shell: bash
         run: |
           git config user.name "GitHub Actions"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          chart=$(ls | grep ${{ matrix.chart }})
           cp index.yaml /tmp/index.yaml
-          cp $chart /tmp/$chart
           git reset --hard
           git fetch origin gh-pages
           git checkout gh-pages
           cp /tmp/index.yaml index.yaml
-          cp /tmp/$chart $chart
           git add index.yaml
           git add $chart
           git commit -m "Updated Helm chart index"
