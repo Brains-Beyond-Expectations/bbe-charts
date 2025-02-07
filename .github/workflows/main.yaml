@@ -1,0 +1,98 @@
+name: Pull request
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  update-charts:
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        chart: [blocky]
+    name: Update (${{ matrix.chart }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Check for changed files
+        uses: dorny/paths-filter@v3
+        id: changed-files
+        with:
+          filters: |
+            chart:
+              - 'charts/${{ matrix.chart }}/**'
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        if: steps.changed-files.outputs.chart == 'true'
+      - name: Install Helm unittest plugin
+        if: steps.changed-files.outputs.chart == 'true'
+        run:
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git
+      - name: Run unit tests
+        if: steps.changed-files.outputs.chart == 'true'
+        working-directory: charts/${{ matrix.chart }}
+        run: |
+          helm dependency update
+          helm unittest .
+      - name: Render chart
+        if: steps.changed-files.outputs.chart == 'true'
+        working-directory: charts/${{ matrix.chart }}
+        run: |
+          helm template . --values tests/values/required-values.yaml --output-dir /tmp/${{ matrix.chart }}
+      - name: Lint chart
+        if: steps.changed-files.outputs.chart == 'true'
+        uses: stackrox/kube-linter-action@v1
+        with:
+          directory: /tmp/${{ matrix.chart }}
+      - name: Create release draft
+        if: steps.changed-files.outputs.chart == 'true'
+        uses: release-drafter/release-drafter@v6
+        id: draft-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-name: ${{ matrix.chart }}-release-drafter.yaml
+          publish: false
+      - name: Update chart version
+        if: steps.changed-files.outputs.chart == 'true'
+        working-directory: charts/${{ matrix.chart }}
+        run: |
+          yq e '.version = "${{ steps.draft-release.outputs.resolved_version }}"' -i Chart.yaml
+      - name: Configure Git and push
+        if: steps.changed-files.outputs.chart == 'true'
+        working-directory: charts/${{ matrix.chart }}
+        shell: bash
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Chart.yaml
+          git push --force-with-lease origin main
+      - name: Publish chart
+        if: steps.changed-files.outputs.chart == 'true'
+        working-directory: charts/${{ matrix.chart }}
+        shell: bash
+        run: |
+          helm package . -d ./../..
+          cd ../../
+          helm push *.tgz oci://ghcr.io/Brains-Beyond-Expectations/bbe-quest/${{ matrix.chart }}
+          curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml || touch index.yaml
+          helm repo index . --merge index.yaml --url "https://Brains-Beyond-Expectations.github.io/bbe-charts"
+          mv index.yaml ../../
+      - name: Configure Git and push
+        if: steps.changed-files.outputs.chart == 'true'
+        shell: bash
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.yaml
+          git commit -m "Updated Helm chart index"
+          git push --force-with-lease origin HEAD:gh-pages

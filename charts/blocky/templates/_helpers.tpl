@@ -20,4 +20,15 @@ defaultPodOptions:
               matchLabels:
                 app.kubernetes.io/name: blocky
             topologyKey: kubernetes.io/hostname
+
+persistence:
+  config:
+    name: {{ .Release.Name }}-blocky-config
+    enabled: true
+    type: configMap
+    advancedMounts:
+      main:
+        blocky:
+          - path: /app/config.yml
+            subPath: config.yml
 {{- end -}}

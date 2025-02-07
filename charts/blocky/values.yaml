@@ -33,7 +33,7 @@ service:
         protocol: TCP
 
 configMaps:
-  blocky-config:
+  config:
     data:
       config.yml: |
         upstream:
@@ -52,14 +52,3 @@ configMaps:
         caching:
           minTime: 5m
           maxTime: 30m
-
-persistence:
-  config:
-    name: blocky-config
-    enabled: true
-    type: configMap
-    advancedMounts:
-      main:
-        blocky:
-          - path: /app/config.yml
-            subPath: config.yml
