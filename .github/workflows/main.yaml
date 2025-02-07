@@ -85,7 +85,7 @@ jobs:
         run: |
           helm package . -d ./../..
           cd ../../
-          helm push *.tgz oci://ghcr.io/Brains-Beyond-Expectations/bbe-quest/${{ matrix.chart }}
+          helm push *.tgz oci://ghcr.io/Brains-Beyond-Expectations/bbe-quest
           curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml || touch index.yaml
           helm repo index . --merge index.yaml --url "https://Brains-Beyond-Expectations.github.io/bbe-charts"
           mv index.yaml ../../
@@ -98,3 +98,13 @@ jobs:
           git add index.yaml
           git commit -m "Updated Helm chart index"
           git push --force-with-lease origin HEAD:gh-pages
+          echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_ENV
+      - name: Finalize release
+        if: steps.changed-files.outputs.chart == 'true'
+        uses: release-drafter/release-drafter@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-name: ${{ matrix.chart }}-release-drafter.yaml
+          publish: true
+          commitish: ${{ steps.draft-release.outputs.commit_sha }}
