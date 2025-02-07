@@ -1,0 +1,18 @@
+apiVersion: v2
+name: blocky
+description: A DNS proxy as ad-blocker for local network
+type: application
+version: 0.1.0
+appVersion: "v0.25"
+keywords:
+  - blocky
+  - dns
+  - adblock
+home: https://github.com/0xERR0R/blocky
+icon: https://raw.githubusercontent.com/0xERR0R/blocky/main/docs/blocky.svg
+sources:
+  - https://github.com/0xERR0R/blocky
+dependencies:
+  - name: common
+    repository: https://bjw-s.github.io/helm-charts
+    version: 3.6.1
