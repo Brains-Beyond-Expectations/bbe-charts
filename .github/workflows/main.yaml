@@ -97,6 +97,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           cp index.yaml /tmp/index.yaml
           git reset --hard
+          git fetch origin gh-pages
           git checkout gh-pages
           cp /tmp/index.yaml index.yaml
           git add index.yaml
