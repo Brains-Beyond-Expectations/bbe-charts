@@ -82,6 +82,8 @@ jobs:
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           helm package . -d ./../..
           cd ../../
