@@ -11,6 +11,9 @@ permissions:
   packages: write
   pull-requests: write
 
+env:
+  HELM_DOCS_VERSION: 1.14.2
+
 jobs:
   update-charts:
     strategy:
@@ -64,17 +67,32 @@ jobs:
         with:
           config-name: ${{ matrix.chart }}-release-drafter.yaml
           publish: false
+      - name: Install helm-docs
+        shell: bash
+        run: |
+          cd /tmp
+          wget -qO- ${HELM_DOCS_URL} | tar xvz
+          sudo mv helm-docs /usr/local/sbin
       - name: Update chart version
         id: update-chart-version
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
         run: |
+          # Update the chart version in Chart.yaml
           wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
           chmod +x /usr/local/bin/yq
           yq e '.version = "${{ steps.draft-release.outputs.resolved_version }}"' -i Chart.yaml
+
+          # Update the docs
+          wget -qO- https://github.com/norwoodj/helm-docs/releases/download/v${{ env.HELM_DOCS_VERSION }}/helm-docs_${{ env.HELM_DOCS_VERSION }}_Linux_x86_64.tar.gz | tar xvz
+          sudo mv helm-docs /usr/local/sbin
+          helm-docs
+
+          # Commit the changes
           git config user.name "GitHub Actions"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add ./Chart.yaml
+          git add ./README.md
           git commit -m "Update chart version to ${{ steps.draft-release.outputs.resolved_version }}"
           git push --force-with-lease origin main
           echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_ENV

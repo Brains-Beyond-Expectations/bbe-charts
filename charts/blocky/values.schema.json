@@ -1,3 +1,144 @@
 {
-  "$ref": "https://raw.githubusercontent.com/bjw-s/helm-charts/common-3.6.1/charts/library/common/values.schema.json"
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["blocky", "service", "config"],
+  "properties": {
+    "nameOverride": {
+      "type": "string",
+      "description": "Override the name of the chart"
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "description": "Override the full name of the chart"
+    },
+    "blocky": {
+      "type": "object",
+      "properties": {
+        "replicas": {
+          "type": "integer",
+          "description": "Number of replicas"
+        },
+        "strategyType": {
+          "type": "string",
+          "description": "The deployment strategy type",
+          "enum": ["Recreate", "RollingUpdate"]
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string",
+              "description": "The image repository"
+            },
+            "tag": {
+              "type": "string",
+              "description": "The image tag"
+            }
+          },
+          "required": ["repository"]
+        },
+        "securityContext": {
+          "type": "object",
+          "description": "Security context for the container",
+          "additionalProperties": true
+        },
+        "resources": {
+          "type": "object",
+          "description": "Resource requests and limits",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "description": "Memory request"
+                },
+                "cpu": {
+                  "type": "string",
+                  "description": "CPU request"
+                }
+              }
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "type": "string",
+                  "description": "Memory limit"
+                },
+                "cpu": {
+                  "type": "string",
+                  "description": "CPU limit"
+                }
+              }
+            }
+          }
+        },
+        "affinity": {
+          "type": "object",
+          "description": "Affinity settings for the pod",
+          "additionalProperties": true
+        }
+      },
+      "required": ["replicas", "image"]
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to add to the service",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "ports": {
+          "type": "array",
+          "description": "List of ports to expose",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The name of the port"
+              },
+              "port": {
+                "type": "integer",
+                "description": "The service port"
+              },
+              "protocol": {
+                "type": "string",
+                "description": "The protocol used by the port",
+                "enum": ["TCP", "UDP"]
+              }
+            },
+            "required": ["name", "port", "protocol"]
+          }
+        },
+        "type": {
+          "type": "string",
+          "description": "The service type",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
+        }
+      },
+      "required": ["ports", "type"]
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to add to the config",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "yaml": {
+          "type": "string",
+          "description": "Configuration for the application"
+        }
+      },
+      "required": ["yaml"]
+    }
+  }
 }
