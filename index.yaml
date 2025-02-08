@@ -245,13 +245,13 @@ entries:
     version: 0.1.1
   - apiVersion: v2
     appVersion: v0.25
-    created: "2025-02-07T22:12:13.321623956Z"
+    created: "2025-02-08T00:31:16.243444969Z"
     dependencies:
     - name: common
       repository: https://bjw-s.github.io/helm-charts
-      version: 3.6.1
+      version: 3.7.0
     description: A DNS proxy as ad-blocker for local network
-    digest: ce907ed4ae95ca05e0aa6482258b4cc08a8132080fec4d295bef1a692a974268
+    digest: df85b8ea0f5c3d65ab6442e9371860e131a9441ee0873940199767b661a0b7b2
     home: https://github.com/0xERR0R/blocky
     icon: https://raw.githubusercontent.com/0xERR0R/blocky/main/docs/blocky.svg
     keywords:
@@ -263,6 +263,6 @@ entries:
     - https://github.com/0xERR0R/blocky
     type: application
     urls:
-    - https://Brains-Beyond-Expectations.github.io/bbe-charts/blocky-0.1.0.tgz
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/blocky-0.1.0/blocky-0.1.0.tgz
     version: 0.1.0
-generated: "2025-02-08T00:21:33.96165217Z"
+generated: "2025-02-08T00:31:16.239670765Z"
