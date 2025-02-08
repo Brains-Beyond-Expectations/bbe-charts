@@ -11,5 +11,14 @@
       "depNameTemplate": "ghcr.io/0xerr0r/blocky",
       "datasourceTemplate": "docker"
     }
-  ]
+  ],
+  "major": {
+    "labels": ["chore", "major"]
+  },
+  "minor": {
+    "labels": ["chore", "minor"]
+  },
+  "patch": {
+    "labels": ["chore", "patch"]
+  }
 }
