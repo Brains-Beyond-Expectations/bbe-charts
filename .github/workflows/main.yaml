@@ -90,7 +90,7 @@ jobs:
           curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml
           helm repo index . --merge index.yaml --url "https://github.com/pree/helm-charts/releases/download"
           chart=$(ls | grep ${{ matrix.chart }})
-          gh release upload ${{ steps.draft-release.outputs.tag }} $chart
+          gh release upload ${{ steps.draft-release.outputs.tag_name }} $chart
       - name: Update Github Pages
         if: steps.changed-files.outputs.chart == 'true'
         shell: bash
