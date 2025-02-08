@@ -67,12 +67,6 @@ jobs:
         with:
           config-name: ${{ matrix.chart }}-release-drafter.yaml
           publish: false
-      - name: Install helm-docs
-        shell: bash
-        run: |
-          cd /tmp
-          wget -qO- ${HELM_DOCS_URL} | tar xvz
-          sudo mv helm-docs /usr/local/sbin
       - name: Update chart version
         id: update-chart-version
         if: steps.changed-files.outputs.chart == 'true'
