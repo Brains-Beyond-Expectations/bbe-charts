@@ -85,10 +85,10 @@ jobs:
         run: |
           helm package . -d ./../..
           cd ../../
-          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username $GITHUB_ACTOR --password-stdin
-          helm push *.tgz oci://ghcr.io/brains-beyond-expectations/bbe-charts
           curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml
-          helm repo index . --merge index.yaml --url "ghcr.io/brains-beyond-expectations/bbe-charts"
+          helm repo index . --merge index.yaml --url "https://github.com/pree/helm-charts/releases/download"
+          chart=$(ls | grep ${{ matrix.chart }})
+          gh release upload ${{ steps.draft-release.outputs.name }} $chart
       - name: Update Github Pages
         if: steps.changed-files.outputs.chart == 'true'
         shell: bash
