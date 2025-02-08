@@ -2,7 +2,7 @@ apiVersion: v2
 name: blocky
 description: A DNS proxy as ad-blocker for local network
 type: application
-version: 0.1.10
+version: 0.1.9
 appVersion: v0.25
 keywords:
   - blocky
