@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "blocky.fullname" . }}
+  namespace: blocky
+spec:
+  replicas: {{ .Values.blocky.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "blocky.name" . }}
+  {{ if .Values.blocky.strategyType }}
+  strategy:
+    type: {{ .Values.blocky.strategyType }}
+  {{ end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "blocky.name" . }}
+      {{- if .Values.blocky.annotations }}
+      annotations:
+        {{- toYaml .Values.blocky.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.blocky.affinity }}
+      affinity:
+        {{- toYaml .Values.blocky.affinity | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: blocky
+          image: "{{ .Values.blocky.image.repository }}:{{ include "blocky.image" . }}"
+          resources:
+            {{- toYaml .Values.blocky.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yml
+              subPath: config.yml
+          {{- if .Values.blocky.securityContext }}
+          securityContext:
+            {{- toYaml .Values.blocky.securityContext | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "blocky.fullname" . }}-config

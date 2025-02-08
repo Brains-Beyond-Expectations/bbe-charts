@@ -1,0 +1,37 @@
+suite: test blocky
+values:
+  - ./values/required-values.yaml
+templates:
+  - config_map.yaml
+release:
+  name: test
+tests:
+  - it: should create a ConfigMap
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should create a configmap with correct specifications
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - equal:
+          path: data["config.yml"]
+          value: |
+            upstream:
+              default:
+                - 1.1.1.1
+                - 8.8.8.8
+            blocking:
+              blackLists:
+                ads:
+                  - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+              clientGroupsBlock:
+                default:
+                  - ads
+            port: 53
+            httpPort: 4000
+            caching:
+              minTime: 5m
+              maxTime: 30m
