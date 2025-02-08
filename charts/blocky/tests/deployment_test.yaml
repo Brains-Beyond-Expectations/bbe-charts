@@ -34,6 +34,8 @@ tests:
           value: blocky
       - notExists:
           path: spec.template.metadata.annotations
+      - exists:
+          path: spec.template.spec.affinity.podAntiAffinity
       - equal:
           path: spec.template.spec.containers[0].name
           value: blocky

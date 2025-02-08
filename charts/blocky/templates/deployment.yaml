@@ -21,7 +21,7 @@ spec:
         {{- toYaml .Values.blocky.annotations | nindent 8 }}
       {{- end }}
     spec:
-      {{- if .Values.affinity }}
+      {{- if .Values.blocky.affinity }}
       affinity:
         {{- toYaml .Values.blocky.affinity | nindent 8 }}
       {{- end }}
