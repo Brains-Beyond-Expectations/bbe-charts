@@ -107,7 +107,7 @@ jobs:
 
           # Get the latest commit from main branch
           LATEST_COMMIT=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
-            "https://api.github.com/repos/Brains-Beyond-Expectations/${{ github.repository }}/commits/main" | jq -r .sha)
+            "https://api.github.com/repos/${{ github.repository }}/commits/main" | jq -r .sha)
           echo "latest_commit=$LATEST_COMMIT" >> $GITHUB_OUTPUT
       - name: Publish chart
         if: steps.changed-files.outputs.chart == 'true'
@@ -118,8 +118,8 @@ jobs:
         run: |
           helm package . -d ./../..
           cd ../../
-          curl -L -o index.yaml https://raw.githubusercontent.com/Brains-Beyond-Expectations/bbe-charts/gh-pages/index.yaml
-          helm repo index . --merge index.yaml --url "https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/${{ steps.draft-release.outputs.tag_name }}"
+          curl -L -o index.yaml https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/index.yaml
+          helm repo index . --merge index.yaml --url "https://github.com/${{ github.repository }}/releases/download/${{ steps.draft-release.outputs.tag_name }}"
           chart=$(ls | grep ${{ matrix.chart }})
           gh release upload ${{ steps.draft-release.outputs.tag_name }} $chart
       - name: Update Github Pages
@@ -139,12 +139,12 @@ jobs:
           for file in $FILES_CHANGED; do
             CONTENT=$(base64 -w 0 $file)
             FILENAME=$(basename $file)
-            SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=${{ github.ref	}} | jq -r .sha)
+            SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=gh-pages | jq -r .sha)
             if [ "$SHA" == "null" ]; then
               SHA=""
             fi
             curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
-              -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"${{ github.ref	}}\", \"sha\":\"$SHA\"}" \
+              -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"gh-pages\", \"sha\":\"$SHA\"}" \
               https://api.github.com/repos/${{ github.repository }}/contents/$file
           done
       - name: Finalize release
