@@ -101,6 +101,11 @@ jobs:
               -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"${{ github.ref	}}\", \"sha\":\"$SHA\"}" \
               https://api.github.com/repos/${{ github.repository }}/contents/$file
           done
+
+          # Get the latest commit from main branch
+          LATEST_COMMIT=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
+            "https://api.github.com/repos/Brains-Beyond-Expectations/${{ github.repository }}/commits/main" | jq -r .sha)
+          echo "latest_commit=$LATEST_COMMIT" >> $GITHUB_OUTPUT
       - name: Publish chart
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
@@ -146,3 +151,4 @@ jobs:
         with:
           config-name: ${{ matrix.chart }}-release-drafter.yaml
           publish: true
+          commitish: ${{ steps.update-chart-version.outputs.latest_commit }}
