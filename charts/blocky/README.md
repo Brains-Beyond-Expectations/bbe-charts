@@ -1,6 +1,6 @@
 # blocky
 
-![Version: 0.1.1](https://img.shields.io/badge/Version-0.1.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.25](https://img.shields.io/badge/AppVersion-v0.25-informational?style=flat-square)
+![Version: 0.1.2](https://img.shields.io/badge/Version-0.1.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.25](https://img.shields.io/badge/AppVersion-v0.25-informational?style=flat-square)
 
 A DNS proxy and ad-blocker for the local network
 
@@ -14,33 +14,25 @@ A DNS proxy and ad-blocker for the local network
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| blocky.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchLabels."app.kubernetes.io/name" | string | `"blocky"` |  |
-| blocky.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.topologyKey | string | `"kubernetes.io/hostname"` |  |
-| blocky.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight | int | `100` |  |
-| blocky.image.repository | string | `"ghcr.io/0xerr0r/blocky"` |  |
-| blocky.image.tag | string | `""` |  |
-| blocky.replicas | int | `2` |  |
-| blocky.resources.limits.memory | string | `"128Mi"` |  |
-| blocky.resources.requests.cpu | string | `"100m"` |  |
-| blocky.resources.requests.memory | string | `"128Mi"` |  |
-| blocky.securityContext.readOnlyRootFilesystem | bool | `true` |  |
-| blocky.securityContext.runAsUser | int | `1000` |  |
-| blocky.strategyType | string | `"RollingUpdate"` |  |
-| config.annotations | object | `{}` |  |
-| config.yaml | string | `"upstream:\n  default:\n    - 1.1.1.1\n    - 8.8.8.8\nblocking:\n  blackLists:\n    ads:\n      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n  clientGroupsBlock:\n    default:\n      - ads\nport: 53\nhttpPort: 4000\ncaching:\n  minTime: 5m\n  maxTime: 30m\n"` |  |
-| fullnameOverride | string | `""` |  |
-| nameOverride | string | `""` |  |
-| service.annotations | object | `{}` |  |
-| service.ports[0].name | string | `"dns-udp"` |  |
-| service.ports[0].port | int | `53` |  |
-| service.ports[0].protocol | string | `"UDP"` |  |
-| service.ports[1].name | string | `"dns-tcp"` |  |
-| service.ports[1].port | int | `53` |  |
-| service.ports[1].protocol | string | `"TCP"` |  |
-| service.ports[2].name | string | `"http"` |  |
-| service.ports[2].port | int | `4000` |  |
-| service.ports[2].protocol | string | `"TCP"` |  |
-| service.type | string | `"LoadBalancer"` |  |
+| blocky.affinity | object | `{"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"app.kubernetes.io/name":"blocky"}},"topologyKey":"kubernetes.io/hostname"},"weight":100}]}}` | The affinity settings for the Blocky pod. Defaults to preferring anti-affinity |
+| blocky.annotations | object | `{}` | Annotations to apply to the Blocky pod |
+| blocky.image.repository | string | `"ghcr.io/0xerr0r/blocky"` | The image repository to pull from |
+| blocky.image.tag | string | `""` | The image tag to pull |
+| blocky.replicas | int | `2` | How many replicas of the Blocky pod to run |
+| blocky.resources.limits.cpu | string | `""` | The amount of CPU to limit the Blocky pod to |
+| blocky.resources.limits.memory | string | `"128Mi"` | The amount of memory to limit the Blocky pod to |
+| blocky.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Blocky pod |
+| blocky.resources.requests.memory | string | `"128Mi"` | The amount of memory to request for the Blocky pod |
+| blocky.securityContext.readOnlyRootFilesystem | bool | `true` | Whether to run Blocky with a read-only root filesystem |
+| blocky.securityContext.runAsUser | int | `1000` | The user ID to run Blocky as |
+| blocky.strategyType | string | `"RollingUpdate"` | The strategy to use for updating the Blocky pods |
+| config.annotations | object | `{}` | Annotations to apply to the Blocky ConfigMap |
+| config.yaml | string | `"upstream:\n  default:\n    - 1.1.1.1\n    - 8.8.8.8\nblocking:\n  blackLists:\n    ads:\n      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n  clientGroupsBlock:\n    default:\n      - ads\nport: 53\nhttpPort: 4000\ncaching:\n  minTime: 5m\n  maxTime: 30m\n"` | The configuration for Blocky |
+| fullnameOverride | string | `""` | Optional full name override for the resources |
+| nameOverride | string | `""` | Optional short name override for the resources |
+| service.annotations | object | `{}` | Annotations to apply to the Blocky service |
+| service.ports | list | `[{"name":"dns-udp","port":53,"protocol":"UDP"},{"name":"dns-tcp","port":53,"protocol":"TCP"},{"name":"http","port":4000,"protocol":"TCP"}]` | Port to expose the Blocky service on |
+| service.type | string | `"LoadBalancer"` | The type of service to create |
 
 ----------------------------------------------
 Autogenerated from chart metadata using [helm-docs v1.14.2](https://github.com/norwoodj/helm-docs/releases/v1.14.2)
