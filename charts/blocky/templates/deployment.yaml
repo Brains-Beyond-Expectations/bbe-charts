@@ -21,9 +21,16 @@ spec:
         {{- toYaml .Values.blocky.annotations | nindent 8 }}
       {{- end }}
     spec:
-      {{- if .Values.blocky.affinity }}
+    {{- if .Values.blocky.podAntiAffinity }}
       affinity:
-        {{- toYaml .Values.blocky.affinity | nindent 8 }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: {{ include "blocky.name" . }}
+                topologyKey: kubernetes.io/hostname
+              weight: 100
       {{- end }}
       containers:
         - name: blocky

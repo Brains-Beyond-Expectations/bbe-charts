@@ -88,6 +88,8 @@ jobs:
           sudo mv helm-docs /usr/local/sbin
           helm-docs
 
+          cd ../../
+
           # Commit the changes
           FILES_CHANGED=$(git status --porcelain | awk '{print $2}')
           for file in $FILES_CHANGED; do

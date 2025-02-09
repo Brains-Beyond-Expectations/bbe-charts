@@ -31,16 +31,8 @@ blocky:
       memory: "128Mi"
       # -- The amount of CPU to limit the Blocky pod to
       cpu: ""
-  # -- The affinity settings for the Blocky pod. Defaults to preferring anti-affinity
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-        - podAffinityTerm:
-            labelSelector:
-              matchLabels:
-                app.kubernetes.io/name: blocky
-            topologyKey: kubernetes.io/hostname
-          weight: 100
+  # -- Whether to enable or disable recommended podAntiAffinity rules
+  podAntiAffinity: true
 
 service:
   # -- Annotations to apply to the Blocky service
