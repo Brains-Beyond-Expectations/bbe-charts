@@ -67,6 +67,12 @@ jobs:
         with:
           config-name: ${{ matrix.chart }}-release-drafter.yaml
           publish: false
+      - name: Generate a token for Brainz-Bot
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BRAINZ_BOT_ID }}
+          private-key: ${{ secrets.BRAINZ_BOT_PRIVATE_KEY }}
       - name: Update chart version
         id: update-chart-version
         if: steps.changed-files.outputs.chart == 'true'
@@ -83,13 +89,18 @@ jobs:
           helm-docs
 
           # Commit the changes
-          git config user.name "GitHub Actions"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ./Chart.yaml
-          git add ./README.md
-          git commit -m "Update chart version to ${{ steps.draft-release.outputs.resolved_version }}"
-          git push --force-with-lease origin main
-          echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          FILES_CHANGED=$(git status --porcelain | awk '{print $2}')
+          for file in $FILES_CHANGED; do
+            CONTENT=$(base64 -w 0 $file)
+            FILENAME=$(basename $file)
+            SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=${{ github.ref	}} | jq -r .sha)
+            if [ "$SHA" == "null" ]; then
+              SHA=""
+            fi
+            curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
+              -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"${{ github.ref	}}\", \"sha\":\"$SHA\"}" \
+              https://api.github.com/repos/${{ github.repository }}/contents/$file
+          done
       - name: Publish chart
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
@@ -114,10 +125,19 @@ jobs:
           git fetch origin gh-pages
           git checkout gh-pages
           cp /tmp/index.yaml index.yaml
-          git add index.yaml
-          git add $chart
-          git commit -m "Updated Helm chart index"
-          git push --force-with-lease origin HEAD:gh-pages
+          # Commit the changes
+          FILES_CHANGED=$(git status --porcelain | awk '{print $2}')
+          for file in $FILES_CHANGED; do
+            CONTENT=$(base64 -w 0 $file)
+            FILENAME=$(basename $file)
+            SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=${{ github.ref	}} | jq -r .sha)
+            if [ "$SHA" == "null" ]; then
+              SHA=""
+            fi
+            curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
+              -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"${{ github.ref	}}\", \"sha\":\"$SHA\"}" \
+              https://api.github.com/repos/${{ github.repository }}/contents/$file
+          done
       - name: Finalize release
         if: steps.changed-files.outputs.chart == 'true'
         uses: release-drafter/release-drafter@v6
@@ -126,4 +146,3 @@ jobs:
         with:
           config-name: ${{ matrix.chart }}-release-drafter.yaml
           publish: true
-          commitish: ${{ steps.update-chart-version.outputs.commit_sha }}
