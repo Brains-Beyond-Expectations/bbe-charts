@@ -72,3 +72,4 @@ config:
     caching:
       minTime: 5m
       maxTime: 30m
+
