@@ -28,8 +28,27 @@ spec:
       containers:
         - name: blocky
           image: "{{ .Values.blocky.image.repository }}:{{ include "blocky.image" . }}"
+          {{- if .Values.blocky.resources }}
           resources:
-            {{- toYaml .Values.blocky.resources | nindent 12 }}
+            {{- if .Values.blocky.resources.requests }}
+            requests:
+              {{- if .Values.blocky.resources.requests.memory }}
+              memory: "{{ .Values.blocky.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.blocky.resources.requests.cpu }}
+              cpu: "{{ .Values.blocky.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.blocky.resources.limits }}
+            limits:
+              {{- if .Values.blocky.resources.limits.memory }}
+              memory: "{{ .Values.blocky.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.blocky.resources.limits.cpu }}
+              cpu: "{{ .Values.blocky.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
           volumeMounts:
             - name: config
               mountPath: /app/config.yml
