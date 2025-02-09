@@ -92,7 +92,7 @@ jobs:
           cd ../../
 
           # Commit the changes
-          FILES_CHANGED=$(git status --porcelain | awk '{print $2}')
+          FILES_CHANGED="charts/${{ matrix.chart }}/README.md charts/${{ matrix.chart }}/Chart.yaml"
           for file in $FILES_CHANGED; do
             CONTENT=$(base64 -w 0 $file)
             FILENAME=$(basename $file)
@@ -133,8 +133,9 @@ jobs:
           git fetch origin gh-pages
           git checkout gh-pages
           cp /tmp/index.yaml index.yaml
+
           # Commit the changes
-          FILES_CHANGED=$(git status --porcelain | awk '{print $2}')
+          FILES_CHANGED="index.yaml"
           for file in $FILES_CHANGED; do
             CONTENT=$(base64 -w 0 $file)
             FILENAME=$(basename $file)
