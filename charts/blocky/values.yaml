@@ -1,21 +1,37 @@
+# -- Optional short name override for the resources
 nameOverride: ""
+# -- Optional full name override for the resources
 fullnameOverride: ""
 
 blocky:
+  # -- Annotations to apply to the Blocky pod
+  annotations: {}
+  # -- How many replicas of the Blocky pod to run
   replicas: 2
+  # -- The strategy to use for updating the Blocky pods
   strategyType: RollingUpdate
   image:
+    # -- The image repository to pull from
     repository: ghcr.io/0xerr0r/blocky
+    # -- The image tag to pull
     tag: ""
   securityContext:
+    # -- Whether to run Blocky with a read-only root filesystem
     readOnlyRootFilesystem: true
+    # -- The user ID to run Blocky as
     runAsUser: 1000
   resources:
     requests:
+      # -- The amount of memory to request for the Blocky pod
       memory: "128Mi"
+      # -- The amount of CPU to request for the Blocky pod
       cpu: "100m"
     limits:
+      # -- The amount of memory to limit the Blocky pod to
       memory: "128Mi"
+      # -- The amount of CPU to limit the Blocky pod to
+      cpu: ""
+  # -- The affinity settings for the Blocky pod. Defaults to preferring anti-affinity
   affinity:
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
@@ -27,7 +43,9 @@ blocky:
           weight: 100
 
 service:
+  # -- Annotations to apply to the Blocky service
   annotations: {}
+  # -- Port to expose the Blocky service on
   ports:
     - name: dns-udp
       port: 53
@@ -38,10 +56,13 @@ service:
     - name: http
       port: 4000
       protocol: TCP
+  # -- The type of service to create
   type: LoadBalancer
 
 config:
+  # -- Annotations to apply to the Blocky ConfigMap
   annotations: {}
+  # -- The configuration for Blocky
   yaml: |
     upstream:
       default:
