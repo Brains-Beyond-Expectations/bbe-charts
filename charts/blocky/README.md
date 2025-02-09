@@ -1,6 +1,6 @@
 # blocky
 
-![Version: 0.1.2](https://img.shields.io/badge/Version-0.1.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.25](https://img.shields.io/badge/AppVersion-v0.25-informational?style=flat-square)
+![Version: 0.1.3](https://img.shields.io/badge/Version-0.1.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.25](https://img.shields.io/badge/AppVersion-v0.25-informational?style=flat-square)
 
 A DNS proxy and ad-blocker for the local network
 
@@ -14,10 +14,10 @@ A DNS proxy and ad-blocker for the local network
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| blocky.affinity | object | `{"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"app.kubernetes.io/name":"blocky"}},"topologyKey":"kubernetes.io/hostname"},"weight":100}]}}` | The affinity settings for the Blocky pod. Defaults to preferring anti-affinity |
 | blocky.annotations | object | `{}` | Annotations to apply to the Blocky pod |
 | blocky.image.repository | string | `"ghcr.io/0xerr0r/blocky"` | The image repository to pull from |
 | blocky.image.tag | string | `""` | The image tag to pull |
+| blocky.podAntiAffinity | bool | `true` | Whether to enable or disable recommended podAntiAffinity rules |
 | blocky.replicas | int | `2` | How many replicas of the Blocky pod to run |
 | blocky.resources.limits.cpu | string | `""` | The amount of CPU to limit the Blocky pod to |
 | blocky.resources.limits.memory | string | `"128Mi"` | The amount of memory to limit the Blocky pod to |
