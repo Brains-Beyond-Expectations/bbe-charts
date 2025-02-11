@@ -3,11 +3,12 @@ name: Pull request
 on:
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, labeled, unlabeled]
 
 permissions:
-  id-token: write
   contents: read
-  pull-requests: read
+  pull-requests: write
+  repository-projects: read
 
 jobs:
   test-and-build:
@@ -26,8 +27,17 @@ jobs:
           filters: |
             chart:
               - 'charts/${{ matrix.chart }}/**'
+      - name: Verify labels
+        uses: Brains-Beyond-Expectations/labeller@v1
+        if: steps.changed-files.outputs.chart == 'true'
+        with:
+          add_labels: ${{ matrix.chart }}
+          required_labels: |
+            feature,enhancement,fix,bugfix,bug,chore
+            major,minor,patch
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
+        if: steps.changed-files.outputs.chart == 'true'
       - name: Set up Helm
         uses: azure/setup-helm@v4
         if: steps.changed-files.outputs.chart == 'true'

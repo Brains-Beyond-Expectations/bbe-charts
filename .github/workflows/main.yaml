@@ -126,8 +126,6 @@ jobs:
         if: steps.changed-files.outputs.chart == 'true'
         shell: bash
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           cp index.yaml /tmp/index.yaml
           git reset --hard
           git fetch origin gh-pages
