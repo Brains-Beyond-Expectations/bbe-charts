@@ -1,6 +1,8 @@
 name-template: "blocky-$RESOLVED_VERSION 🌈"
 tag-template: "blocky-$RESOLVED_VERSION"
 tag-prefix: "blocky-"
+include-labels:
+  - "blocky"
 categories:
   - title: "🚀 Features"
     labels:
