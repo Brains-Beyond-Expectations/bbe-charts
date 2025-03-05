@@ -192,6 +192,6 @@ jobs:
               SHA=""
             fi
             curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
-              -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"${{ github.ref	}}\", \"sha\":\"$SHA\"}" \
+              -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"main\", \"sha\":\"$SHA\"}" \
               https://api.github.com/repos/${{ github.repository }}/contents/$file
           done
