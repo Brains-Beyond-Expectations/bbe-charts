@@ -1,6 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
+  "enabledManagers": ["github-actions", "custom.regex"],
   "customManagers": [
     {
       "customType": "regex",
@@ -10,6 +11,14 @@
       ],
       "depNameTemplate": "ghcr.io/0xerr0r/blocky",
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["required-versions.yaml"],
+      "matchStrings": [
+        "external-chart:\\n.*version:\\s+(?<currentValue>[\\d\\.]+)\\n\\s+repositoryUrl:\\s+(?<registryUrl>.*)\\n\\s+repositoryName:\\s(?<depName>[a-z-]+)"
+      ],
+      "datasourceTemplate": "helm"
     }
   ],
   "major": {
