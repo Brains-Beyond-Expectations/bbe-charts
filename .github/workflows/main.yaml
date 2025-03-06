@@ -178,8 +178,7 @@ jobs:
       - name: Run lib-gen
         run: |
           cd lib-gen
-          go mod tidy
-          go run main.go
+          make run
       - name: Commit changes
         run: |
           # Commit the changes
