@@ -16,7 +16,7 @@
       "customType": "regex",
       "fileMatch": ["required-versions.yaml"],
       "matchStrings": [
-        "external-chart:\\n.*version:\\s+(?<currentValue>[\\d\\.]+)\\n\\s+repositoryUrl:\\s+(?<registryUrl>.*)\\n\\s+repositoryName:\\s(?<depName>[a-z-]+)"
+        "external-chart:\\n\\s*version:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)\\n\\s*repositoryUrl:\\s*(?<registryUrl>.*)\\n\\s*repositoryName:\\s*(?<depName>[a-z-]+)"
       ],
       "datasourceTemplate": "helm"
     }
