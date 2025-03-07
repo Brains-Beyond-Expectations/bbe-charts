@@ -101,7 +101,7 @@ func processChanges(requiredVersions RequiredVersions, library Library) Library 
 		seenBbeVersions := make(map[string]bool)
 
 		if requiredVersionsChart.ExternalChart == nil {
-			requiredVersionsChart.ExternalChart = loadExternalChartIfnoFromChartYaml(requiredVersionsChart.Name)
+			requiredVersionsChart.ExternalChart = loadBbeChartValues(requiredVersionsChart.Name)
 		}
 
 		fmt.Printf("\nChecking chart %s (chart version %s for cli version %s):\n", requiredVersionsChart.Name, requiredVersionsChart.ExternalChart.Version, requiredVersionsChart.MinBbeCli)
@@ -149,7 +149,7 @@ func processChanges(requiredVersions RequiredVersions, library Library) Library 
 			allCharts := []ChartEntry{}
 			for _, chart := range requiredVersions.Charts {
 				if chart.ExternalChart == nil {
-					chart.ExternalChart = loadExternalChartIfnoFromChartYaml(chart.Name)
+					chart.ExternalChart = loadBbeChartValues(chart.Name)
 				}
 				allCharts = append(allCharts, ChartEntry{
 					Name:           chart.Name,
@@ -194,7 +194,7 @@ func writeLibrary(library Library) {
 	}
 }
 
-func loadExternalChartIfnoFromChartYaml(name string) *ExternalChart {
+func loadBbeChartValues(name string) *ExternalChart {
 	contents, err := os.ReadFile("./../charts/" + name + "/Chart.yaml")
 	if err != nil {
 		panic(err)
