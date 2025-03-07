@@ -144,7 +144,7 @@ func processChanges(requiredVersions RequiredVersions, library Library) Library 
 		}
 
 		if !found {
-			fmt.Println("\nCreating new library entry for cli version", requiredVersionsChart.MinBbeCli)
+			fmt.Println("Creating new library entry for cli version", requiredVersionsChart.MinBbeCli)
 
 			allCharts := []ChartEntry{}
 			for _, chart := range requiredVersions.Charts {

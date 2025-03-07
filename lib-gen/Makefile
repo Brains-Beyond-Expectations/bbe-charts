@@ -7,7 +7,7 @@ all:
 	@echo "Available commands:"
 	@echo "  go-mod-tidy    - Tidy up Go modules"
 	@echo "  test           - Run tests with race detection and coverage"
-	@echo "  run          - Runs the project"
+	@echo "  run            - Runs the project"
 
 go-mod-tidy:
 	go mod tidy
@@ -15,5 +15,5 @@ go-mod-tidy:
 test: go-mod-tidy
 	go test ./... -race -covermode=atomic -coverprofile=coverage.out
 
-build: go-mod-tidy
+run: go-mod-tidy
 	go run main.go
