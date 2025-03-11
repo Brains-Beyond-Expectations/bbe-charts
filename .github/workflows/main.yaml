@@ -134,18 +134,16 @@ jobs:
           cp /tmp/index.yaml index.yaml
 
           # Commit the changes
-          FILES_CHANGED="index.yaml"
-          for file in $FILES_CHANGED; do
-            CONTENT=$(base64 -w 0 $file)
-            FILENAME=$(basename $file)
-            SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=gh-pages | jq -r .sha)
-            if [ "$SHA" == "null" ]; then
-              SHA=""
-            fi
-            curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
-              -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"gh-pages\", \"sha\":\"$SHA\"}" \
-              https://api.github.com/repos/${{ github.repository }}/contents/$file
-          done
+          FILE="index.yaml"
+          CONTENT=$(base64 -w 0 $FILE)
+          FILENAME=$(basename $FILE)
+          SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$FILE?ref=gh-pages | jq -r .sha)
+          if [ "$SHA" == "null" ]; then
+            SHA=""
+          fi
+          curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
+            -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"gh-pages\", \"sha\":\"$SHA\"}" \
+            https://api.github.com/repos/${{ github.repository }}/contents/$FILE
       - name: Finalize release
         if: steps.changed-files.outputs.chart == 'true'
         uses: release-drafter/release-drafter@v6
@@ -182,15 +180,13 @@ jobs:
       - name: Commit changes
         run: |
           # Commit the changes
-          FILES_CHANGED="library.yaml"
-          for file in $FILES_CHANGED; do
-            CONTENT=$(base64 -w 0 $file)
-            FILENAME=$(basename $file)
-            SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=main | jq -r .sha)
-            if [ "$SHA" == "null" ]; then
-              SHA=""
-            fi
-            curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
-              -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"main\", \"sha\":\"$SHA\"}" \
-              https://api.github.com/repos/${{ github.repository }}/contents/$file
-          done
+          FILE="library.yaml"
+          CONTENT=$(base64 -w 0 $FILE)
+          FILENAME=$(basename $FILE)
+          SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$FILE?ref=main | jq -r .sha)
+          if [ "$SHA" == "null" ]; then
+            SHA=""
+          fi
+          curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
+            -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"main\", \"sha\":\"$SHA\"}" \
+            https://api.github.com/repos/${{ github.repository }}/contents/$FILE
