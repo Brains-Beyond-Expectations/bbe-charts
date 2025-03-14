@@ -64,6 +64,18 @@ spec:
           securityContext:
             {{- toYaml .Values.blocky.securityContext | nindent 12 }}
           {{- end }}
+          {{- if .Values.blocky.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.blocky.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.blocky.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.blocky.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.blocky.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.blocky.startupProbe | nindent 12 }}
+          {{- end }}
       volumes:
         - name: config
           configMap:

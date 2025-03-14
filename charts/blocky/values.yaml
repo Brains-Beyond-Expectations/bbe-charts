@@ -33,6 +33,38 @@ blocky:
       cpu: ""
   # -- Whether to enable or disable recommended podAntiAffinity rules
   podAntiAffinity: true
+  # -- The startupProbe configuration for the Blocky pod
+  startupProbe:
+    exec:
+      command:
+        - /app/blocky
+        - healthcheck
+        - --port
+        - "1053"
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 30
+  # -- The livenessProbe configuration for the Blocky pod
+  livenessProbe:
+    exec:
+      command:
+        - /app/blocky
+        - healthcheck
+        - --port
+        - "1053"
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 6
+  # -- The readinessProbe configuration for the Blocky pod
+  readinessProbe:
+    tcpSocket:
+      port: dns-tcp
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 6
 
 service:
   # -- Annotations to apply to the Blocky service
@@ -72,4 +104,3 @@ config:
     caching:
       minTime: 5m
       maxTime: 30m
-

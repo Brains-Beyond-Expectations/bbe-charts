@@ -83,3 +83,13 @@ tests:
       - equal:
           path: spec.template.metadata.annotations["test"]
           value: "true"
+
+  - it: comes with probes configured
+    documentIndex: 0
+    asserts:
+      - exists:
+          path: spec.template.spec.containers[0].livenessProbe.exec.command[0]
+      - exists:
+          path: spec.template.spec.containers[0].readinessProbe.tcpSocket.port
+      - exists:
+          path: spec.template.spec.containers[0].startupProbe.exec.command[0]
