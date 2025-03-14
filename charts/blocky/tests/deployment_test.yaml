@@ -5,6 +5,7 @@ templates:
   - deployment.yaml
 release:
   name: test
+  namespace: test
 tests:
   - it: should create a Deployment
     asserts:
@@ -19,7 +20,7 @@ tests:
           value: test-blocky
       - equal:
           path: metadata.namespace
-          value: blocky
+          value: test
       - equal:
           path: spec.replicas
           value: 2
@@ -83,3 +84,33 @@ tests:
       - equal:
           path: spec.template.metadata.annotations["test"]
           value: "true"
+
+  - it: should use only chart name if release name contains chart name
+    documentIndex: 0
+    release:
+      name: blocky
+    asserts:
+      - equal:
+          path: metadata.name
+          value: blocky
+      - equal:
+          path: spec.template.spec.volumes[0].configMap.name
+          value: blocky-config
+
+  - it: respects fullnameOverride
+    documentIndex: 0
+    set:
+      fullnameOverride: "test-fullname"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: test-fullname
+
+  - it: respects namespaceOverride
+    documentIndex: 0
+    set:
+      namespaceOverride: "test-namespace"
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: test-namespace

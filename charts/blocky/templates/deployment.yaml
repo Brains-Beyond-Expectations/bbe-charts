@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "blocky.fullname" . }}
-  namespace: blocky
+  namespace: {{ include "blocky.namespace" . }}
 spec:
   replicas: {{ .Values.blocky.replicas }}
   selector:

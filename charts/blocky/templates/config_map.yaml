@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "blocky.fullname" . }}-config
-  namespace: blocky
+  namespace: {{ include "blocky.namespace" . }}
   {{- if .Values.config.annotations }}
   annotations:
     {{- toYaml .Values.config.annotations | nindent 4 }}
