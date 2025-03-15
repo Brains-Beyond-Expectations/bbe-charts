@@ -3,6 +3,9 @@ kind: Deployment
 metadata:
   name: {{ include "blocky.fullname" . }}
   namespace: {{ include "blocky.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "blocky.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.blocky.replicas }}
   selector:

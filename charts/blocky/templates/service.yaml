@@ -3,6 +3,9 @@ kind: Service
 metadata:
   name: {{ include "blocky.fullname" . }}
   namespace: {{ include "blocky.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "blocky.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
   {{- if .Values.service.annotations }}
   annotations:
     {{- toYaml .Values.service.annotations | nindent 4 }}
