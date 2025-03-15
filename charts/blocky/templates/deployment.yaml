@@ -35,6 +35,14 @@ spec:
       containers:
         - name: blocky
           image: "{{ .Values.blocky.image.repository }}:{{ include "blocky.image" . }}"
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
           {{- if .Values.blocky.resources }}
           resources:
             {{- if .Values.blocky.resources.requests }}
