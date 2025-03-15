@@ -10,6 +10,7 @@ metadata:
 spec:
   selector:
     app.kubernetes.io/name: {{ include "blocky.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
   {{- if .Values.service.ports }}
   ports:
     {{- range .Values.service.ports }}
