@@ -79,11 +79,6 @@
           "description": "Affinity settings for the pod",
           "additionalProperties": true
         },
-        "startupProbe": {
-          "type": "object",
-          "description": "The startupProbe configuration for the Blocky pod",
-          "additionalProperties": true
-        },
         "livenessProbe": {
           "type": "object",
           "description": "The livenessProbe configuration for the Blocky pod",
@@ -92,6 +87,11 @@
         "readinessProbe": {
           "type": "object",
           "description": "The readinessProbe configuration for the Blocky pod",
+          "additionalProperties": true
+        },
+        "startupProbe": {
+          "type": "object",
+          "description": "The startupProbe configuration for the Blocky pod",
           "additionalProperties": true
         }
       },
