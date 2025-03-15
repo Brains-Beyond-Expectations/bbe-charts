@@ -1,0 +1,123 @@
+# -- Optional short name override for the resources
+nameOverride: ""
+# -- Optional full name override for the resources
+fullnameOverride: ""
+# -- Optional namespace override for the resources
+namespaceOverride: ""
+
+prowlarr:
+  # -- Annotations to apply to the Prowlarr pod
+  annotations: {}
+  # -- How many replicas of the Prowlarr pod to run
+  replicas: 1
+  # -- The strategy to use for updating the Prowlarr pods
+  strategyType: Recreate
+  image:
+    # -- The image repository to pull from
+    repository: lscr.io/linuxserver/prowlarr
+    # -- The image tag to pull
+    tag: ""
+  resources:
+    requests:
+      # -- The amount of memory to request for the Prowlarr pod
+      memory: "256Mi"
+      # -- The amount of CPU to request for the Prowlarr pod
+      cpu: "100m"
+    limits:
+      # -- The amount of memory to limit the Prowlarr pod to
+      memory: "256Mi"
+      # -- The amount of CPU to limit the Prowlarr pod to
+      cpu: ""
+  # -- The environment variables to set for the Prowlarr pod
+  env:
+    - name: TZ
+      value: "UTC"
+  # -- The livenessProbe configuration for the Prowlarr pod
+  livenessProbe:
+    exec:
+      command:
+        - /usr/bin/env
+        - bash
+        - -c
+        - curl --fail localhost:9696/api/v1/system/status?apiKey=`IFS=\> &&
+          while read -d \< E C; do if [[ $E = "ApiKey" ]]; then echo $C; fi;
+          done < /config/config.xml`
+    failureThreshold: 5
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 10
+  # -- The readinessProbe configuration for the Prowlarr pod
+  readinessProbe:
+    failureThreshold: 3
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    tcpSocket:
+      port: 9696
+    timeoutSeconds: 1
+  # -- The startupProbe configuration for the Prowlarr pod
+  startupProbe:
+    failureThreshold: 30
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    tcpSocket:
+      port: 9696
+    timeoutSeconds: 1
+
+service:
+  # -- Annotations to apply to the Prowlarr service
+  annotations: {}
+  # -- Port to expose the Prowlarr service on
+  ports:
+    - name: http
+      port: 9696
+      protocol: TCP
+  # -- The type of service to create
+  type: ClusterIP
+
+ingress:
+  # -- Whether to create an ingress for Prowlarr
+  enabled: false
+  # -- Annotations to apply to the Prowlarr ingress
+  annotations: {}
+  # -- The ingress class to use for the Prowlarr ingress
+  ingressClassName: ""
+  # -- Host configuration for the Prowlarr ingress
+  hosts: []
+  #   - host: prowlarr.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: ImplementationSpecific
+  # -- TLS configuration for the Prowlarr ingress
+  tls: []
+  #   - hosts:
+  #       - prowlarr.example.com
+  #     secretName: prowlarr-ingress-tls
+
+config:
+  # -- Annotations to apply to the Prowlarr config persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the Prowlarr config
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the Prowlarr config
+  existingClaim: ""
+  # -- The amount of storage to request for the Prowlarr config
+  size: "1Gi"
+  # -- The access mode to use for the Prowlarr config persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the config after the Prowlarr chart is uninstalled
+  retain: false
+
+media:
+  # -- Annotations to apply to the Prowlarr media persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the Prowlarr media
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the Prowlarr media
+  existingClaim: ""
+  # -- The amount of storage to request for the Prowlarr media
+  size: "50Gi"
+  # -- The access mode to use for the Prowlarr media persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the media after the Prowlarr chart is uninstalled
+  retain: false

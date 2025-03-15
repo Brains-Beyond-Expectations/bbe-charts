@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "prowlarr.fullname" . }}
+  namespace: {{ include "prowlarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "prowlarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.prowlarr.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "prowlarr.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{ if .Values.prowlarr.strategyType }}
+  strategy:
+    type: {{ .Values.prowlarr.strategyType }}
+  {{ end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "prowlarr.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.prowlarr.annotations }}
+      annotations:
+        {{- toYaml .Values.prowlarr.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: prowlarr
+          image: "{{ .Values.prowlarr.image.repository }}:{{ include "prowlarr.image" . }}"
+          {{- if .Values.prowlarr.env }}
+          env:
+            {{- toYaml .Values.prowlarr.env | nindent 12 }}
+          {{- end }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.prowlarr.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+            {{- if .Values.prowlarr.enabled }}
+            - name: media
+              mountPath: /media
+            {{- end }}
+          {{- end }}
+          {{- if .Values.prowlarr.resources }}
+          resources:
+            {{- if .Values.prowlarr.resources.requests }}
+            requests:
+              {{- if .Values.prowlarr.resources.requests.memory }}
+              memory: "{{ .Values.prowlarr.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.prowlarr.resources.requests.cpu }}
+              cpu: "{{ .Values.prowlarr.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.prowlarr.resources.limits }}
+            limits:
+              {{- if .Values.prowlarr.resources.limits.memory }}
+              memory: "{{ .Values.prowlarr.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.prowlarr.resources.limits.cpu }}
+              cpu: "{{ .Values.prowlarr.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.prowlarr.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.prowlarr.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.prowlarr.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.prowlarr.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.prowlarr.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.prowlarr.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if or .Values.config.enabled .Values.media.enabled }}
+      volumes:
+        {{- if .Values.config.enabled }}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "prowlarr.configClaimName" . }}
+        {{- end }}
+        {{- if .Values.media.enabled }}
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ include "prowlarr.mediaClaimName" . }}
+        {{- end }}
+      {{- end }}
