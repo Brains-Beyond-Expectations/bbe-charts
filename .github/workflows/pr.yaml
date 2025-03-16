@@ -61,3 +61,4 @@ jobs:
         uses: stackrox/kube-linter-action@v1
         with:
           directory: /tmp/${{ matrix.chart }}
+          config: charts/${{ matrix.chart }}/.kube-linter.yaml
