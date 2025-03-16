@@ -13,7 +13,6 @@ tests:
           count: 1
 
   - it: should create a deployment with correct specifications
-    documentIndex: 0
     asserts:
       - equal:
           path: metadata.name
@@ -72,7 +71,6 @@ tests:
           value: /media
 
   - it: can add annotations
-    documentIndex: 0
     set:
       prowlarr.annotations: {"test": "true"}
     asserts:
@@ -81,7 +79,6 @@ tests:
           value: "true"
 
   - it: comes with probes configured
-    documentIndex: 0
     asserts:
       - exists:
           path: spec.template.spec.containers[0].livenessProbe.exec.command[0]
@@ -91,7 +88,6 @@ tests:
           path: spec.template.spec.containers[0].startupProbe.tcpSocket.port
 
   - it: should use only chart name if release name contains chart name
-    documentIndex: 0
     release:
       name: prowlarr
     asserts:
@@ -106,7 +102,6 @@ tests:
           value: prowlarr-media
 
   - it: respects existingClaim for config and media
-    documentIndex: 0
     release:
       name: prowlarr
     set:
@@ -121,7 +116,6 @@ tests:
           value: test-media
 
   - it: respects fullnameOverride
-    documentIndex: 0
     set:
       fullnameOverride: "test-fullname"
     asserts:
@@ -130,7 +124,6 @@ tests:
           value: test-fullname
 
   - it: respects namespaceOverride
-    documentIndex: 0
     set:
       namespaceOverride: "test-namespace"
     asserts:

@@ -13,7 +13,6 @@ tests:
           count: 1
 
   - it: should create a config with correct specifications
-    documentIndex: 0
     asserts:
       - equal:
           path: metadata.name

@@ -13,7 +13,6 @@ tests:
           count: 1
 
   - it: should create a service with correct specifications
-    documentIndex: 0
     asserts:
       - equal:
           path: spec.type
@@ -26,7 +25,6 @@ tests:
           value: TCP
 
   - it: can add annotations to the service
-    documentIndex: 0
     set:
       service.annotations:
         test1: "foo"
