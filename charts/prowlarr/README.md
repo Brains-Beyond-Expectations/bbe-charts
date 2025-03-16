@@ -1,6 +1,6 @@
 # prowlarr
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.31.2](https://img.shields.io/badge/AppVersion-1.31.2-informational?style=flat-square)
+![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.32.2](https://img.shields.io/badge/AppVersion-1.32.2-informational?style=flat-square)
 
 Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base stack to integrate with your various PVR apps.
 
@@ -35,7 +35,7 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | nameOverride | string | `""` | Optional short name override for the resources |
 | namespaceOverride | string | `""` | Optional namespace override for the resources |
 | prowlarr.annotations | object | `{}` | Annotations to apply to the Prowlarr pod |
-| prowlarr.env | list | `[{"name":"TZ","value":"UTC"}]` | The environment variables to set for the Prowlarr pod |
+| prowlarr.env | list | `[]` | The environment variables to set for the Prowlarr pod |
 | prowlarr.image.repository | string | `"lscr.io/linuxserver/prowlarr"` | The image repository to pull from |
 | prowlarr.image.tag | string | `""` | The image tag to pull |
 | prowlarr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:9696/api/v1/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Prowlarr pod |
@@ -46,6 +46,7 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | prowlarr.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Prowlarr pod |
 | prowlarr.resources.requests.memory | string | `"256Mi"` | The amount of memory to request for the Prowlarr pod |
 | prowlarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Prowlarr with a read-only root filesystem |
+| prowlarr.securityContext.runAsGroup | int | `0` | The group ID to run Prowlarr as |
 | prowlarr.securityContext.runAsUser | int | `0` | The user ID to run Prowlarr as |
 | prowlarr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":9696},"timeoutSeconds":1}` | The startupProbe configuration for the Prowlarr pod |
 | prowlarr.strategyType | string | `"Recreate"` | The strategy to use for updating the Prowlarr pods |

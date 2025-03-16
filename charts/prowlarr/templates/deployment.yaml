@@ -29,10 +29,7 @@ spec:
       containers:
         - name: prowlarr
           image: "{{ .Values.prowlarr.image.repository }}:{{ include "prowlarr.image" . }}"
-          {{- if .Values.prowlarr.env }}
-          env:
-            {{- toYaml .Values.prowlarr.env | nindent 12 }}
-          {{- end }}
+          env: {{- include "prowlarr.prowlarrEnv" . | nindent 12 }}
           {{- if .Values.service.ports }}
           ports:
             {{- range .Values.service.ports }}

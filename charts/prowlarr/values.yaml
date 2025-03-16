@@ -22,6 +22,8 @@ prowlarr:
     readOnlyRootFilesystem: false
     # -- The user ID to run Prowlarr as
     runAsUser: 0
+    # -- The group ID to run Prowlarr as
+    runAsGroup: 0
   resources:
     requests:
       # -- The amount of memory to request for the Prowlarr pod
@@ -34,9 +36,7 @@ prowlarr:
       # -- The amount of CPU to limit the Prowlarr pod to
       cpu: ""
   # -- The environment variables to set for the Prowlarr pod
-  env:
-    - name: TZ
-      value: "UTC"
+  env: []
   # -- The livenessProbe configuration for the Prowlarr pod
   livenessProbe:
     exec:
