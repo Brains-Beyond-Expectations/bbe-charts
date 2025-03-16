@@ -1,0 +1,19 @@
+{{- if and .Values.config.enabled (not .Values.config.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "radarr.configClaimName" . }}
+  namespace: {{ include "radarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "radarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- with (include "radarr.configAnnotations" .) }}
+  annotations: {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.config.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.config.size }}
+{{- end }}

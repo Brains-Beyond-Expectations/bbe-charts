@@ -1,0 +1,38 @@
+suite: test service
+values:
+  - ./values/required-values.yaml
+templates:
+  - service.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should create Service
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should create a service with correct specifications
+    asserts:
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 7878
+      - equal:
+          path: spec.ports[0].protocol
+          value: TCP
+
+  - it: can add annotations to the service
+    set:
+      service.annotations:
+        test1: "foo"
+        test2: "bar"
+    asserts:
+      - equal:
+          path: metadata.annotations.test1
+          value: "foo"
+      - equal:
+          path: metadata.annotations.test2
+          value: "bar"

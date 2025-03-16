@@ -1,0 +1,19 @@
+apiVersion: v2
+name: radarr
+description:
+  Radarr is a movie collection manager for Usenet and BitTorrent users. It can
+  monitor multiple RSS feeds for new movies and will interface with clients and
+  indexers to grab, sort, and rename them.
+type: application
+version: 0.1.0
+appVersion: 5.19.3
+keywords:
+  - radarr
+  - pvr
+  - usenet
+  - bittorrent
+  - rss
+home: https://brains-beyond-expectations.github.io/bbe-charts
+icon: https://avatars.githubusercontent.com/u/25025331
+sources:
+  - https://github.com/Radarr/Radarr
