@@ -46,6 +46,21 @@ tests:
       - matchRegex:
           path: spec.template.spec.containers[0].image
           pattern: lscr\.io\/linuxserver\/radarr:[^".]+
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TZ
+            value: UTC
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PGID
+            value: "0"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PUID
+            value: "0"
       - notExists:
           path: spec.template.spec.containers[0].resources.limits.cpu
       - equal:

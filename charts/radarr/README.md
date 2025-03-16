@@ -35,7 +35,7 @@ Radarr is a movie collection manager for Usenet and BitTorrent users. It can mon
 | nameOverride | string | `""` | Optional short name override for the resources |
 | namespaceOverride | string | `""` | Optional namespace override for the resources |
 | radarr.annotations | object | `{}` | Annotations to apply to the Radarr pod |
-| radarr.env | list | `[{"name":"TZ","value":"UTC"}]` | The environment variables to set for the Radarr pod |
+| radarr.env | list | `[]` | The environment variables to set for the Radarr pod |
 | radarr.image.repository | string | `"lscr.io/linuxserver/radarr"` | The image repository to pull from |
 | radarr.image.tag | string | `""` | The image tag to pull |
 | radarr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:7878/api/v3/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Radarr pod |
@@ -46,6 +46,7 @@ Radarr is a movie collection manager for Usenet and BitTorrent users. It can mon
 | radarr.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Radarr pod |
 | radarr.resources.requests.memory | string | `"256Mi"` | The amount of memory to request for the Radarr pod |
 | radarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Radarr with a read-only root filesystem |
+| radarr.securityContext.runAsGroup | int | `0` | The group ID to run Prowlarr as |
 | radarr.securityContext.runAsUser | int | `0` | The user ID to run Radarr as |
 | radarr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":7878},"timeoutSeconds":1}` | The startupProbe configuration for the Radarr pod |
 | radarr.strategyType | string | `"Recreate"` | The strategy to use for updating the Radarr pods |

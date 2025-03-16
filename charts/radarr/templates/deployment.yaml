@@ -29,10 +29,7 @@ spec:
       containers:
         - name: radarr
           image: "{{ .Values.radarr.image.repository }}:{{ include "radarr.image" . }}"
-          {{- if .Values.radarr.env }}
-          env:
-            {{- toYaml .Values.radarr.env | nindent 12 }}
-          {{- end }}
+          env: {{- include "radarr.radarrEnv" . | nindent 12 }}
           {{- if .Values.service.ports }}
           ports:
             {{- range .Values.service.ports }}

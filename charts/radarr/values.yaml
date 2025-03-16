@@ -22,6 +22,8 @@ radarr:
     readOnlyRootFilesystem: false
     # -- The user ID to run Radarr as
     runAsUser: 0
+    # -- The group ID to run Prowlarr as
+    runAsGroup: 0
   resources:
     requests:
       # -- The amount of memory to request for the Radarr pod
@@ -34,9 +36,7 @@ radarr:
       # -- The amount of CPU to limit the Radarr pod to
       cpu: ""
   # -- The environment variables to set for the Radarr pod
-  env:
-    - name: TZ
-      value: "UTC"
+  env: []
   # -- The livenessProbe configuration for the Radarr pod
   livenessProbe:
     exec:
