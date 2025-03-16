@@ -41,17 +41,6 @@ spec:
               protocol: {{ .protocol }}
             {{- end }}
           {{- end }}
-          {{- if or .Values.config.enabled .Values.prowlarr.enabled }}
-          volumeMounts:
-            {{- if .Values.config.enabled }}
-            - name: config
-              mountPath: /config
-            {{- end }}
-            {{- if .Values.media.enabled }}
-            - name: media
-              mountPath: /media
-            {{- end }}
-          {{- end }}
           {{- if .Values.prowlarr.resources }}
           resources:
             {{- if .Values.prowlarr.resources.requests }}
@@ -72,6 +61,21 @@ spec:
               cpu: "{{ .Values.prowlarr.resources.limits.cpu }}"
               {{- end }}
             {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.prowlarr.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+            {{- if .Values.media.enabled }}
+            - name: media
+              mountPath: /media
+            {{- end }}
+          {{- end }}
+          {{- if .Values.prowlarr.securityContext }}
+          securityContext:
+            {{- toYaml .Values.prowlarr.securityContext | nindent 12 }}
           {{- end }}
           {{- if .Values.prowlarr.livenessProbe }}
           livenessProbe:

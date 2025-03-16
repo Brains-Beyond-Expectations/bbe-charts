@@ -17,6 +17,11 @@ prowlarr:
     repository: lscr.io/linuxserver/prowlarr
     # -- The image tag to pull
     tag: ""
+  securityContext:
+    # -- Whether to run Blocky with a read-only root filesystem
+    readOnlyRootFilesystem: true
+    # -- The user ID to run Blocky as
+    runAsUser: 1000
   resources:
     requests:
       # -- The amount of memory to request for the Prowlarr pod

@@ -41,6 +41,11 @@
           },
           "required": ["repository"]
         },
+        "securityContext": {
+          "type": "object",
+          "description": "Security context for the container",
+          "additionalProperties": true
+        },
         "resources": {
           "type": "object",
           "description": "Resource requests and limits",

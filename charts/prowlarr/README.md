@@ -45,6 +45,8 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | prowlarr.resources.limits.memory | string | `"256Mi"` | The amount of memory to limit the Prowlarr pod to |
 | prowlarr.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Prowlarr pod |
 | prowlarr.resources.requests.memory | string | `"256Mi"` | The amount of memory to request for the Prowlarr pod |
+| prowlarr.securityContext.readOnlyRootFilesystem | bool | `true` | Whether to run Blocky with a read-only root filesystem |
+| prowlarr.securityContext.runAsUser | int | `1000` | The user ID to run Blocky as |
 | prowlarr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":9696},"timeoutSeconds":1}` | The startupProbe configuration for the Prowlarr pod |
 | prowlarr.strategyType | string | `"Recreate"` | The strategy to use for updating the Prowlarr pods |
 | service.annotations | object | `{}` | Annotations to apply to the Prowlarr service |
