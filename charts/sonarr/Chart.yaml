@@ -1,0 +1,16 @@
+apiVersion: v2
+name: sonarr
+description:
+  Sonarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
+  stack to integrate with your various PVR apps.
+type: application
+version: 0.1.0
+appVersion: 4.0.13
+keywords:
+  - sonarr
+  - indexer
+  - proxy
+home: https://brains-beyond-expectations.github.io/bbe-charts
+icon: https://avatars.githubusercontent.com/u/73049443
+sources:
+  - https://github.com/Sonarr/Sonarr

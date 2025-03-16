@@ -4,11 +4,20 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["Chart.yaml"],
+      "fileMatch": ["charts/blocky/Chart\\.yaml"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
       ],
       "depNameTemplate": "ghcr.io/0xerr0r/blocky",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["charts/sonarr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "lscr.io/linuxserver/sonarr",
       "datasourceTemplate": "docker"
     }
   ],
