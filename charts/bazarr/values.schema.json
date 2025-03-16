@@ -62,11 +62,9 @@
         "resources": {
           "type": "object",
           "description": "Resource requests and limits",
-          "required": ["requests"],
           "properties": {
             "requests": {
               "type": "object",
-              "required": ["memory", "cpu"],
               "properties": {
                 "memory": {
                   "type": "string",
@@ -86,7 +84,7 @@
                   "description": "Memory limit"
                 },
                 "cpu": {
-                  "type": ["string", "null"],
+                  "type": "string",
                   "description": "CPU limit"
                 }
               }
