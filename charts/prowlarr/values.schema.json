@@ -44,7 +44,20 @@
         "securityContext": {
           "type": "object",
           "description": "Security context for the container",
-          "additionalProperties": true
+          "properties": {
+            "readOnlyRootFilesystem": {
+              "type": "boolean",
+              "description": "Whether to run Prowlarr with a read-only root filesystem"
+            },
+            "runAsUser": {
+              "type": "integer",
+              "description": "The user ID to run Prowlarr as"
+            },
+            "runAsGroup": {
+              "type": "integer",
+              "description": "The group ID to run Prowlarr as"
+            }
+          }
         },
         "resources": {
           "type": "object",
