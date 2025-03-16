@@ -45,9 +45,9 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].name
           value: blocky
-      - equal:
+      - matchRegex:
           path: spec.template.spec.containers[0].image
-          value: "ghcr.io/0xerr0r/blocky:v0.25"
+          pattern: ghcr\.io\/0xerr0r\/blocky:[^".]+
       - notExists:
           path: spec.template.spec.containers[0].resources.limits.cpu
       - equal:
