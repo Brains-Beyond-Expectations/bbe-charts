@@ -12,10 +12,10 @@ spec:
     matchLabels:
       app.kubernetes.io/name: {{ include "prowlarr.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
-  {{ if .Values.prowlarr.strategyType }}
+  {{- if .Values.prowlarr.strategyType }}
   strategy:
     type: {{ .Values.prowlarr.strategyType }}
-  {{ end }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -47,7 +47,7 @@ spec:
             - name: config
               mountPath: /config
             {{- end }}
-            {{- if .Values.prowlarr.enabled }}
+            {{- if .Values.media.enabled }}
             - name: media
               mountPath: /media
             {{- end }}

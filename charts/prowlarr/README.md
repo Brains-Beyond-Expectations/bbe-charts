@@ -14,15 +14,28 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| config.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the Prowlarr config persistent volume claim |
+| config.annotations | object | `{}` | Annotations to apply to the Prowlarr config persistent volume claim |
+| config.enabled | bool | `true` | Whether to enable the creation of a persistent volume claim for the Prowlarr config |
+| config.existingClaim | string | `""` | Use this attribute to reference an existing persistent volume claim to use for the Prowlarr config |
+| config.retain | bool | `false` | Whether to keep the persistent volume claim for the config after the Prowlarr chart is uninstalled |
+| config.size | string | `"1Gi"` | The amount of storage to request for the Prowlarr config |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
 | ingress.annotations | object | `{}` | Annotations to apply to the Prowlarr ingress |
 | ingress.enabled | bool | `false` | Whether to create an ingress for Prowlarr |
 | ingress.hosts | list | `[]` | Host configuration for the Prowlarr ingress |
 | ingress.ingressClassName | string | `""` | The ingress class to use for the Prowlarr ingress |
 | ingress.tls | list | `[]` | TLS configuration for the Prowlarr ingress |
+| media.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the Prowlarr media persistent volume claim |
+| media.annotations | object | `{}` | Annotations to apply to the Prowlarr media persistent volume claim |
+| media.enabled | bool | `true` | Whether to enable the creation of a persistent volume claim for the Prowlarr media |
+| media.existingClaim | string | `""` | Use this attribute to reference an existing persistent volume claim to use for the Prowlarr media |
+| media.retain | bool | `false` | Whether to keep the persistent volume claim for the media after the Prowlarr chart is uninstalled |
+| media.size | string | `"50Gi"` | The amount of storage to request for the Prowlarr media |
 | nameOverride | string | `""` | Optional short name override for the resources |
 | namespaceOverride | string | `""` | Optional namespace override for the resources |
 | prowlarr.annotations | object | `{}` | Annotations to apply to the Prowlarr pod |
+| prowlarr.env | list | `[{"name":"TZ","value":"UTC"}]` | The environment variables to set for the Prowlarr pod |
 | prowlarr.image.repository | string | `"lscr.io/linuxserver/prowlarr"` | The image repository to pull from |
 | prowlarr.image.tag | string | `""` | The image tag to pull |
 | prowlarr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:9696/api/v1/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Prowlarr pod |
@@ -33,7 +46,7 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | prowlarr.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Prowlarr pod |
 | prowlarr.resources.requests.memory | string | `"256Mi"` | The amount of memory to request for the Prowlarr pod |
 | prowlarr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":9696},"timeoutSeconds":1}` | The startupProbe configuration for the Prowlarr pod |
-| prowlarr.strategyType | string | `"RollingUpdate"` | The strategy to use for updating the Prowlarr pods |
+| prowlarr.strategyType | string | `"Recreate"` | The strategy to use for updating the Prowlarr pods |
 | service.annotations | object | `{}` | Annotations to apply to the Prowlarr service |
 | service.ports | list | `[{"name":"http","port":9696,"protocol":"TCP"}]` | Port to expose the Prowlarr service on |
 | service.type | string | `"ClusterIP"` | The type of service to create |
