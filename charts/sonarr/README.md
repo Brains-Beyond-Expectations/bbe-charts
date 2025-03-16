@@ -41,7 +41,7 @@ Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS fee
 | sonarr.env | list | `[{"name":"TZ","value":"UTC"}]` | The environment variables to set for the Sonarr pod |
 | sonarr.image.repository | string | `"lscr.io/linuxserver/sonarr"` | The image repository to pull from |
 | sonarr.image.tag | string | `""` | The image tag to pull |
-| sonarr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:8989/api/v1/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Sonarr pod |
+| sonarr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:8989/api/v3/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Sonarr pod |
 | sonarr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":8989},"timeoutSeconds":1}` | The readinessProbe configuration for the Sonarr pod |
 | sonarr.replicas | int | `1` | How many replicas of the Sonarr pod to run |
 | sonarr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Sonarr pod to |
