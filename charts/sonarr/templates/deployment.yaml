@@ -29,10 +29,7 @@ spec:
       containers:
         - name: sonarr
           image: "{{ .Values.sonarr.image.repository }}:{{ include "sonarr.image" . }}"
-          {{- if .Values.sonarr.env }}
-          env:
-            {{- toYaml .Values.sonarr.env | nindent 12 }}
-          {{- end }}
+          env: {{- include "sonarr.sonarrEnv" . | nindent 12 }}
           {{- if .Values.service.ports }}
           ports:
             {{- range .Values.service.ports }}

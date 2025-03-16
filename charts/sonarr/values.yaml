@@ -22,6 +22,8 @@ sonarr:
     readOnlyRootFilesystem: false
     # -- The user ID to run Sonarr as
     runAsUser: 0
+    # -- The group ID to run Prowlarr as
+    runAsGroup: 0
   resources:
     requests:
       # -- The amount of memory to request for the Sonarr pod
@@ -34,9 +36,7 @@ sonarr:
       # -- The amount of CPU to limit the Sonarr pod to
       cpu: ""
   # -- The environment variables to set for the Sonarr pod
-  env:
-    - name: TZ
-      value: "UTC"
+  env: []
   # -- The livenessProbe configuration for the Sonarr pod
   livenessProbe:
     exec:

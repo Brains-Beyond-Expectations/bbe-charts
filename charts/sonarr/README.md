@@ -38,7 +38,7 @@ Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS fee
 | service.ports | list | `[{"name":"http","port":8989,"protocol":"TCP"}]` | Port to expose the Sonarr service on |
 | service.type | string | `"ClusterIP"` | The type of service to create |
 | sonarr.annotations | object | `{}` | Annotations to apply to the Sonarr pod |
-| sonarr.env | list | `[{"name":"TZ","value":"UTC"}]` | The environment variables to set for the Sonarr pod |
+| sonarr.env | list | `[]` | The environment variables to set for the Sonarr pod |
 | sonarr.image.repository | string | `"lscr.io/linuxserver/sonarr"` | The image repository to pull from |
 | sonarr.image.tag | string | `""` | The image tag to pull |
 | sonarr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:8989/api/v3/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Sonarr pod |
@@ -49,6 +49,7 @@ Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS fee
 | sonarr.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Sonarr pod |
 | sonarr.resources.requests.memory | string | `"256Mi"` | The amount of memory to request for the Sonarr pod |
 | sonarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Sonarr with a read-only root filesystem |
+| sonarr.securityContext.runAsGroup | int | `0` | The group ID to run Prowlarr as |
 | sonarr.securityContext.runAsUser | int | `0` | The user ID to run Sonarr as |
 | sonarr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":8989},"timeoutSeconds":1}` | The startupProbe configuration for the Sonarr pod |
 | sonarr.strategyType | string | `"Recreate"` | The strategy to use for updating the Sonarr pods |

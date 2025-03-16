@@ -37,6 +37,22 @@ If release name contains chart name it will be used as a full name.
 {{- end -}}
 
 {{/*
+Create the env for the container
+*/}}
+{{- define "sonarr.sonarrEnv" -}}
+{{- $envVars := list }}
+{{- if .Values.sonarr.env }}
+{{- $envVars = concat $envVars .Values.sonarr.env }}
+{{- end }}
+{{- $defaultEnv := list -}}
+{{- $defaultEnv = append $defaultEnv (dict "name" "TZ" "value" "UTC") -}}
+{{- $defaultEnv = append $defaultEnv (dict "name" "PUID" "value" (printf "%v" .Values.sonarr.securityContext.runAsUser)) -}}
+{{- $defaultEnv = append $defaultEnv (dict "name" "PGID" "value" (printf "%v" .Values.sonarr.securityContext.runAsGroup)) -}}
+{{- $envVars = concat $envVars $defaultEnv -}}
+{{ toYaml $envVars }}
+{{- end -}}
+
+{{/*
 Create the annotations for config PVC
 */}}
 {{- define "sonarr.configAnnotations" -}}
