@@ -26,12 +26,6 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | ingress.hosts | list | `[]` | Host configuration for the Prowlarr ingress |
 | ingress.ingressClassName | string | `""` | The ingress class to use for the Prowlarr ingress |
 | ingress.tls | list | `[]` | TLS configuration for the Prowlarr ingress |
-| media.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the Prowlarr media persistent volume claim |
-| media.annotations | object | `{}` | Annotations to apply to the Prowlarr media persistent volume claim |
-| media.enabled | bool | `true` | Whether to enable the creation of a persistent volume claim for the Prowlarr media |
-| media.existingClaim | string | `""` | Use this attribute to reference an existing persistent volume claim to use for the Prowlarr media |
-| media.retain | bool | `false` | Whether to keep the persistent volume claim for the media after the Prowlarr chart is uninstalled |
-| media.size | string | `"50Gi"` | The amount of storage to request for the Prowlarr media |
 | nameOverride | string | `""` | Optional short name override for the resources |
 | namespaceOverride | string | `""` | Optional namespace override for the resources |
 | prowlarr.annotations | object | `{}` | Annotations to apply to the Prowlarr pod |

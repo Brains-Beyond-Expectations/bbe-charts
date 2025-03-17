@@ -65,10 +65,6 @@ spec:
             - name: config
               mountPath: /config
             {{- end }}
-            {{- if .Values.media.enabled }}
-            - name: media
-              mountPath: /media
-            {{- end }}
           {{- end }}
           {{- if .Values.prowlarr.securityContext }}
           securityContext:
@@ -86,16 +82,9 @@ spec:
           startupProbe:
             {{- toYaml .Values.prowlarr.startupProbe | nindent 12 }}
           {{- end }}
-      {{- if or .Values.config.enabled .Values.media.enabled }}
+      {{- if .Values.config.enabled }}
       volumes:
-        {{- if .Values.config.enabled }}
         - name: config
           persistentVolumeClaim:
             claimName: {{ include "prowlarr.configClaimName" . }}
-        {{- end }}
-        {{- if .Values.media.enabled }}
-        - name: media
-          persistentVolumeClaim:
-            claimName: {{ include "prowlarr.mediaClaimName" . }}
-        {{- end }}
       {{- end }}

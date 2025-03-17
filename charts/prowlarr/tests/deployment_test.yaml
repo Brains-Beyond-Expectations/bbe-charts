@@ -84,12 +84,6 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].volumeMounts[0].mountPath
           value: /config
-      - equal:
-          path: spec.template.spec.containers[0].volumeMounts[1].name
-          value: media
-      - equal:
-          path: spec.template.spec.containers[0].volumeMounts[1].mountPath
-          value: /media
 
   - it: can add annotations
     set:
@@ -118,23 +112,16 @@ tests:
       - equal:
           path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
           value: prowlarr-config
-      - equal:
-          path: spec.template.spec.volumes[1].persistentVolumeClaim.claimName
-          value: prowlarr-media
 
-  - it: respects existingClaim for config and media
+  - it: respects existingClaim for config
     release:
       name: prowlarr
     set:
       config.existingClaim: "test-config"
-      media.existingClaim: "test-media"
     asserts:
       - equal:
           path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
           value: test-config
-      - equal:
-          path: spec.template.spec.volumes[1].persistentVolumeClaim.claimName
-          value: test-media
 
   - it: respects fullnameOverride
     set:

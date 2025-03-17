@@ -72,24 +72,3 @@ Create the annotations for config PVC
 {{- printf "%s-config" (include "prowlarr.fullname" .) -}}
 {{- end }}
 {{- end }}
-
-{{/*
-Create the annotations for media PVC
-*/}}
-{{- define "prowlarr.mediaAnnotations" -}}
-{{- $annotations := .Values.media.annotations | default dict -}}
-{{- if .Values.media.retain -}}
-{{- $annotations = merge $annotations (dict "helm.sh/resource-policy" "keep") -}}
-{{- end -}}
-{{- if not (empty $annotations) -}}
-{{- toYaml $annotations -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "prowlarr.mediaClaimName" -}}
-{{- if .Values.media.existingClaim }}
-{{- .Values.media.existingClaim }}
-{{- else }}
-{{- printf "%s-media" (include "prowlarr.fullname" .) -}}
-{{- end }}
-{{- end }}

@@ -112,17 +112,3 @@ config:
   accessMode: ReadWriteOnce
   # -- Whether to keep the persistent volume claim for the config after the Prowlarr chart is uninstalled
   retain: false
-
-media:
-  # -- Annotations to apply to the Prowlarr media persistent volume claim
-  annotations: {}
-  # -- Whether to enable the creation of a persistent volume claim for the Prowlarr media
-  enabled: true
-  # -- Use this attribute to reference an existing persistent volume claim to use for the Prowlarr media
-  existingClaim: ""
-  # -- The amount of storage to request for the Prowlarr media
-  size: "50Gi"
-  # -- The access mode to use for the Prowlarr media persistent volume claim
-  accessMode: ReadWriteOnce
-  # -- Whether to keep the persistent volume claim for the media after the Prowlarr chart is uninstalled
-  retain: false
