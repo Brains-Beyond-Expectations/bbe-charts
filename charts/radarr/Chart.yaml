@@ -6,7 +6,7 @@ description:
   indexers to grab, sort, and rename them.
 type: application
 version: 0.1.0
-appVersion: 5.19.3
+appVersion: 5.20.2
 keywords:
   - radarr
   - pvr
