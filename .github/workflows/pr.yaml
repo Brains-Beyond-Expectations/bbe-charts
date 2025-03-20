@@ -14,7 +14,7 @@ jobs:
   test-and-build:
     strategy:
       matrix:
-        chart: [blocky]
+        chart: [bazarr, blocky, prowlarr, radarr, sonarr]
     name: Test (${{ matrix.chart }})
     runs-on: ubuntu-latest
     steps:
@@ -61,6 +61,7 @@ jobs:
         uses: stackrox/kube-linter-action@v1
         with:
           directory: /tmp/${{ matrix.chart }}
+          config: charts/${{ matrix.chart }}/.kube-linter.yaml
   test-lib-gen:
     name: Test lib-gen
     runs-on: ubuntu-latest

@@ -1,0 +1,22 @@
+apiVersion: v2
+name: sonarr
+description:
+  Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS
+  feeds for new episodes of your favorite shows and will grab, sort and rename
+  them.
+type: application
+version: 0.1.0
+appVersion: 4.0.14
+keywords:
+  - sonarr
+  - tv
+  - shows
+  - episodes
+  - pvr
+  - usenet
+  - bittorrent
+  - rss
+home: https://brains-beyond-expectations.github.io/bbe-charts
+icon: https://avatars.githubusercontent.com/u/1082903
+sources:
+  - https://github.com/Sonarr/Sonarr

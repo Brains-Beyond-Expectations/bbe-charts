@@ -5,11 +5,47 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["Chart.yaml"],
+      "fileMatch": ["charts/bazarr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>release-[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "ghcr.io/hotio/bazarr",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["charts/blocky/Chart\\.yaml"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
       ],
       "depNameTemplate": "ghcr.io/0xerr0r/blocky",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["charts/prowlarr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "lscr.io/linuxserver/prowlarr",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["charts/radarr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "lscr.io/linuxserver/radarr",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["charts/sonarr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "lscr.io/linuxserver/sonarr",
       "datasourceTemplate": "docker"
     },
     {
@@ -22,10 +58,10 @@
     }
   ],
   "major": {
-    "labels": ["chore", "major"]
+    "labels": ["chore", "patch"]
   },
   "minor": {
-    "labels": ["chore", "minor"]
+    "labels": ["chore", "patch"]
   },
   "patch": {
     "labels": ["chore", "patch"]
