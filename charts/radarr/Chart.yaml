@@ -9,6 +9,7 @@ version: 0.1.0
 appVersion: 5.20.2
 keywords:
   - radarr
+  - films
   - pvr
   - usenet
   - bittorrent

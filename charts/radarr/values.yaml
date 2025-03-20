@@ -85,6 +85,8 @@ ingress:
   enabled: false
   # -- Annotations to apply to the Radarr ingress
   annotations: {}
+  # -- The main http port to use for the Radarr ingress
+  mainPort: 7878
   # -- The ingress class to use for the Radarr ingress
   ingressClassName: ""
   # -- Host configuration for the Radarr ingress

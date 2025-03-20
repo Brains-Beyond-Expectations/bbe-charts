@@ -1,6 +1,6 @@
 # radarr
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.19.3](https://img.shields.io/badge/AppVersion-5.19.3-informational?style=flat-square)
+![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.20.2](https://img.shields.io/badge/AppVersion-5.20.2-informational?style=flat-square)
 
 Radarr is a movie collection manager for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new movies and will interface with clients and indexers to grab, sort, and rename them.
 
@@ -25,6 +25,7 @@ Radarr is a movie collection manager for Usenet and BitTorrent users. It can mon
 | ingress.enabled | bool | `false` | Whether to create an ingress for Radarr |
 | ingress.hosts | list | `[]` | Host configuration for the Radarr ingress |
 | ingress.ingressClassName | string | `""` | The ingress class to use for the Radarr ingress |
+| ingress.mainPort | int | `7878` | The main http port to use for the Radarr ingress |
 | ingress.tls | list | `[]` | TLS configuration for the Radarr ingress |
 | media.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the Radarr media persistent volume claim |
 | media.annotations | object | `{}` | Annotations to apply to the Radarr media persistent volume claim |
