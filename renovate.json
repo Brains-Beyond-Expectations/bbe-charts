@@ -19,6 +19,15 @@
       ],
       "depNameTemplate": "lscr.io/linuxserver/prowlarr",
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["charts/sonarr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "lscr.io/linuxserver/sonarr",
+      "datasourceTemplate": "docker"
     }
   ],
   "major": {
