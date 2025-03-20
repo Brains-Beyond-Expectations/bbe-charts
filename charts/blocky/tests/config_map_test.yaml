@@ -1,10 +1,11 @@
-suite: test blocky
+suite: test config map
 values:
   - ./values/required-values.yaml
 templates:
   - config_map.yaml
 release:
   name: test
+  namespace: test
 tests:
   - it: should create a ConfigMap
     asserts:

@@ -13,6 +13,15 @@
     },
     {
       "customType": "regex",
+      "fileMatch": ["charts/prowlarr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "lscr.io/linuxserver/prowlarr",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "fileMatch": ["charts/sonarr/Chart\\.yaml"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
@@ -22,10 +31,10 @@
     }
   ],
   "major": {
-    "labels": ["chore", "major"]
+    "labels": ["chore", "patch"]
   },
   "minor": {
-    "labels": ["chore", "minor"]
+    "labels": ["chore", "patch"]
   },
   "patch": {
     "labels": ["chore", "patch"]

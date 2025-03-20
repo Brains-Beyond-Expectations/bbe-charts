@@ -2,20 +2,25 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "blocky.fullname" . }}
-  namespace: blocky
+  namespace: {{ include "blocky.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "blocky.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.blocky.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "blocky.name" . }}
-  {{ if .Values.blocky.strategyType }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.blocky.strategyType }}
   strategy:
     type: {{ .Values.blocky.strategyType }}
-  {{ end }}
+  {{- end }}
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ include "blocky.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
       {{- if .Values.blocky.annotations }}
       annotations:
         {{- toYaml .Values.blocky.annotations | nindent 8 }}
@@ -29,12 +34,21 @@ spec:
                 labelSelector:
                   matchLabels:
                     app.kubernetes.io/name: {{ include "blocky.name" . }}
+                    app.kubernetes.io/instance: {{ .Release.Name }}
                 topologyKey: kubernetes.io/hostname
               weight: 100
       {{- end }}
       containers:
         - name: blocky
           image: "{{ .Values.blocky.image.repository }}:{{ include "blocky.image" . }}"
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
           {{- if .Values.blocky.resources }}
           resources:
             {{- if .Values.blocky.resources.requests }}
@@ -63,6 +77,18 @@ spec:
           {{- if .Values.blocky.securityContext }}
           securityContext:
             {{- toYaml .Values.blocky.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.blocky.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.blocky.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.blocky.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.blocky.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.blocky.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.blocky.startupProbe | nindent 12 }}
           {{- end }}
       volumes:
         - name: config

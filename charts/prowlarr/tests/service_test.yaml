@@ -13,25 +13,26 @@ tests:
           count: 1
 
   - it: should create a service with correct specifications
-    documentSelector:
-      path: kind
-      value: Service
     asserts:
       - equal:
           path: spec.type
-          value: LoadBalancer
+          value: ClusterIP
       - equal:
           path: spec.ports[0].port
-          value: 53
+          value: 9696
       - equal:
           path: spec.ports[0].protocol
-          value: UDP
-      - equal:
-          path: spec.ports[1].port
-          value: 53
-      - equal:
-          path: spec.ports[1].protocol
           value: TCP
+
+  - it: can add annotations to the service
+    set:
+      service.annotations:
+        test1: "foo"
+        test2: "bar"
+    asserts:
       - equal:
-          path: spec.ports[2].port
-          value: 4000
+          path: metadata.annotations.test1
+          value: "foo"
+      - equal:
+          path: metadata.annotations.test2
+          value: "bar"

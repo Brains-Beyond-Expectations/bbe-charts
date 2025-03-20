@@ -20,7 +20,7 @@ jobs:
       max-parallel: 1
       fail-fast: false
       matrix:
-        chart: [blocky, sonarr]
+        chart: [blocky, prowlarr, sonarr]
     name: Update (${{ matrix.chart }})
     runs-on: ubuntu-latest
     steps:
