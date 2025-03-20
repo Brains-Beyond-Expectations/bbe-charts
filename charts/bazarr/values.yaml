@@ -1,0 +1,123 @@
+# -- Optional short name override for the resources
+nameOverride: ""
+# -- Optional full name override for the resources
+fullnameOverride: ""
+# -- Optional namespace override for the resources
+namespaceOverride: ""
+
+bazarr:
+  # -- Annotations to apply to the Bazarr pod
+  annotations: {}
+  # -- How many replicas of the Bazarr pod to run
+  replicas: 1
+  # -- The strategy to use for updating the Bazarr pods
+  strategyType: Recreate
+  image:
+    # -- The image repository to pull from
+    repository: ghcr.io/hotio/bazarr
+    # -- The image tag to pull
+    tag: ""
+  securityContext:
+    # -- Whether to run Bazarr with a read-only root filesystem
+    readOnlyRootFilesystem: false
+    # -- The user ID to run Bazarr as
+    runAsUser: 0
+    # -- The group ID to run Bazarr as
+    runAsGroup: 0
+  resources:
+    requests:
+      # -- The amount of memory to request for the Bazarr pod
+      memory: "256Mi"
+      # -- The amount of CPU to request for the Bazarr pod
+      cpu: "100m"
+    limits:
+      # -- The amount of memory to limit the Bazarr pod to
+      memory: "256Mi"
+      # -- The amount of CPU to limit the Bazarr pod to
+      cpu: ""
+  # -- The environment variables to set for the Bazarr pod
+  env: []
+  # -- The livenessProbe configuration for the Bazarr pod
+  livenessProbe:
+    failureThreshold: 3
+    periodSeconds: 10
+    successThreshold: 1
+    tcpSocket:
+      port: 6767
+    timeoutSeconds: 1
+  # -- The readinessProbe configuration for the Bazarr pod
+  readinessProbe:
+    failureThreshold: 3
+    periodSeconds: 10
+    successThreshold: 1
+    tcpSocket:
+      port: 6767
+    timeoutSeconds: 1
+  # -- The startupProbe configuration for the Bazarr pod
+  startupProbe:
+    failureThreshold: 30
+    periodSeconds: 5
+    successThreshold: 1
+    tcpSocket:
+      port: 6767
+    timeoutSeconds: 1
+
+service:
+  # -- Annotations to apply to the Bazarr service
+  annotations: {}
+  # -- Port to expose the Bazarr service on
+  ports:
+    - name: http
+      port: 6767
+      protocol: TCP
+  # -- The type of service to create
+  type: ClusterIP
+
+ingress:
+  # -- Whether to create an ingress for Bazarr
+  enabled: false
+  # -- Annotations to apply to the Bazarr ingress
+  annotations: {}
+  # -- The main http port to use for the Bazarr ingress
+  mainPort: 6767
+  # -- The ingress class to use for the Bazarr ingress
+  ingressClassName: ""
+  # -- Host configuration for the Bazarr ingress
+  hosts: []
+  #   - host: bazarr.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: ImplementationSpecific
+  # -- TLS configuration for the Bazarr ingress
+  tls: []
+  #   - hosts:
+  #       - bazarr.example.com
+  #     secretName: bazarr-ingress-tls
+
+config:
+  # -- Annotations to apply to the Bazarr config persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the Bazarr config
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the Bazarr config
+  existingClaim: ""
+  # -- The amount of storage to request for the Bazarr config
+  size: "1Gi"
+  # -- The access mode to use for the Bazarr config persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the config after the Bazarr chart is uninstalled
+  retain: false
+
+media:
+  # -- Annotations to apply to the Bazarr media persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the Bazarr media
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the Bazarr media
+  existingClaim: ""
+  # -- The amount of storage to request for the Bazarr media
+  size: "50Gi"
+  # -- The access mode to use for the Bazarr media persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the media after the Bazarr chart is uninstalled
+  retain: false

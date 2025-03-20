@@ -4,6 +4,15 @@
   "customManagers": [
     {
       "customType": "regex",
+      "fileMatch": ["charts/bazarr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>release-[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "ghcr.io/hotio/bazarr",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "fileMatch": ["charts/blocky/Chart\\.yaml"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"

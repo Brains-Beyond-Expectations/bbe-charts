@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bazarr.fullname" . }}
+  namespace: {{ include "bazarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "bazarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.bazarr.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "bazarr.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.bazarr.strategyType }}
+  strategy:
+    type: {{ .Values.bazarr.strategyType }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "bazarr.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.bazarr.annotations }}
+      annotations:
+        {{- toYaml .Values.bazarr.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: bazarr
+          image: "{{ .Values.bazarr.image.repository }}:{{ include "bazarr.image" . }}"
+          env: {{- include "bazarr.bazarrEnv" . | nindent 12 }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.bazarr.resources }}
+          resources:
+            {{- if .Values.bazarr.resources.requests }}
+            requests:
+              {{- if .Values.bazarr.resources.requests.memory }}
+              memory: "{{ .Values.bazarr.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.bazarr.resources.requests.cpu }}
+              cpu: "{{ .Values.bazarr.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.bazarr.resources.limits }}
+            limits:
+              {{- if .Values.bazarr.resources.limits.memory }}
+              memory: "{{ .Values.bazarr.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.bazarr.resources.limits.cpu }}
+              cpu: "{{ .Values.bazarr.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.bazarr.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+            {{- if .Values.media.enabled }}
+            - name: media
+              mountPath: /media
+            {{- end }}
+          {{- end }}
+          {{- if .Values.bazarr.securityContext }}
+          securityContext:
+            {{- toYaml .Values.bazarr.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.bazarr.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.bazarr.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.bazarr.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.bazarr.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.bazarr.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.bazarr.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if or .Values.config.enabled .Values.media.enabled }}
+      volumes:
+        {{- if .Values.config.enabled }}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "bazarr.configClaimName" . }}
+        {{- end }}
+        {{- if .Values.media.enabled }}
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ include "bazarr.mediaClaimName" . }}
+        {{- end }}
+      {{- end }}
