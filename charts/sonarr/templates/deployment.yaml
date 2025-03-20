@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sonarr.fullname" . }}
+  namespace: {{ include "sonarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "sonarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.sonarr.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "sonarr.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.sonarr.strategyType }}
+  strategy:
+    type: {{ .Values.sonarr.strategyType }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "sonarr.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.sonarr.annotations }}
+      annotations:
+        {{- toYaml .Values.sonarr.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: sonarr
+          image: "{{ .Values.sonarr.image.repository }}:{{ include "sonarr.image" . }}"
+          env: {{- include "sonarr.sonarrEnv" . | nindent 12 }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.sonarr.resources }}
+          resources:
+            {{- if .Values.sonarr.resources.requests }}
+            requests:
+              {{- if .Values.sonarr.resources.requests.memory }}
+              memory: "{{ .Values.sonarr.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.sonarr.resources.requests.cpu }}
+              cpu: "{{ .Values.sonarr.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.sonarr.resources.limits }}
+            limits:
+              {{- if .Values.sonarr.resources.limits.memory }}
+              memory: "{{ .Values.sonarr.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.sonarr.resources.limits.cpu }}
+              cpu: "{{ .Values.sonarr.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.sonarr.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+            {{- if .Values.media.enabled }}
+            - name: media
+              mountPath: /media
+            {{- end }}
+          {{- end }}
+          {{- if .Values.sonarr.securityContext }}
+          securityContext:
+            {{- toYaml .Values.sonarr.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.sonarr.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.sonarr.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.sonarr.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.sonarr.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.sonarr.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.sonarr.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if or .Values.config.enabled .Values.media.enabled }}
+      volumes:
+        {{- if .Values.config.enabled }}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "sonarr.configClaimName" . }}
+        {{- end }}
+        {{- if .Values.media.enabled }}
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ include "sonarr.mediaClaimName" . }}
+        {{- end }}
+      {{- end }}

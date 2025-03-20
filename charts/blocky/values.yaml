@@ -2,6 +2,8 @@
 nameOverride: ""
 # -- Optional full name override for the resources
 fullnameOverride: ""
+# -- Optional namespace override for the resources
+namespaceOverride: ""
 
 blocky:
   # -- Annotations to apply to the Blocky pod
@@ -33,6 +35,38 @@ blocky:
       cpu: ""
   # -- Whether to enable or disable recommended podAntiAffinity rules
   podAntiAffinity: true
+  # -- The livenessProbe configuration for the Blocky pod
+  livenessProbe:
+    exec:
+      command:
+        - /app/blocky
+        - healthcheck
+        - --port
+        - "53"
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 6
+  # -- The readinessProbe configuration for the Blocky pod
+  readinessProbe:
+    tcpSocket:
+      port: dns-tcp
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 6
+  # -- The startupProbe configuration for the Blocky pod
+  startupProbe:
+    exec:
+      command:
+        - /app/blocky
+        - healthcheck
+        - --port
+        - "53"
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 30
 
 service:
   # -- Annotations to apply to the Blocky service
@@ -72,4 +106,3 @@ config:
     caching:
       minTime: 5m
       maxTime: 30m
-
