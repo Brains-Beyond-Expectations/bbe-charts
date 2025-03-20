@@ -33,6 +33,7 @@ A DNS proxy and ad-blocker for the local network
 | config.yaml | string | `"upstream:\n  default:\n    - 1.1.1.1\n    - 8.8.8.8\nblocking:\n  blackLists:\n    ads:\n      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n  clientGroupsBlock:\n    default:\n      - ads\nport: 53\nhttpPort: 4000\ncaching:\n  minTime: 5m\n  maxTime: 30m\n"` | The configuration for Blocky |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
 | nameOverride | string | `""` | Optional short name override for the resources |
+| namespaceOverride | string | `""` | Optional namespace override for the resources |
 | service.annotations | object | `{}` | Annotations to apply to the Blocky service |
 | service.ports | list | `[{"name":"dns-udp","port":53,"protocol":"UDP"},{"name":"dns-tcp","port":53,"protocol":"TCP"},{"name":"http","port":4000,"protocol":"TCP"}]` | Port to expose the Blocky service on |
 | service.type | string | `"LoadBalancer"` | The type of service to create |

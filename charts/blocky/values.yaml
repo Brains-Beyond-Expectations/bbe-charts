@@ -2,6 +2,8 @@
 nameOverride: ""
 # -- Optional full name override for the resources
 fullnameOverride: ""
+# -- Optional namespace override for the resources
+namespaceOverride: ""
 
 blocky:
   # -- Annotations to apply to the Blocky pod

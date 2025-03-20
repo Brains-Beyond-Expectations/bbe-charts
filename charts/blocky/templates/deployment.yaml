@@ -2,20 +2,25 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "blocky.fullname" . }}
-  namespace: blocky
+  namespace: {{ include "blocky.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "blocky.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.blocky.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "blocky.name" . }}
-  {{ if .Values.blocky.strategyType }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.blocky.strategyType }}
   strategy:
     type: {{ .Values.blocky.strategyType }}
-  {{ end }}
+  {{- end }}
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ include "blocky.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
       {{- if .Values.blocky.annotations }}
       annotations:
         {{- toYaml .Values.blocky.annotations | nindent 8 }}
@@ -29,6 +34,7 @@ spec:
                 labelSelector:
                   matchLabels:
                     app.kubernetes.io/name: {{ include "blocky.name" . }}
+                    app.kubernetes.io/instance: {{ .Release.Name }}
                 topologyKey: kubernetes.io/hostname
               weight: 100
       {{- end }}
