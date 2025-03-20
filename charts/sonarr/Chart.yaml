@@ -6,7 +6,7 @@ description:
   them.
 type: application
 version: 0.1.0
-appVersion: 4.0.13
+appVersion: 4.0.14
 keywords:
   - sonarr
   - tv
