@@ -1,0 +1,47 @@
+suite: test media pvc
+values:
+  - ./values/required-values.yaml
+templates:
+  - media.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should create media PVC
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should create a media with correct specifications
+    asserts:
+      - equal:
+          path: metadata.name
+          value: test-radarr-media
+      - equal:
+          path: spec.accessModes[0]
+          value: ReadWriteOnce
+      - equal:
+          path: spec.resources.requests.storage
+          value: 50Gi
+      - notEqual:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: "keep"
+
+  - it: can set retain annotation
+    values:
+      - ./values/required-values.yaml
+    set:
+      media.retain: true
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: "keep"
+
+  - it: can use an existing PVC
+    values:
+      - ./values/required-values.yaml
+    set:
+      media.existingClaim: existing-claim
+    asserts:
+      - hasDocuments:
+          count: 0

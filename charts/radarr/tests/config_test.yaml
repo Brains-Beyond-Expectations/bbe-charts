@@ -1,0 +1,47 @@
+suite: test config pvc
+values:
+  - ./values/required-values.yaml
+templates:
+  - config.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should create config PVC
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should create a config with correct specifications
+    asserts:
+      - equal:
+          path: metadata.name
+          value: test-radarr-config
+      - equal:
+          path: spec.accessModes[0]
+          value: ReadWriteOnce
+      - equal:
+          path: spec.resources.requests.storage
+          value: 1Gi
+      - notEqual:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: "keep"
+
+  - it: can set retain annotation
+    values:
+      - ./values/required-values.yaml
+    set:
+      config.retain: true
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: "keep"
+
+  - it: can use an existing PVC
+    values:
+      - ./values/required-values.yaml
+    set:
+      config.existingClaim: existing-claim
+    asserts:
+      - hasDocuments:
+          count: 0

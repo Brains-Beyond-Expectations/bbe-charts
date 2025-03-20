@@ -1,0 +1,130 @@
+# -- Optional short name override for the resources
+nameOverride: ""
+# -- Optional full name override for the resources
+fullnameOverride: ""
+# -- Optional namespace override for the resources
+namespaceOverride: ""
+
+sonarr:
+  # -- Annotations to apply to the Sonarr pod
+  annotations: {}
+  # -- How many replicas of the Sonarr pod to run
+  replicas: 1
+  # -- The strategy to use for updating the Sonarr pods
+  strategyType: Recreate
+  image:
+    # -- The image repository to pull from
+    repository: lscr.io/linuxserver/sonarr
+    # -- The image tag to pull
+    tag: ""
+  securityContext:
+    # -- Whether to run Sonarr with a read-only root filesystem
+    readOnlyRootFilesystem: false
+    # -- The user ID to run Sonarr as
+    runAsUser: 0
+    # -- The group ID to run Prowlarr as
+    runAsGroup: 0
+  resources:
+    requests:
+      # -- The amount of memory to request for the Sonarr pod
+      memory: "256Mi"
+      # -- The amount of CPU to request for the Sonarr pod
+      cpu: "100m"
+    limits:
+      # -- The amount of memory to limit the Sonarr pod to
+      memory: "256Mi"
+      # -- The amount of CPU to limit the Sonarr pod to
+      cpu: ""
+  # -- The environment variables to set for the Sonarr pod
+  env: []
+  # -- The livenessProbe configuration for the Sonarr pod
+  livenessProbe:
+    exec:
+      command:
+        - /usr/bin/env
+        - bash
+        - -c
+        - curl --fail localhost:8989/api/v3/system/status?apiKey=`IFS=\> &&
+          while read -d \< E C; do if [[ $E = "ApiKey" ]]; then echo $C; fi;
+          done < /config/config.xml`
+    failureThreshold: 5
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 10
+  # -- The readinessProbe configuration for the Sonarr pod
+  readinessProbe:
+    failureThreshold: 3
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    tcpSocket:
+      port: 8989
+    timeoutSeconds: 1
+  # -- The startupProbe configuration for the Sonarr pod
+  startupProbe:
+    failureThreshold: 30
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    tcpSocket:
+      port: 8989
+    timeoutSeconds: 1
+
+service:
+  # -- Annotations to apply to the Sonarr service
+  annotations: {}
+  # -- Port to expose the Sonarr service on
+  ports:
+    - name: http
+      port: 8989
+      protocol: TCP
+  # -- The type of service to create
+  type: ClusterIP
+
+ingress:
+  # -- Whether to create an ingress for Sonarr
+  enabled: false
+  # -- Annotations to apply to the Sonarr ingress
+  annotations: {}
+  # -- The main http port to use for the Sonarr ingress
+  mainPort: 8989
+  # -- The ingress class to use for the Sonarr ingress
+  ingressClassName: ""
+  # -- Host configuration for the Sonarr ingress
+  hosts: []
+  #   - host: sonarr.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: ImplementationSpecific
+  # -- TLS configuration for the Sonarr ingress
+  tls: []
+  #   - hosts:
+  #       - sonarr.example.com
+  #     secretName: sonarr-ingress-tls
+
+config:
+  # -- Annotations to apply to the Sonarr config persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the Sonarr config
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the Sonarr config
+  existingClaim: ""
+  # -- The amount of storage to request for the Sonarr config
+  size: "1Gi"
+  # -- The access mode to use for the Sonarr config persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the config after the Sonarr chart is uninstalled
+  retain: false
+
+media:
+  # -- Annotations to apply to the Sonarr media persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the Sonarr media
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the Sonarr media
+  existingClaim: ""
+  # -- The amount of storage to request for the Sonarr media
+  size: "50Gi"
+  # -- The access mode to use for the Sonarr media persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the media after the Sonarr chart is uninstalled
+  retain: false
