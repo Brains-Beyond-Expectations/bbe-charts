@@ -41,6 +41,14 @@ spec:
       containers:
         - name: blocky
           image: "{{ .Values.blocky.image.repository }}:{{ include "blocky.image" . }}"
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
           {{- if .Values.blocky.resources }}
           resources:
             {{- if .Values.blocky.resources.requests }}
@@ -69,6 +77,18 @@ spec:
           {{- if .Values.blocky.securityContext }}
           securityContext:
             {{- toYaml .Values.blocky.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.blocky.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.blocky.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.blocky.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.blocky.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.blocky.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.blocky.startupProbe | nindent 12 }}
           {{- end }}
       volumes:
         - name: config
