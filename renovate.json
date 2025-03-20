@@ -22,6 +22,15 @@
     },
     {
       "customType": "regex",
+      "fileMatch": ["charts/radarr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "lscr.io/linuxserver/radarr",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "fileMatch": ["charts/sonarr/Chart\\.yaml"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"

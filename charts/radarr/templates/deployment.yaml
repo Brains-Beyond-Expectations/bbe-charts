@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "radarr.fullname" . }}
+  namespace: {{ include "radarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "radarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.radarr.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "radarr.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.radarr.strategyType }}
+  strategy:
+    type: {{ .Values.radarr.strategyType }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "radarr.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.radarr.annotations }}
+      annotations:
+        {{- toYaml .Values.radarr.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: radarr
+          image: "{{ .Values.radarr.image.repository }}:{{ include "radarr.image" . }}"
+          env: {{- include "radarr.radarrEnv" . | nindent 12 }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.radarr.resources }}
+          resources:
+            {{- if .Values.radarr.resources.requests }}
+            requests:
+              {{- if .Values.radarr.resources.requests.memory }}
+              memory: "{{ .Values.radarr.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.radarr.resources.requests.cpu }}
+              cpu: "{{ .Values.radarr.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.radarr.resources.limits }}
+            limits:
+              {{- if .Values.radarr.resources.limits.memory }}
+              memory: "{{ .Values.radarr.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.radarr.resources.limits.cpu }}
+              cpu: "{{ .Values.radarr.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.radarr.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+            {{- if .Values.media.enabled }}
+            - name: media
+              mountPath: /media
+            {{- end }}
+          {{- end }}
+          {{- if .Values.radarr.securityContext }}
+          securityContext:
+            {{- toYaml .Values.radarr.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.radarr.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.radarr.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.radarr.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.radarr.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.radarr.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.radarr.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if or .Values.config.enabled .Values.media.enabled }}
+      volumes:
+        {{- if .Values.config.enabled }}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "radarr.configClaimName" . }}
+        {{- end }}
+        {{- if .Values.media.enabled }}
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ include "radarr.mediaClaimName" . }}
+        {{- end }}
+      {{- end }}

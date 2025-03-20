@@ -1,0 +1,111 @@
+suite: test ingress
+values:
+  - ./values/required-values.yaml
+templates:
+  - ingress.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should not create Ingress by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: can create an Ingress
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: radarr.example.com
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: test-radarr
+      - equal:
+          path: metadata.namespace
+          value: test
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: radarr
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: test
+      - equal:
+          path: spec.rules[0].host
+          value: radarr.example.com
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: ImplementationSpecific
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: test-radarr
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 7878
+      - notExists:
+          path: spec.tls
+      - notExists:
+          path: spec.ingressClassName
+      - notExists:
+          path: metadata.annotations
+
+  - it: can add annotations to the Ingress
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: radarr.example.com
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+      ingress.annotations:
+        test1: "foo"
+        test2: "bar"
+    asserts:
+      - equal:
+          path: metadata.annotations.test1
+          value: "foo"
+      - equal:
+          path: metadata.annotations.test2
+          value: "bar"
+
+  - it: can add TLS to the Ingress
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: radarr.example.com
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+      ingress.tls:
+        - hosts:
+            - radarr.example.com
+          secretName: radarr-ingress-tls
+    asserts:
+      - equal:
+          path: spec.tls[0]
+          value:
+            hosts:
+              - radarr.example.com
+            secretName: radarr-ingress-tls
+
+  - it: can set the Ingress class
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: radarr.example.com
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+      ingress.ingressClassName: "nginx"
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
