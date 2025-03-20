@@ -1,10 +1,11 @@
-suite: test blocky
+suite: test service
 values:
   - ./values/required-values.yaml
 templates:
   - service.yaml
 release:
   name: test
+  namespace: test
 tests:
   - it: should create Service
     asserts:

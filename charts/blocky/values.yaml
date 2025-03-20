@@ -2,6 +2,8 @@
 nameOverride: ""
 # -- Optional full name override for the resources
 fullnameOverride: ""
+# -- Optional namespace override for the resources
+namespaceOverride: ""
 
 blocky:
   # -- Annotations to apply to the Blocky pod
@@ -72,4 +74,3 @@ config:
     caching:
       minTime: 5m
       maxTime: 30m
-

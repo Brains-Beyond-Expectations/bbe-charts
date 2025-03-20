@@ -11,6 +11,10 @@
       "type": "string",
       "description": "Override the full name of the chart"
     },
+    "namespaceOverride": {
+      "type": "string",
+      "description": "Override the namespace of the chart"
+    },
     "blocky": {
       "type": "object",
       "properties": {
