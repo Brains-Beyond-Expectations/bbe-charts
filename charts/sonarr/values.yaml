@@ -85,6 +85,8 @@ ingress:
   enabled: false
   # -- Annotations to apply to the Sonarr ingress
   annotations: {}
+  # -- The main http port to use for the Sonarr ingress
+  mainPort: 8989
   # -- The ingress class to use for the Sonarr ingress
   ingressClassName: ""
   # -- Host configuration for the Sonarr ingress

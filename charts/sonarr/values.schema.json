@@ -140,9 +140,7 @@
         "annotations": {
           "type": "object",
           "description": "Annotations to add to the service",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "additionalProperties": true
         },
         "ports": {
           "type": "array",
@@ -256,6 +254,10 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "mainPort": {
+          "type": "integer",
+          "description": "The main http port to use for the Sonarr ingress"
         },
         "ingressClassName": {
           "type": "string",

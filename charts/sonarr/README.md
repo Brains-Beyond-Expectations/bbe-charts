@@ -25,6 +25,7 @@ Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS fee
 | ingress.enabled | bool | `false` | Whether to create an ingress for Sonarr |
 | ingress.hosts | list | `[]` | Host configuration for the Sonarr ingress |
 | ingress.ingressClassName | string | `""` | The ingress class to use for the Sonarr ingress |
+| ingress.mainPort | int | `8989` | The main http port to use for the Sonarr ingress |
 | ingress.tls | list | `[]` | TLS configuration for the Sonarr ingress |
 | media.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the Sonarr media persistent volume claim |
 | media.annotations | object | `{}` | Annotations to apply to the Sonarr media persistent volume claim |

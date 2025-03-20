@@ -38,7 +38,7 @@ spec:
               service:
                 name: {{ include "sonarr.fullname" $ }}
                 port:
-                  number: 8989
+                  number: {{ $.Values.ingress.mainPort }}
           {{- end }}
     {{- end }}
   {{- end }}

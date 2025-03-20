@@ -9,6 +9,9 @@ version: 0.1.0
 appVersion: 4.0.13
 keywords:
   - sonarr
+  - tv
+  - shows
+  - episodes
   - pvr
   - usenet
   - bittorrent
