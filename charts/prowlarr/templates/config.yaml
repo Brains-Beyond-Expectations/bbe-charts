@@ -1,0 +1,19 @@
+{{- if and .Values.config.enabled (not .Values.config.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "prowlarr.configClaimName" . }}
+  namespace: {{ include "prowlarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "prowlarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- with (include "prowlarr.configAnnotations" .) }}
+  annotations: {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.config.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.config.size }}
+{{- end }}
