@@ -38,7 +38,7 @@ spec:
               service:
                 name: {{ include "prowlarr.fullname" $ }}
                 port:
-                  number: 9696
+                  number: {{ $.Values.ingress.mainPort }}
           {{- end }}
     {{- end }}
   {{- end }}

@@ -25,6 +25,7 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | ingress.enabled | bool | `false` | Whether to create an ingress for Prowlarr |
 | ingress.hosts | list | `[]` | Host configuration for the Prowlarr ingress |
 | ingress.ingressClassName | string | `""` | The ingress class to use for the Prowlarr ingress |
+| ingress.mainPort | int | `9696` | The main http port to use for the Prowlarr ingress |
 | ingress.tls | list | `[]` | TLS configuration for the Prowlarr ingress |
 | nameOverride | string | `""` | Optional short name override for the resources |
 | namespaceOverride | string | `""` | Optional namespace override for the resources |

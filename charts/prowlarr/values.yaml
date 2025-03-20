@@ -85,6 +85,8 @@ ingress:
   enabled: false
   # -- Annotations to apply to the Prowlarr ingress
   annotations: {}
+  # -- The main http port to use for the Prowlarr ingress
+  mainPort: 9696
   # -- The ingress class to use for the Prowlarr ingress
   ingressClassName: ""
   # -- Host configuration for the Prowlarr ingress

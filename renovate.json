@@ -22,10 +22,10 @@
     }
   ],
   "major": {
-    "labels": ["chore", "major"]
+    "labels": ["chore", "patch"]
   },
   "minor": {
-    "labels": ["chore", "minor"]
+    "labels": ["chore", "patch"]
   },
   "patch": {
     "labels": ["chore", "patch"]
