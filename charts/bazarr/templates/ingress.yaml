@@ -38,7 +38,7 @@ spec:
               service:
                 name: {{ include "bazarr.fullname" $ }}
                 port:
-                  number: 6767
+                  number: {{ $.Values.ingress.mainPort }}
           {{- end }}
     {{- end }}
   {{- end }}

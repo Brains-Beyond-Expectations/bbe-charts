@@ -41,6 +41,7 @@ Bazarr is a companion application to Sonarr and Radarr. It manages and downloads
 | ingress.enabled | bool | `false` | Whether to create an ingress for Bazarr |
 | ingress.hosts | list | `[]` | Host configuration for the Bazarr ingress |
 | ingress.ingressClassName | string | `""` | The ingress class to use for the Bazarr ingress |
+| ingress.mainPort | int | `6767` | The main http port to use for the Bazarr ingress |
 | ingress.tls | list | `[]` | TLS configuration for the Bazarr ingress |
 | media.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the Bazarr media persistent volume claim |
 | media.annotations | object | `{}` | Annotations to apply to the Bazarr media persistent volume claim |

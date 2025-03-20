@@ -78,6 +78,8 @@ ingress:
   enabled: false
   # -- Annotations to apply to the Bazarr ingress
   annotations: {}
+  # -- The main http port to use for the Bazarr ingress
+  mainPort: 6767
   # -- The ingress class to use for the Bazarr ingress
   ingressClassName: ""
   # -- Host configuration for the Bazarr ingress
