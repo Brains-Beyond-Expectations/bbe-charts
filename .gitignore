@@ -1,3 +1,7 @@
 *.tgz
 **/Chart.lock
 index.yaml
+
+# Go
+coverage.out
+lib-gen/lib-gen
