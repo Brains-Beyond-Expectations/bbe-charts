@@ -85,6 +85,16 @@ service:
   # -- The type of service to create
   type: LoadBalancer
 
+metrics:
+  # -- Whether to enable the Blocky ServiceMonitor for Prometheus scraping
+  enabled: false
+  # -- Annotations to apply to the Blocky ServiceMonitor
+  annotations: {}
+  # -- The interval at which to scrape metrics from Blocky
+  interval: 30s
+  # -- The timeout for scraping metrics from Blocky
+  scrapeTimeout: null
+
 config:
   # -- Annotations to apply to the Blocky ConfigMap
   annotations: {}
@@ -106,3 +116,5 @@ config:
     caching:
       minTime: 5m
       maxTime: 30m
+    prometheus:
+      enable: true
