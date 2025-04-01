@@ -27,12 +27,12 @@ radarr:
   resources:
     requests:
       # -- The amount of memory to request for the Radarr pod
-      memory: "256Mi"
+      memory: "512Mi"
       # -- The amount of CPU to request for the Radarr pod
-      cpu: "100m"
+      cpu: "50m"
     limits:
       # -- The amount of memory to limit the Radarr pod to
-      memory: "256Mi"
+      memory: "512Mi"
       # -- The amount of CPU to limit the Radarr pod to
       cpu: ""
   # -- The environment variables to set for the Radarr pod
