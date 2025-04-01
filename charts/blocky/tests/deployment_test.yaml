@@ -55,7 +55,7 @@ tests:
           value: 128Mi
       - equal:
           path: spec.template.spec.containers[0].resources.requests.cpu
-          value: 100m
+          value: 50m
       - equal:
           path: spec.template.spec.containers[0].resources.requests.memory
           value: 128Mi
@@ -88,7 +88,6 @@ tests:
       - equal:
           path: spec.template.metadata.annotations["test"]
           value: "true"
-
 
   - it: comes with probes configured
     documentIndex: 0
@@ -126,4 +125,3 @@ tests:
       - equal:
           path: metadata.namespace
           value: test-namespace
-

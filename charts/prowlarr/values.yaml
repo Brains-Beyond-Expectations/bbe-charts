@@ -27,12 +27,12 @@ prowlarr:
   resources:
     requests:
       # -- The amount of memory to request for the Prowlarr pod
-      memory: "256Mi"
+      memory: "512Mi"
       # -- The amount of CPU to request for the Prowlarr pod
-      cpu: "100m"
+      cpu: "50m"
     limits:
       # -- The amount of memory to limit the Prowlarr pod to
-      memory: "256Mi"
+      memory: "512Mi"
       # -- The amount of CPU to limit the Prowlarr pod to
       cpu: ""
   # -- The environment variables to set for the Prowlarr pod
