@@ -93,4 +93,4 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "blocky.fullname" . }}-config
+            name: {{ printf "%s-config" (include "blocky.fullname" .) }}

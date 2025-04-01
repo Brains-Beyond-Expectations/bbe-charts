@@ -30,8 +30,13 @@ A DNS proxy and ad-blocker for the local network
 | blocky.startupProbe | object | `{"exec":{"command":["/app/blocky","healthcheck","--port","53"]},"failureThreshold":30,"initialDelaySeconds":10,"periodSeconds":10,"timeoutSeconds":1}` | The startupProbe configuration for the Blocky pod |
 | blocky.strategyType | string | `"RollingUpdate"` | The strategy to use for updating the Blocky pods |
 | config.annotations | object | `{}` | Annotations to apply to the Blocky ConfigMap |
-| config.yaml | string | `"upstream:\n  default:\n    - 1.1.1.1\n    - 8.8.8.8\nblocking:\n  blackLists:\n    ads:\n      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n  clientGroupsBlock:\n    default:\n      - ads\nport: 53\nhttpPort: 4000\ncaching:\n  minTime: 5m\n  maxTime: 30m\n"` | The configuration for Blocky |
+| config.yaml | string | `"upstream:\n  default:\n    - 1.1.1.1\n    - 8.8.8.8\nblocking:\n  blackLists:\n    ads:\n      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n  clientGroupsBlock:\n    default:\n      - ads\nport: 53\nhttpPort: 4000\ncaching:\n  minTime: 5m\n  maxTime: 30m\nprometheus:\n  enable: true\n"` | The configuration for Blocky |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
+| metrics.annotations | object | `{}` | Annotations to apply to the Blocky ServiceMonitor |
+| metrics.enabled | bool | `false` | Whether to enable the Blocky ServiceMonitor for Prometheus scraping |
+| metrics.interval | string | `"30s"` | The interval at which to scrape metrics from Blocky |
+| metrics.port | string | `"http"` | The port to use to scrape metrics from Blocky |
+| metrics.scrapeTimeout | string | `nil` | The timeout for scraping metrics from Blocky |
 | nameOverride | string | `""` | Optional short name override for the resources |
 | namespaceOverride | string | `""` | Optional namespace override for the resources |
 | service.annotations | object | `{}` | Annotations to apply to the Blocky service |

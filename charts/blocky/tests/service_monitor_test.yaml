@@ -1,0 +1,38 @@
+suite: test service
+values:
+  - ./values/required-values.yaml
+templates:
+  - service_monitor.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should create not create ServiceMonitor per default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create ServiceMonitor when enabled
+    set:
+      metrics.enabled: true
+    documentSelector:
+      path: kind
+      value: ServiceMonitor
+    asserts:
+      - equal:
+          path: spec.endpoints[0].port
+          value: http
+      - equal:
+          path: spec.endpoints[0].interval
+          value: 30s
+      - notExists:
+          path: spec.endpoints[0].scrapeTimeout
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: blocky
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/instance"]
+          value: test
+      - equal:
+          path: spec.namespaceSelector.matchNames[0]
+          value: test
