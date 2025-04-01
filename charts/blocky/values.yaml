@@ -27,7 +27,7 @@ blocky:
       # -- The amount of memory to request for the Blocky pod
       memory: "128Mi"
       # -- The amount of CPU to request for the Blocky pod
-      cpu: "100m"
+      cpu: "50m"
     limits:
       # -- The amount of memory to limit the Blocky pod to
       memory: "128Mi"

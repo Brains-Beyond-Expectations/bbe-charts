@@ -27,12 +27,12 @@ bazarr:
   resources:
     requests:
       # -- The amount of memory to request for the Bazarr pod
-      memory: "256Mi"
+      memory: "512Mi"
       # -- The amount of CPU to request for the Bazarr pod
-      cpu: "100m"
+      cpu: "50m"
     limits:
       # -- The amount of memory to limit the Bazarr pod to
-      memory: "256Mi"
+      memory: "512Mi"
       # -- The amount of CPU to limit the Bazarr pod to
       cpu: ""
   # -- The environment variables to set for the Bazarr pod
