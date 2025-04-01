@@ -1,6 +1,6 @@
 # bazarr
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: release-1.5.0](https://img.shields.io/badge/AppVersion-release--1.5.0-informational?style=flat-square)
+![Version: 0.1.1](https://img.shields.io/badge/Version-0.1.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: release-1.5.0](https://img.shields.io/badge/AppVersion-release--1.5.0-informational?style=flat-square)
 
 Bazarr is a companion application to Sonarr and Radarr. It manages and downloads subtitles based on your requirements.
 
@@ -22,9 +22,9 @@ Bazarr is a companion application to Sonarr and Radarr. It manages and downloads
 | bazarr.readinessProbe | object | `{"failureThreshold":3,"periodSeconds":10,"successThreshold":1,"tcpSocket":{"port":6767},"timeoutSeconds":1}` | The readinessProbe configuration for the Bazarr pod |
 | bazarr.replicas | int | `1` | How many replicas of the Bazarr pod to run |
 | bazarr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Bazarr pod to |
-| bazarr.resources.limits.memory | string | `"256Mi"` | The amount of memory to limit the Bazarr pod to |
-| bazarr.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Bazarr pod |
-| bazarr.resources.requests.memory | string | `"256Mi"` | The amount of memory to request for the Bazarr pod |
+| bazarr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Bazarr pod to |
+| bazarr.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the Bazarr pod |
+| bazarr.resources.requests.memory | string | `"512Mi"` | The amount of memory to request for the Bazarr pod |
 | bazarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Bazarr with a read-only root filesystem |
 | bazarr.securityContext.runAsGroup | int | `0` | The group ID to run Bazarr as |
 | bazarr.securityContext.runAsUser | int | `0` | The user ID to run Bazarr as |
