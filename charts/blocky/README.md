@@ -1,6 +1,6 @@
 # blocky
 
-![Version: 1.1.0](https://img.shields.io/badge/Version-1.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.25](https://img.shields.io/badge/AppVersion-v0.25-informational?style=flat-square)
+![Version: 1.1.1](https://img.shields.io/badge/Version-1.1.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.25](https://img.shields.io/badge/AppVersion-v0.25-informational?style=flat-square)
 
 A DNS proxy and ad-blocker for the local network
 
@@ -23,7 +23,7 @@ A DNS proxy and ad-blocker for the local network
 | blocky.replicas | int | `2` | How many replicas of the Blocky pod to run |
 | blocky.resources.limits.cpu | string | `""` | The amount of CPU to limit the Blocky pod to |
 | blocky.resources.limits.memory | string | `"128Mi"` | The amount of memory to limit the Blocky pod to |
-| blocky.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Blocky pod |
+| blocky.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the Blocky pod |
 | blocky.resources.requests.memory | string | `"128Mi"` | The amount of memory to request for the Blocky pod |
 | blocky.securityContext.readOnlyRootFilesystem | bool | `true` | Whether to run Blocky with a read-only root filesystem |
 | blocky.securityContext.runAsUser | int | `1000` | The user ID to run Blocky as |
