@@ -211,25 +211,6 @@ entries:
   prowlarr:
   - apiVersion: v2
     appVersion: 1.32.2
-    created: "2025-04-01T15:03:24.057888903Z"
-    description: Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs
-      base stack to integrate with your various PVR apps.
-    digest: 4fcdebfde1f219f7eb4f8b4d3f72c96536db6461893740ed11fbdbc32bafedbf
-    home: https://brains-beyond-expectations.github.io/bbe-charts
-    icon: https://avatars.githubusercontent.com/u/73049443
-    keywords:
-    - prowlarr
-    - indexer
-    - proxy
-    name: prowlarr
-    sources:
-    - https://github.com/Prowlarr/Prowlarr
-    type: application
-    urls:
-    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/prowlarr-0.1.1/prowlarr-0.1.1.tgz
-    version: 0.1.1
-  - apiVersion: v2
-    appVersion: 1.32.2
     created: "2025-03-20T16:38:21.76879082Z"
     description: Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs
       base stack to integrate with your various PVR apps.
@@ -248,6 +229,29 @@ entries:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/prowlarr-0.1.0/prowlarr-0.1.0.tgz
     version: 0.1.0
   radarr:
+  - apiVersion: v2
+    appVersion: 5.21.1
+    created: "2025-04-01T15:03:51.786692163Z"
+    description: Radarr is a movie collection manager for Usenet and BitTorrent users.
+      It can monitor multiple RSS feeds for new movies and will interface with clients
+      and indexers to grab, sort, and rename them.
+    digest: eeeff19da5c6d20565418cb9e00a284a9a8eb37d78adb118cb0e34dab1dc0307
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/25025331
+    keywords:
+    - radarr
+    - films
+    - pvr
+    - usenet
+    - bittorrent
+    - rss
+    name: radarr
+    sources:
+    - https://github.com/Radarr/Radarr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/radarr-0.1.2/radarr-0.1.2.tgz
+    version: 0.1.2
   - apiVersion: v2
     appVersion: 5.21.1
     created: "2025-03-24T17:03:26.688733143Z"
@@ -345,4 +349,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2025-04-01T15:03:24.056856668Z"
+generated: "2025-04-01T15:03:51.785648799Z"
