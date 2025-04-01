@@ -90,6 +90,8 @@ metrics:
   enabled: false
   # -- Annotations to apply to the Blocky ServiceMonitor
   annotations: {}
+  # -- The port to use to scrape metrics from Blocky
+  port: http
   # -- The interval at which to scrape metrics from Blocky
   interval: 30s
   # -- The timeout for scraping metrics from Blocky

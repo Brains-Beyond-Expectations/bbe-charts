@@ -161,6 +161,10 @@
             "type": "string"
           }
         },
+        "port": {
+          "type": "string",
+          "description": "The port to use to scrape metrics from Blocky"
+        },
         "interval": {
           "type": "string",
           "description": "The interval at which to scrape metrics from Blocky"

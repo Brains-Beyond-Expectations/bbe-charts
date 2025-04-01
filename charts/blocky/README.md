@@ -35,6 +35,7 @@ A DNS proxy and ad-blocker for the local network
 | metrics.annotations | object | `{}` | Annotations to apply to the Blocky ServiceMonitor |
 | metrics.enabled | bool | `false` | Whether to enable the Blocky ServiceMonitor for Prometheus scraping |
 | metrics.interval | string | `"30s"` | The interval at which to scrape metrics from Blocky |
+| metrics.port | string | `"http"` | The port to use to scrape metrics from Blocky |
 | metrics.scrapeTimeout | string | `nil` | The timeout for scraping metrics from Blocky |
 | nameOverride | string | `""` | Optional short name override for the resources |
 | namespaceOverride | string | `""` | Optional namespace override for the resources |
