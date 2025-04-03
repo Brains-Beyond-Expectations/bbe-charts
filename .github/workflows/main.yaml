@@ -72,7 +72,7 @@ jobs:
       - name: Generate a token for Brainz-Bot
         id: generate-token
         if: steps.changed-files.outputs.chart == 'true'
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.BRAINZ_BOT_ID }}
           private-key: ${{ secrets.BRAINZ_BOT_PRIVATE_KEY }}
