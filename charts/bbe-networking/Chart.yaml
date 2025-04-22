@@ -2,7 +2,7 @@ apiVersion: v2
 name: bbe-networking
 description: A collection of charts for BBE cluster networking
 type: application
-version: 0.0.1
+version: 0.1.0
 keywords:
   - bbe
   - networking
@@ -10,7 +10,6 @@ keywords:
   - adblock
   - blocky
 home: https://brains-beyond-expectations.github.io/bbe-charts
-
 dependencies:
   - name: blocky
     repository: https://brains-beyond-expectations.github.io/bbe-charts
