@@ -1,0 +1,35 @@
+apiVersion: v2
+name: bbe-media
+description: A collection of charts for BBE cluster media
+type: application
+version: 0.0.1
+keywords:
+  - bbe
+  - media
+  - streaming
+  - jellyfin
+  - sonarr
+  - radarr
+  - bazarr
+  - prowlarr
+home: https://brains-beyond-expectations.github.io/bbe-charts
+
+dependencies:
+  - name: bazarr
+    version: 0.1.1
+    repository: https://brains-beyond-expectations.github.io/bbe-charts
+  - name: jellyfin
+    version: 2.3.0
+    repository: https://jellyfin.github.io/jellyfin-helm
+  - name: jellyseerr-chart
+    version: 2.3.3
+    repository: oci://ghcr.io/fallenbagel/jellyseerr
+  - name: prowlarr
+    version: 0.1.2
+    repository: https://brains-beyond-expectations.github.io/bbe-charts
+  - name: radarr
+    version: 0.1.2
+    repository: https://brains-beyond-expectations.github.io/bbe-charts
+  - name: sonarr
+    version: 0.1.2
+    repository: https://brains-beyond-expectations.github.io/bbe-charts
