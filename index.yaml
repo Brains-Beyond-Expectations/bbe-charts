@@ -43,6 +43,44 @@ entries:
     version: 0.1.0
   bbe-media:
   - apiVersion: v2
+    created: "2025-04-22T20:08:42.040911408Z"
+    dependencies:
+    - name: bazarr
+      repository: https://brains-beyond-expectations.github.io/bbe-charts
+      version: 0.1.1
+    - name: jellyfin
+      repository: https://jellyfin.github.io/jellyfin-helm
+      version: 2.3.0
+    - name: jellyseerr-chart
+      repository: oci://ghcr.io/fallenbagel/jellyseerr
+      version: 2.3.3
+    - name: prowlarr
+      repository: https://brains-beyond-expectations.github.io/bbe-charts
+      version: 0.1.3
+    - name: radarr
+      repository: https://brains-beyond-expectations.github.io/bbe-charts
+      version: 0.1.2
+    - name: sonarr
+      repository: https://brains-beyond-expectations.github.io/bbe-charts
+      version: 0.1.2
+    description: A collection of charts for BBE cluster media
+    digest: c6d91c98e3fde4790a5a23d1aae43659c06a37b201db5d707f34de2e37ae7b85
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    keywords:
+    - bbe
+    - media
+    - streaming
+    - jellyfin
+    - sonarr
+    - radarr
+    - bazarr
+    - prowlarr
+    name: bbe-media
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/bbe-media-0.1.1/bbe-media-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
     created: "2025-04-22T20:04:43.538759205Z"
     dependencies:
     - name: bazarr
@@ -494,4 +532,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2025-04-22T20:05:19.280417009Z"
+generated: "2025-04-22T20:08:42.035035948Z"
