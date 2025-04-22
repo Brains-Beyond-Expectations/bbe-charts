@@ -31,7 +31,8 @@ jobs:
   test-and-build:
     needs: get-charts
     strategy:
-      matrix: ${{ fromJson(needs.get-charts.outputs.matrix) }}
+      matrix:
+        chart: ${{ fromJson(needs.get-charts.outputs.matrix) }}
     name: Test (${{ matrix.chart }})
     runs-on: ubuntu-latest
     steps:
