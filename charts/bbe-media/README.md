@@ -1,6 +1,6 @@
 # bbe-media
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 0.1.1](https://img.shields.io/badge/Version-0.1.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 A collection of charts for BBE cluster media
 
@@ -11,7 +11,7 @@ A collection of charts for BBE cluster media
 | Repository | Name | Version |
 |------------|------|---------|
 | https://brains-beyond-expectations.github.io/bbe-charts | bazarr | 0.1.1 |
-| https://brains-beyond-expectations.github.io/bbe-charts | prowlarr | 0.1.2 |
+| https://brains-beyond-expectations.github.io/bbe-charts | prowlarr | 0.1.3 |
 | https://brains-beyond-expectations.github.io/bbe-charts | radarr | 0.1.2 |
 | https://brains-beyond-expectations.github.io/bbe-charts | sonarr | 0.1.2 |
 | https://jellyfin.github.io/jellyfin-helm | jellyfin | 2.3.0 |
