@@ -2,7 +2,7 @@ apiVersion: v2
 name: bbe-media
 description: A collection of charts for BBE cluster media
 type: application
-version: 0.0.1
+version: 0.1.0
 keywords:
   - bbe
   - media
@@ -13,7 +13,6 @@ keywords:
   - bazarr
   - prowlarr
 home: https://brains-beyond-expectations.github.io/bbe-charts
-
 dependencies:
   - name: bazarr
     version: 0.1.1
