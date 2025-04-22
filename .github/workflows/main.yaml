@@ -37,7 +37,8 @@ jobs:
     strategy:
       max-parallel: 1
       fail-fast: false
-      matrix: ${{ fromJson(needs.get-charts.outputs.matrix) }}
+      matrix:
+        chart: ${{ fromJson(needs.get-charts.outputs.matrix) }}
     name: Update (${{ matrix.chart }})
     runs-on: ubuntu-latest
     steps:

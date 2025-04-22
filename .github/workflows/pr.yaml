@@ -31,6 +31,8 @@ jobs:
   test-and-build:
     needs: get-charts
     strategy:
+      max-parallel: 1
+      fail-fast: false
       matrix:
         chart: ${{ fromJson(needs.get-charts.outputs.matrix) }}
     name: Test (${{ matrix.chart }})
