@@ -1,6 +1,6 @@
 # sonarr
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 4.0.13](https://img.shields.io/badge/AppVersion-4.0.13-informational?style=flat-square)
+![Version: 0.1.2](https://img.shields.io/badge/Version-0.1.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 4.0.14](https://img.shields.io/badge/AppVersion-4.0.14-informational?style=flat-square)
 
 Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new episodes of your favorite shows and will grab, sort and rename them.
 
@@ -46,9 +46,9 @@ Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS fee
 | sonarr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":8989},"timeoutSeconds":1}` | The readinessProbe configuration for the Sonarr pod |
 | sonarr.replicas | int | `1` | How many replicas of the Sonarr pod to run |
 | sonarr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Sonarr pod to |
-| sonarr.resources.limits.memory | string | `"256Mi"` | The amount of memory to limit the Sonarr pod to |
-| sonarr.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Sonarr pod |
-| sonarr.resources.requests.memory | string | `"256Mi"` | The amount of memory to request for the Sonarr pod |
+| sonarr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Sonarr pod to |
+| sonarr.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the Sonarr pod |
+| sonarr.resources.requests.memory | string | `"512Mi"` | The amount of memory to request for the Sonarr pod |
 | sonarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Sonarr with a read-only root filesystem |
 | sonarr.securityContext.runAsGroup | int | `0` | The group ID to run Prowlarr as |
 | sonarr.securityContext.runAsUser | int | `0` | The user ID to run Sonarr as |

@@ -1,6 +1,6 @@
 # prowlarr
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.32.2](https://img.shields.io/badge/AppVersion-1.32.2-informational?style=flat-square)
+![Version: 0.1.3](https://img.shields.io/badge/Version-0.1.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.34.1](https://img.shields.io/badge/AppVersion-1.34.1-informational?style=flat-square)
 
 Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base stack to integrate with your various PVR apps.
 
@@ -37,9 +37,9 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | prowlarr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":9696},"timeoutSeconds":1}` | The readinessProbe configuration for the Prowlarr pod |
 | prowlarr.replicas | int | `1` | How many replicas of the Prowlarr pod to run |
 | prowlarr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Prowlarr pod to |
-| prowlarr.resources.limits.memory | string | `"256Mi"` | The amount of memory to limit the Prowlarr pod to |
-| prowlarr.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Prowlarr pod |
-| prowlarr.resources.requests.memory | string | `"256Mi"` | The amount of memory to request for the Prowlarr pod |
+| prowlarr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Prowlarr pod to |
+| prowlarr.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the Prowlarr pod |
+| prowlarr.resources.requests.memory | string | `"512Mi"` | The amount of memory to request for the Prowlarr pod |
 | prowlarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Prowlarr with a read-only root filesystem |
 | prowlarr.securityContext.runAsGroup | int | `0` | The group ID to run Prowlarr as |
 | prowlarr.securityContext.runAsUser | int | `0` | The user ID to run Prowlarr as |

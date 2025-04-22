@@ -1,6 +1,6 @@
 # radarr
 
-![Version: 0.1.1](https://img.shields.io/badge/Version-0.1.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.21.1](https://img.shields.io/badge/AppVersion-5.21.1-informational?style=flat-square)
+![Version: 0.1.2](https://img.shields.io/badge/Version-0.1.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 5.21.1](https://img.shields.io/badge/AppVersion-5.21.1-informational?style=flat-square)
 
 Radarr is a movie collection manager for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new movies and will interface with clients and indexers to grab, sort, and rename them.
 
@@ -43,9 +43,9 @@ Radarr is a movie collection manager for Usenet and BitTorrent users. It can mon
 | radarr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":7878},"timeoutSeconds":1}` | The readinessProbe configuration for the Radarr pod |
 | radarr.replicas | int | `1` | How many replicas of the Radarr pod to run |
 | radarr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Radarr pod to |
-| radarr.resources.limits.memory | string | `"256Mi"` | The amount of memory to limit the Radarr pod to |
-| radarr.resources.requests.cpu | string | `"100m"` | The amount of CPU to request for the Radarr pod |
-| radarr.resources.requests.memory | string | `"256Mi"` | The amount of memory to request for the Radarr pod |
+| radarr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Radarr pod to |
+| radarr.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the Radarr pod |
+| radarr.resources.requests.memory | string | `"512Mi"` | The amount of memory to request for the Radarr pod |
 | radarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Radarr with a read-only root filesystem |
 | radarr.securityContext.runAsGroup | int | `0` | The group ID to run Prowlarr as |
 | radarr.securityContext.runAsUser | int | `0` | The user ID to run Radarr as |
