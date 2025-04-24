@@ -1,9 +1,5 @@
 charts:
-  - name: blocky
-    min-bbe-cli: 0.5.3
-  - name: ingress-nginx
-    min-bbe-cli: 0.5.3
-    external-chart:
-      version: 4.12.0
-      repositoryUrl: https://kubernetes.github.io/ingress-nginx
-      repositoryName: ingress-nginx
+  - name: bbe-media
+    min-bbe-cli: 0.6.1
+  - name: bbe-networking
+    min-bbe-cli: 0.6.0
