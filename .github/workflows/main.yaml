@@ -1,9 +1,10 @@
-name: Pull request
+name: Main
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -174,6 +175,7 @@ jobs:
           commitish: ${{ steps.update-chart-version.outputs.latest_commit }}
 
   update-library:
+    needs: update-charts
     name: Update library
     runs-on: ubuntu-latest
     steps:
