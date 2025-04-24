@@ -15,12 +15,30 @@ env:
   HELM_DOCS_VERSION: 1.14.2
 
 jobs:
+  get-charts:
+    name: Get charts
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.check-folders.outputs.charts }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Get charts
+        id: check-folders
+        run: |
+          wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+          folders=$(ls charts | jq -R -s -c 'split("\n")[:-1]')
+          echo "charts=$folders" >> $GITHUB_OUTPUT
+
   update-charts:
+    needs: get-charts
     strategy:
       max-parallel: 1
       fail-fast: false
       matrix:
-        chart: [bazarr, blocky, prowlarr, radarr, sonarr]
+        chart: ${{ fromJson(needs.get-charts.outputs.matrix) }}
     name: Update (${{ matrix.chart }})
     runs-on: ubuntu-latest
     steps:
