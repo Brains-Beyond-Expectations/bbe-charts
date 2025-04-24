@@ -175,6 +175,7 @@ jobs:
           commitish: ${{ steps.update-chart-version.outputs.latest_commit }}
 
   update-library:
+    needs: update-charts
     name: Update library
     runs-on: ubuntu-latest
     steps:
