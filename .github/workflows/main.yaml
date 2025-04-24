@@ -172,6 +172,7 @@ jobs:
           config-name: ${{ matrix.chart }}-release-drafter.yaml
           publish: true
           commitish: ${{ steps.update-chart-version.outputs.latest_commit }}
+
   update-library:
     name: Update library
     runs-on: ubuntu-latest
