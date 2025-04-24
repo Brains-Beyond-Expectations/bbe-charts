@@ -81,3 +81,19 @@ jobs:
         with:
           directory: /tmp/${{ matrix.chart }}
           config: charts/${{ matrix.chart }}/.kube-linter.yaml
+  test-lib-gen:
+    name: Test lib-gen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+          cache-dependency-path: |
+            lib-gen/go.sum
+      - name: Run tests
+        run: |
+          cd lib-gen
+          make test

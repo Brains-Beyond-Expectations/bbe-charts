@@ -1,6 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
+  "enabledManagers": ["github-actions", "custom.regex"],
   "customManagers": [
     {
       "customType": "regex",
@@ -46,6 +47,14 @@
       ],
       "depNameTemplate": "lscr.io/linuxserver/sonarr",
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["required-versions.yaml"],
+      "matchStrings": [
+        "external-chart:\\n\\s*version:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)\\n\\s*repositoryUrl:\\s*(?<registryUrl>.*)\\n\\s*repositoryName:\\s*(?<depName>[a-z-]+)"
+      ],
+      "datasourceTemplate": "helm"
     }
   ],
   "major": {

@@ -153,18 +153,16 @@ jobs:
           cp /tmp/index.yaml index.yaml
 
           # Commit the changes
-          FILES_CHANGED="index.yaml"
-          for file in $FILES_CHANGED; do
-            CONTENT=$(base64 -w 0 $file)
-            FILENAME=$(basename $file)
-            SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=gh-pages | jq -r .sha)
-            if [ "$SHA" == "null" ]; then
-              SHA=""
-            fi
-            curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
-              -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"gh-pages\", \"sha\":\"$SHA\"}" \
-              https://api.github.com/repos/${{ github.repository }}/contents/$file
-          done
+          FILE="index.yaml"
+          CONTENT=$(base64 -w 0 $FILE)
+          FILENAME=$(basename $FILE)
+          SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$FILE?ref=gh-pages | jq -r .sha)
+          if [ "$SHA" == "null" ]; then
+            SHA=""
+          fi
+          curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
+            -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"gh-pages\", \"sha\":\"$SHA\"}" \
+            https://api.github.com/repos/${{ github.repository }}/contents/$FILE
       - name: Finalize release
         if: steps.changed-files.outputs.chart == 'true'
         uses: release-drafter/release-drafter@v6
@@ -174,3 +172,41 @@ jobs:
           config-name: ${{ matrix.chart }}-release-drafter.yaml
           publish: true
           commitish: ${{ steps.update-chart-version.outputs.latest_commit }}
+
+  update-library:
+    name: Update library
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Generate a token for Brainz-Bot
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BRAINZ_BOT_ID }}
+          private-key: ${{ secrets.BRAINZ_BOT_PRIVATE_KEY }}
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+          cache-dependency-path: |
+            lib-gen/go.sum
+      - name: Run lib-gen
+        run: |
+          cd lib-gen
+          make run
+      - name: Commit changes
+        run: |
+          # Commit the changes
+          FILE="library.yaml"
+          CONTENT=$(base64 -w 0 $FILE)
+          FILENAME=$(basename $FILE)
+          SHA=$(curl -s -H "Authorization: token ${{ steps.generate-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$FILE?ref=main | jq -r .sha)
+          if [ "$SHA" == "null" ]; then
+            SHA=""
+          fi
+          curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
+            -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"main\", \"sha\":\"$SHA\"}" \
+            https://api.github.com/repos/${{ github.repository }}/contents/$FILE
