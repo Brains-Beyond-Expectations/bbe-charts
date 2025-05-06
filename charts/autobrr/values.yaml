@@ -1,0 +1,116 @@
+# -- Optional short name override for the resources
+nameOverride: ""
+# -- Optional full name override for the resources
+fullnameOverride: ""
+# -- Optional namespace override for the resources
+namespaceOverride: ""
+
+autobrr:
+  # -- Annotations to apply to the Autobrr pod
+  annotations: {}
+  # -- How many replicas of the Autobrr pod to run
+  replicas: 1
+  # -- The strategy to use for updating the Autobrr pods
+  strategyType: Recreate
+  image:
+    # -- The image repository to pull from
+    repository: ghcr.io/autobrr/autobrr
+    # -- The image tag to pull
+    tag: ""
+  securityContext:
+    # -- Whether to run Autobrr with a read-only root filesystem
+    readOnlyRootFilesystem: false
+    # -- The user ID to run Autobrr as
+    runAsUser: 0
+    # -- The group ID to run Autobrr as
+    runAsGroup: 0
+  resources:
+    requests:
+      # -- The amount of memory to request for the Autobrr pod
+      memory: "512Mi"
+      # -- The amount of CPU to request for the Autobrr pod
+      cpu: "50m"
+    limits:
+      # -- The amount of memory to limit the Autobrr pod to
+      memory: "512Mi"
+      # -- The amount of CPU to limit the Autobrr pod to
+      cpu: ""
+  # -- The environment variables to set for the Autobrr pod
+  env: []
+  # -- The livenessProbe configuration for the Autobrr pod
+  livenessProbe:
+    exec:
+      command:
+        - /usr/bin/env
+        - bash
+        - -c
+        - curl --fail localhost:9696/api/v1/system/status?apiKey=`IFS=\> &&
+          while read -d \< E C; do if [[ $E = "ApiKey" ]]; then echo $C; fi;
+          done < /config/config.xml`
+    failureThreshold: 5
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 10
+  # -- The readinessProbe configuration for the Autobrr pod
+  readinessProbe:
+    failureThreshold: 3
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    tcpSocket:
+      port: 9696
+    timeoutSeconds: 1
+  # -- The startupProbe configuration for the Autobrr pod
+  startupProbe:
+    failureThreshold: 30
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    tcpSocket:
+      port: 9696
+    timeoutSeconds: 1
+
+service:
+  # -- Annotations to apply to the Autobrr service
+  annotations: {}
+  # -- Port to expose the Autobrr service on
+  ports:
+    - name: http
+      port: 9696
+      protocol: TCP
+  # -- The type of service to create
+  type: ClusterIP
+
+ingress:
+  # -- Whether to create an ingress for Autobrr
+  enabled: false
+  # -- Annotations to apply to the Autobrr ingress
+  annotations: {}
+  # -- The main http port to use for the Autobrr ingress
+  mainPort: 9696
+  # -- The ingress class to use for the Autobrr ingress
+  ingressClassName: ""
+  # -- Host configuration for the Autobrr ingress
+  hosts: []
+  #   - host: Autobrr.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: ImplementationSpecific
+  # -- TLS configuration for the Autobrr ingress
+  tls: []
+  #   - hosts:
+  #       - Autobrr.example.com
+  #     secretName: Autobrr-ingress-tls
+
+config:
+  # -- Annotations to apply to the Autobrr config persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the Autobrr config
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the Autobrr config
+  existingClaim: ""
+  # -- The amount of storage to request for the Autobrr config
+  size: "1Gi"
+  # -- The access mode to use for the Autobrr config persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the config after the Autobrr chart is uninstalled
+  retain: false

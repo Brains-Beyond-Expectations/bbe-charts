@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "autobrr.fullname" . }}
+  namespace: {{ include "autobrr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "autobrr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.autobrr.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "autobrr.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.autobrr.strategyType }}
+  strategy:
+    type: {{ .Values.autobrr.strategyType }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "autobrr.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.autobrr.annotations }}
+      annotations:
+        {{- toYaml .Values.autobrr.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: autobrr
+          image: "{{ .Values.autobrr.image.repository }}:{{ include "autobrr.image" . }}"
+          env: {{- include "autobrr.autobrrEnv" . | nindent 12 }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.autobrr.resources }}
+          resources:
+            {{- if .Values.autobrr.resources.requests }}
+            requests:
+              {{- if .Values.autobrr.resources.requests.memory }}
+              memory: "{{ .Values.autobrr.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.autobrr.resources.requests.cpu }}
+              cpu: "{{ .Values.autobrr.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.autobrr.resources.limits }}
+            limits:
+              {{- if .Values.autobrr.resources.limits.memory }}
+              memory: "{{ .Values.autobrr.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.autobrr.resources.limits.cpu }}
+              cpu: "{{ .Values.autobrr.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.autobrr.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+          {{- end }}
+          {{- if .Values.autobrr.securityContext }}
+          securityContext:
+            {{- toYaml .Values.autobrr.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.autobrr.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.autobrr.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.autobrr.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.autobrr.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.autobrr.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.autobrr.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if .Values.config.enabled }}
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "autobrr.configClaimName" . }}
+      {{- end }}

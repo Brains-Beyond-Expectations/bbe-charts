@@ -1,0 +1,130 @@
+suite: test deployment
+values:
+  - ./values/required-values.yaml
+templates:
+  - deployment.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should create a Deployment
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should create a deployment with correct specifications
+    asserts:
+      - equal:
+          path: metadata.name
+          value: test-autobrr
+      - equal:
+          path: metadata.namespace
+          value: test
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: autobrr
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/name"]
+          value: autobrr
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/instance"]
+          value: test
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/instance"]
+          value: test
+      - notExists:
+          path: spec.template.metadata.annotations
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: autobrr
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: ghcr\.io\/autobrr\/autobrr:[^".]+
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TZ
+            value: UTC
+      - notExists:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 512Mi
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 50m
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 512Mi
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsUser
+          value: 0
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].name
+          value: config
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].mountPath
+          value: /config
+
+  - it: can add annotations
+    set:
+      autobrr.annotations: {"test": "true"}
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["test"]
+          value: "true"
+
+  - it: comes with probes configured
+    asserts:
+      - exists:
+          path: spec.template.spec.containers[0].livenessProbe.exec.command[0]
+      - exists:
+          path: spec.template.spec.containers[0].readinessProbe.tcpSocket.port
+      - exists:
+          path: spec.template.spec.containers[0].startupProbe.tcpSocket.port
+
+  - it: should use only chart name if release name contains chart name
+    release:
+      name: autobrr
+    asserts:
+      - equal:
+          path: metadata.name
+          value: autobrr
+      - equal:
+          path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
+          value: autobrr-config
+
+  - it: respects existingClaim for config
+    release:
+      name: autobrr
+    set:
+      config.existingClaim: "test-config"
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
+          value: test-config
+
+  - it: respects fullnameOverride
+    set:
+      fullnameOverride: "test-fullname"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: test-fullname
+
+  - it: respects namespaceOverride
+    set:
+      namespaceOverride: "test-namespace"
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: test-namespace
