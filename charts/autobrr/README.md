@@ -18,8 +18,8 @@ Modern, easy to use download automation for torrents and usenet.
 | autobrr.env | list | `[]` | The environment variables to set for the Autobrr pod |
 | autobrr.image.repository | string | `"ghcr.io/autobrr/autobrr"` | The image repository to pull from |
 | autobrr.image.tag | string | `""` | The image tag to pull |
-| autobrr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:9696/api/v1/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Autobrr pod |
-| autobrr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":9696},"timeoutSeconds":1}` | The readinessProbe configuration for the Autobrr pod |
+| autobrr.livenessProbe | object | `{"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"tcpSocket":{"port":7474},"timeoutSeconds":10}` | The livenessProbe configuration for the Autobrr pod |
+| autobrr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":7474},"timeoutSeconds":1}` | The readinessProbe configuration for the Autobrr pod |
 | autobrr.replicas | int | `1` | How many replicas of the Autobrr pod to run |
 | autobrr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Autobrr pod to |
 | autobrr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Autobrr pod to |
@@ -28,7 +28,7 @@ Modern, easy to use download automation for torrents and usenet.
 | autobrr.securityContext.readOnlyRootFilesystem | bool | `true` | Whether to run Autobrr with a read-only root filesystem |
 | autobrr.securityContext.runAsGroup | int | `1000` | The group ID to run Autobrr as |
 | autobrr.securityContext.runAsUser | int | `1000` | The user ID to run Autobrr as |
-| autobrr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":9696},"timeoutSeconds":1}` | The startupProbe configuration for the Autobrr pod |
+| autobrr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":7474},"timeoutSeconds":1}` | The startupProbe configuration for the Autobrr pod |
 | autobrr.strategyType | string | `"Recreate"` | The strategy to use for updating the Autobrr pods |
 | config.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the Autobrr config persistent volume claim |
 | config.annotations | object | `{}` | Annotations to apply to the Autobrr config persistent volume claim |
@@ -41,12 +41,12 @@ Modern, easy to use download automation for torrents and usenet.
 | ingress.enabled | bool | `false` | Whether to create an ingress for Autobrr |
 | ingress.hosts | list | `[]` | Host configuration for the Autobrr ingress |
 | ingress.ingressClassName | string | `""` | The ingress class to use for the Autobrr ingress |
-| ingress.mainPort | int | `9696` | The main http port to use for the Autobrr ingress |
+| ingress.mainPort | int | `7474` | The main http port to use for the Autobrr ingress |
 | ingress.tls | list | `[]` | TLS configuration for the Autobrr ingress |
 | nameOverride | string | `""` | Optional short name override for the resources |
 | namespaceOverride | string | `""` | Optional namespace override for the resources |
 | service.annotations | object | `{}` | Annotations to apply to the Autobrr service |
-| service.ports | list | `[{"name":"http","port":9696,"protocol":"TCP"}]` | Port to expose the Autobrr service on |
+| service.ports | list | `[{"name":"http","port":7474,"protocol":"TCP"}]` | Port to expose the Autobrr service on |
 | service.type | string | `"ClusterIP"` | The type of service to create |
 
 ----------------------------------------------

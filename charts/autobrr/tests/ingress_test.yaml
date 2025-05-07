@@ -49,7 +49,7 @@ tests:
           value: test-autobrr
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.port.number
-          value: 9696
+          value: 7474
       - notExists:
           path: spec.tls
       - notExists:

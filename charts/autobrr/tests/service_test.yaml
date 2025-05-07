@@ -19,7 +19,7 @@ tests:
           value: ClusterIP
       - equal:
           path: spec.ports[0].port
-          value: 9696
+          value: 7474
       - equal:
           path: spec.ports[0].protocol
           value: TCP
