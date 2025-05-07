@@ -16,6 +16,7 @@ Modern, easy to use download automation for torrents and usenet.
 |-----|------|---------|-------------|
 | autobrr.annotations | object | `{}` | Annotations to apply to the Autobrr pod |
 | autobrr.env | list | `[]` | The environment variables to set for the Autobrr pod |
+| autobrr.envFrom | list | `[]` | The environment variables to set for the Autobrr pod from a config map or secret |
 | autobrr.image.repository | string | `"ghcr.io/autobrr/autobrr"` | The image repository to pull from |
 | autobrr.image.tag | string | `""` | The image tag to pull |
 | autobrr.livenessProbe | object | `{"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"tcpSocket":{"port":7474},"timeoutSeconds":10}` | The livenessProbe configuration for the Autobrr pod |

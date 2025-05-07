@@ -86,7 +86,7 @@ tests:
   - it: comes with probes configured
     asserts:
       - exists:
-          path: spec.template.spec.containers[0].livenessProbe.exec.command[0]
+          path: spec.template.spec.containers[0].livenessProbe.tcpSocket.port
       - exists:
           path: spec.template.spec.containers[0].readinessProbe.tcpSocket.port
       - exists:
@@ -128,3 +128,18 @@ tests:
       - equal:
           path: metadata.namespace
           value: test-namespace
+
+  - it: can set envFrom
+    set:
+      autobrr.envFrom:
+        - configMapRef:
+            name: test-configmap
+        - secretRef:
+            name: test-secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom[0].configMapRef.name
+          value: test-configmap
+      - equal:
+          path: spec.template.spec.containers[0].envFrom[1].secretRef.name
+          value: test-secret

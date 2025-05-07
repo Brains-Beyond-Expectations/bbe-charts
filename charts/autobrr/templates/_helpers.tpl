@@ -51,6 +51,19 @@ Create the env for the container
 {{- end -}}
 
 {{/*
+Create the envFrom for the container
+*/}}
+{{- define "autobrr.autobrrEnvFrom" -}}
+{{- $envFrom := list }}
+{{- if .Values.autobrr.envFrom }}
+{{- $envFrom = concat $envFrom .Values.autobrr.envFrom }}
+{{- end }}
+{{- if not (empty $envFrom) -}}
+{{ toYaml $envFrom }}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Create the annotations for config PVC
 */}}
 {{- define "autobrr.configAnnotations" -}}

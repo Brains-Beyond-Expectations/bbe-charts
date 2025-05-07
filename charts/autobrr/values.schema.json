@@ -130,6 +130,39 @@
             },
             "required": ["name", "value"]
           }
+        },
+        "envFrom": {
+          "type": "array",
+          "description": "The environment variables to set for the Autobrr pod from a config map or secret",
+          "items": {
+            "type": "object",
+            "properties": {
+              "configMapRef": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The name of the config map"
+                  }
+                },
+                "required": ["name"]
+              },
+              "secretRef": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The name of the secret"
+                  }
+                },
+                "required": ["name"]
+              }
+            },
+            "oneOf": [
+              {"required": ["configMapRef"]},
+              {"required": ["secretRef"]}
+            ]
+          }
         }
       },
       "required": ["replicas", "image"]

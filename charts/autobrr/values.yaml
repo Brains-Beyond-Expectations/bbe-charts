@@ -37,6 +37,8 @@ autobrr:
       cpu: ""
   # -- The environment variables to set for the Autobrr pod
   env: []
+  # -- The environment variables to set for the Autobrr pod from a config map or secret
+  envFrom: []
   # -- The livenessProbe configuration for the Autobrr pod
   livenessProbe:
     failureThreshold: 5

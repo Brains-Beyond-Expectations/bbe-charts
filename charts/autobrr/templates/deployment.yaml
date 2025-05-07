@@ -30,6 +30,9 @@ spec:
         - name: autobrr
           image: "{{ .Values.autobrr.image.repository }}:{{ include "autobrr.image" . }}"
           env: {{- include "autobrr.autobrrEnv" . | nindent 12 }}
+          {{- if (include "autobrr.autobrrEnvFrom" .) }}
+          envFrom: {{- include "autobrr.autobrrEnvFrom" . | nindent 12 }}
+          {{- end }}
           {{- if .Values.service.ports }}
           ports:
             {{- range .Values.service.ports }}
