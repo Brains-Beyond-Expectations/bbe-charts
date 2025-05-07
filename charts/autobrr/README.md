@@ -26,9 +26,9 @@ Modern, easy to use download automation for torrents and usenet.
 | autobrr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Autobrr pod to |
 | autobrr.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the Autobrr pod |
 | autobrr.resources.requests.memory | string | `"512Mi"` | The amount of memory to request for the Autobrr pod |
-| autobrr.securityContext.readOnlyRootFilesystem | bool | `true` | Whether to run Autobrr with a read-only root filesystem |
-| autobrr.securityContext.runAsGroup | int | `1000` | The group ID to run Autobrr as |
-| autobrr.securityContext.runAsUser | int | `1000` | The user ID to run Autobrr as |
+| autobrr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Autobrr with a read-only root filesystem |
+| autobrr.securityContext.runAsGroup | int | `0` | The group ID to run Autobrr as |
+| autobrr.securityContext.runAsUser | int | `0` | The user ID to run Autobrr as |
 | autobrr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":7474},"timeoutSeconds":1}` | The startupProbe configuration for the Autobrr pod |
 | autobrr.strategyType | string | `"Recreate"` | The strategy to use for updating the Autobrr pods |
 | config.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the Autobrr config persistent volume claim |

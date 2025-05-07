@@ -64,10 +64,10 @@ tests:
           value: 512Mi
       - equal:
           path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
-          value: true
+          value: false
       - equal:
           path: spec.template.spec.containers[0].securityContext.runAsUser
-          value: 1000
+          value: 0
       - equal:
           path: spec.template.spec.containers[0].volumeMounts[0].name
           value: config

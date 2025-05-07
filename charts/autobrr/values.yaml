@@ -19,11 +19,11 @@ autobrr:
     tag: ""
   securityContext:
     # -- Whether to run Autobrr with a read-only root filesystem
-    readOnlyRootFilesystem: true
+    readOnlyRootFilesystem: false
     # -- The user ID to run Autobrr as
-    runAsUser: 1000
+    runAsUser: 0
     # -- The group ID to run Autobrr as
-    runAsGroup: 1000
+    runAsGroup: 0
   resources:
     requests:
       # -- The amount of memory to request for the Autobrr pod
