@@ -1,0 +1,16 @@
+apiVersion: v2
+name: autobrr
+description: Modern, easy to use download automation for torrents and usenet.
+type: application
+version: 0.1.0
+appVersion: v1.60
+keywords:
+  - autobrr
+  - torrent
+  - usenet
+  - automation
+  - download
+home: https://brains-beyond-expectations.github.io/bbe-charts
+icon: https://avatars.githubusercontent.com/u/88781313
+sources:
+  - https://github.com/autobrr/autobrr

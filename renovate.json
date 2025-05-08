@@ -50,6 +50,15 @@
     },
     {
       "customType": "regex",
+      "fileMatch": ["charts/autobrr/Chart\\.yaml"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
+      ],
+      "depNameTemplate": "ghcr.io/autobrr/autobrr",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "fileMatch": ["required-versions.yaml"],
       "matchStrings": [
         "external-chart:\\n\\s*version:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)\\n\\s*repositoryUrl:\\s*(?<registryUrl>.*)\\n\\s*repositoryName:\\s*(?<depName>[a-z-]+)"
