@@ -1,3 +1,8 @@
+bbe:
+  metallb:
+    blocky:
+      ipAddressPool:
+
 metallb:
   speaker:
     ignoreExcludeLB: true
@@ -7,6 +12,7 @@ ingress-nginx:
     service:
       enabled: true
       type: LoadBalancer
+      loadBalancerIP:
     allowSnippetAnnotations: true
     config:
       annotations-risk-level: Critical
