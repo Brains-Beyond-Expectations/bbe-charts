@@ -161,6 +161,32 @@ entries:
     version: 0.1.0
   bbe-networking:
   - apiVersion: v2
+    created: "2025-05-14T22:14:02.803096988Z"
+    dependencies:
+    - name: blocky
+      repository: https://brains-beyond-expectations.github.io/bbe-charts
+      version: 1.1.1
+    - name: ingress-nginx
+      repository: https://kubernetes.github.io/ingress-nginx
+      version: 4.12.1
+    - name: metallb
+      repository: https://metallb.github.io/metallb
+      version: 0.14.9
+    description: A collection of charts for BBE cluster networking
+    digest: 56cf9f68f5633f4f53a820e84f41422f2c117da96aa08a8d06177b53512d81a9
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    keywords:
+    - bbe
+    - networking
+    - dns
+    - adblock
+    - blocky
+    name: bbe-networking
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/bbe-networking-0.2.1/bbe-networking-0.2.1.tgz
+    version: 0.2.1
+  - apiVersion: v2
     created: "2025-05-14T21:21:32.125357607Z"
     dependencies:
     - name: blocky
@@ -641,4 +667,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2025-05-14T21:21:32.114862106Z"
+generated: "2025-05-14T22:14:02.795410019Z"
