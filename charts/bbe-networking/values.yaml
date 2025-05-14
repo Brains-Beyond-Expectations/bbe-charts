@@ -1,0 +1,22 @@
+metallb:
+  speaker:
+    ignoreExcludeLB: true
+
+ingress-nginx:
+  controller:
+    service:
+      enabled: true
+      type: LoadBalancer
+    allowSnippetAnnotations: true
+    config:
+      annotations-risk-level: Critical
+      strict-validate-path-type: false
+    ingressClassResource:
+      name: nginx
+      enabled: true
+      default: true
+      controllerValue: "k8s.io/ingress-nginx"
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true

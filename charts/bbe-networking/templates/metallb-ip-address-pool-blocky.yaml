@@ -1,0 +1,15 @@
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: blocky
+spec:
+  addresses:
+    - {{ .Values.bbe.metallb.blocky.ipAddressPool }}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: blocky
+spec:
+  ipAddressPools:
+    - blocky

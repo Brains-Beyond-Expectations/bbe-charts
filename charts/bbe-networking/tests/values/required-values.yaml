@@ -1,0 +1,9 @@
+bbe:
+  metallb:
+    blocky:
+      ipAddressPool: 10.0.0.0
+
+ingress-nginx:
+  controller:
+    service:
+      loadBalancerIP: 11.0.0.0
