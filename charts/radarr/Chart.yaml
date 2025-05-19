@@ -3,7 +3,7 @@ name: radarr
 description: Radarr is a movie collection manager for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new movies and will interface with clients and indexers to grab, sort, and rename them.
 type: application
 version: 0.1.3
-appVersion: 5.22.4
+appVersion: 5.23.3
 keywords:
   - radarr
   - films
