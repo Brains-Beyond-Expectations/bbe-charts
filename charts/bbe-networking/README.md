@@ -1,6 +1,6 @@
 # bbe-networking
 
-![Version: 0.2.1](https://img.shields.io/badge/Version-0.2.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 0.2.2](https://img.shields.io/badge/Version-0.2.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 A collection of charts for BBE cluster networking
 
@@ -18,6 +18,7 @@ A collection of charts for BBE cluster networking
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| bbe.metallb.blocky.ipAddressPool | string | `nil` |  |
 | ingress-nginx.controller.allowSnippetAnnotations | bool | `true` |  |
 | ingress-nginx.controller.config.annotations-risk-level | string | `"Critical"` |  |
 | ingress-nginx.controller.config.strict-validate-path-type | bool | `false` |  |
@@ -28,6 +29,7 @@ A collection of charts for BBE cluster networking
 | ingress-nginx.controller.metrics.enabled | bool | `true` |  |
 | ingress-nginx.controller.metrics.serviceMonitor.enabled | bool | `true` |  |
 | ingress-nginx.controller.service.enabled | bool | `true` |  |
+| ingress-nginx.controller.service.loadBalancerIP | string | `nil` |  |
 | ingress-nginx.controller.service.type | string | `"LoadBalancer"` |  |
 | metallb.speaker.ignoreExcludeLB | bool | `true` |  |
 
