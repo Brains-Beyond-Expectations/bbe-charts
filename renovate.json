@@ -5,7 +5,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["charts/bazarr/Chart\\.yaml"],
+      "managerFilePatterns": ["/charts/bazarr/Chart\\.yaml/"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>release-[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
       ],
@@ -14,7 +14,7 @@
     },
     {
       "customType": "regex",
-      "fileMatch": ["charts/blocky/Chart\\.yaml"],
+      "managerFilePatterns": ["/charts/blocky/Chart\\.yaml/"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
       ],
@@ -23,7 +23,7 @@
     },
     {
       "customType": "regex",
-      "fileMatch": ["charts/prowlarr/Chart\\.yaml"],
+      "managerFilePatterns": ["/charts/prowlarr/Chart\\.yaml/"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
       ],
@@ -32,7 +32,7 @@
     },
     {
       "customType": "regex",
-      "fileMatch": ["charts/radarr/Chart\\.yaml"],
+      "managerFilePatterns": ["/charts/radarr/Chart\\.yaml/"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
       ],
@@ -41,7 +41,7 @@
     },
     {
       "customType": "regex",
-      "fileMatch": ["charts/sonarr/Chart\\.yaml"],
+      "managerFilePatterns": ["/charts/sonarr/Chart\\.yaml/"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
       ],
@@ -50,7 +50,7 @@
     },
     {
       "customType": "regex",
-      "fileMatch": ["charts/autobrr/Chart\\.yaml"],
+      "managerFilePatterns": ["/charts/autobrr/Chart\\.yaml/"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
       ],
@@ -59,7 +59,7 @@
     },
     {
       "customType": "regex",
-      "fileMatch": ["required-versions.yaml"],
+      "managerFilePatterns": ["/required-versions.yaml/"],
       "matchStrings": [
         "external-chart:\\n\\s*version:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)\\n\\s*repositoryUrl:\\s*(?<registryUrl>.*)\\n\\s*repositoryName:\\s*(?<depName>[a-z-]+)"
       ],
