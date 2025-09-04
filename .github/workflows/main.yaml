@@ -190,7 +190,7 @@ jobs:
           app-id: ${{ secrets.BRAINZ_BOT_ID }}
           private-key: ${{ secrets.BRAINZ_BOT_PRIVATE_KEY }}
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25"
           cache-dependency-path: |
