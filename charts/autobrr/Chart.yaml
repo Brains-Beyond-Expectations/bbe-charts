@@ -3,7 +3,7 @@ name: autobrr
 description: Modern, easy to use download automation for torrents and usenet.
 type: application
 version: 0.1.5
-appVersion: v1.66
+appVersion: v1.66.0
 keywords:
   - autobrr
   - torrent
