@@ -11,8 +11,7 @@
       ],
       "depNameTemplate": "ghcr.io/hotio/bazarr",
       "datasourceTemplate": "docker",
-      "extractVersionTemplate": "^release-(?<version>.*)$",
-      "autoReplaceStringTemplate": "appVersion: release-{{{newValue}}}"
+      "extractVersionTemplate": "^release-(?<version>.*)$"
     },
     {
       "customType": "regex",
