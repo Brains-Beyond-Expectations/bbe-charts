@@ -81,14 +81,19 @@ jobs:
         with:
           directory: /tmp/${{ matrix.chart }}
           config: charts/${{ matrix.chart }}/.kube-linter.yaml
+      - name: Generate release drafter config
+        if: steps.changed-files.outputs.chart == 'true'
+        run: |
+          cp .github/placeholder-release-drafter.yaml .github/${{ matrix.chart }}-release-drafter.yaml
+          sed -i "s/\[PLACEHOLDER\]/${{ matrix.chart }}/g" .github/${{ matrix.chart }}-release-drafter.yaml
       - name: Create release draft
         if: steps.changed-files.outputs.chart == 'true'
-        uses: release-drafter/release-drafter@v6
+        uses: release-drafter/release-drafter@v7
         id: draft-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          config-name: ${{ matrix.chart }}-release-drafter.yaml
+          config-name: file:${{ matrix.chart }}-release-drafter.yaml
           publish: false
       - name: Generate a token for Brainz-Bot
         id: generate-token
@@ -150,6 +155,7 @@ jobs:
         shell: bash
         run: |
           cp index.yaml /tmp/index.yaml
+          cp .github/${{ matrix.chart }}-release-drafter.yaml /tmp/${{ matrix.chart }}-release-drafter.yaml
           git reset --hard
           git fetch origin gh-pages
           git checkout gh-pages
@@ -166,13 +172,20 @@ jobs:
           curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
             -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"gh-pages\", \"sha\":\"$SHA\"}" \
             https://api.github.com/repos/${{ github.repository }}/contents/$FILE
+      - name: Restore release drafter config
+        if: steps.changed-files.outputs.chart == 'true'
+        run: |
+          git reset --hard
+          git fetch origin main
+          git checkout main
+          cp /tmp/${{ matrix.chart }}-release-drafter.yaml .github/${{ matrix.chart }}-release-drafter.yaml
       - name: Finalize release
         if: steps.changed-files.outputs.chart == 'true'
-        uses: release-drafter/release-drafter@v6
+        uses: release-drafter/release-drafter@v7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          config-name: ${{ matrix.chart }}-release-drafter.yaml
+          config-name: file:${{ matrix.chart }}-release-drafter.yaml
           publish: true
           commitish: ${{ steps.update-chart-version.outputs.latest_commit }}
 
