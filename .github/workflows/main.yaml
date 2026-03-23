@@ -83,7 +83,7 @@ jobs:
           config: charts/${{ matrix.chart }}/.kube-linter.yaml
       - name: Create release draft
         if: steps.changed-files.outputs.chart == 'true'
-        uses: release-drafter/release-drafter@v6
+        uses: release-drafter/release-drafter@v7
         id: draft-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -168,7 +168,7 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/contents/$FILE
       - name: Finalize release
         if: steps.changed-files.outputs.chart == 'true'
-        uses: release-drafter/release-drafter@v6
+        uses: release-drafter/release-drafter@v7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
