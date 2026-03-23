@@ -183,7 +183,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          config-name: ${{ matrix.chart }}-release-drafter.yaml
+          config-name: file:${{ matrix.chart }}-release-drafter.yaml
           publish: true
           commitish: ${{ steps.update-chart-version.outputs.latest_commit }}
 
