@@ -175,6 +175,8 @@ jobs:
       - name: Restore release drafter config
         if: steps.changed-files.outputs.chart == 'true'
         run: |
+          git reset --hard
+          git fetch origin main
           git checkout main
           cp /tmp/${{ matrix.chart }}-release-drafter.yaml .github/${{ matrix.chart }}-release-drafter.yaml
       - name: Finalize release
