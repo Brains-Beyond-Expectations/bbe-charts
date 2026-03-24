@@ -56,7 +56,7 @@ jobs:
         if: steps.changed-files.outputs.chart == 'true'
         uses: azure/setup-kubectl@v4
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         if: steps.changed-files.outputs.chart == 'true'
         with:
           version: v3.19.2
