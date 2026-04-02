@@ -54,7 +54,7 @@ jobs:
               - 'charts/${{ matrix.chart }}/**'
       - name: Set up kubectl
         if: steps.changed-files.outputs.chart == 'true'
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v5
       - name: Set up Helm
         uses: azure/setup-helm@v5
         if: steps.changed-files.outputs.chart == 'true'
