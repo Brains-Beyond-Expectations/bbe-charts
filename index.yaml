@@ -989,6 +989,29 @@ entries:
     version: 0.1.0
   radarr:
   - apiVersion: v2
+    appVersion: 6.1.1
+    created: "2026-04-02T18:53:02.050421904Z"
+    description: Radarr is a movie collection manager for Usenet and BitTorrent users.
+      It can monitor multiple RSS feeds for new movies and will interface with clients
+      and indexers to grab, sort, and rename them.
+    digest: e5017b7c20394b24492e45b061bef631f1f1154a50297b436425d11fcf9afbcc
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/25025331
+    keywords:
+    - radarr
+    - films
+    - pvr
+    - usenet
+    - bittorrent
+    - rss
+    name: radarr
+    sources:
+    - https://github.com/Radarr/Radarr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/radarr-0.1.10/radarr-0.1.10.tgz
+    version: 0.1.10
+  - apiVersion: v2
     appVersion: 6.0.4
     created: "2025-11-18T09:22:14.486034071Z"
     description: Radarr is a movie collection manager for Usenet and BitTorrent users.
@@ -1369,4 +1392,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-25T08:53:05.367749138Z"
+generated: "2026-04-02T18:53:02.049378866Z"
