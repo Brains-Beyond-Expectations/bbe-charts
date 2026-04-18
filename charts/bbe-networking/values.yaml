@@ -3,6 +3,15 @@ bbe:
     blocky:
       ipAddressPool:
 
+# acme.email is required — it is used to register the Let's Encrypt account and
+# receive expiry notifications.
+  certManager:
+    acme:
+      email: ""
+      # staging uses Let's Encrypt's test CA (untrusted but no rate limits).
+      # Set to false once you have confirmed issuance works.
+      staging: false
+
 metallb:
   speaker:
     ignoreExcludeLB: true
@@ -26,3 +35,7 @@ ingress-nginx:
       enabled: true
       serviceMonitor:
         enabled: true
+
+cert-manager:
+  crds:
+    enabled: true

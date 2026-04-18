@@ -1,6 +1,6 @@
 # bbe-networking
 
-![Version: 0.2.2](https://img.shields.io/badge/Version-0.2.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 A collection of charts for BBE cluster networking
 
@@ -11,14 +11,49 @@ A collection of charts for BBE cluster networking
 | Repository | Name | Version |
 |------------|------|---------|
 | https://brains-beyond-expectations.github.io/bbe-charts | blocky | 1.1.1 |
+| https://charts.jetstack.io | cert-manager | 1.17.2 |
 | https://kubernetes.github.io/ingress-nginx | ingress-nginx | 4.12.1 |
 | https://metallb.github.io/metallb | metallb | 0.14.9 |
+
+## TLS Certificates
+
+cert-manager is included and pre-configured to issue certificates via **Let's Encrypt HTTP-01 challenge**. To activate it, set your email address in values:
+
+```yaml
+bbe:
+  certManager:
+    acme:
+      email: your@email.com
+```
+
+This creates a `ClusterIssuer` named `letsencrypt`. To enable TLS for any app, add the following to its ingress values:
+
+```yaml
+ingress:
+  enabled: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  hosts:
+    - host: myapp.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - hosts:
+        - myapp.example.com
+      secretName: myapp-tls
+```
+
+Set `bbe.certManager.acme.staging: true` to use the Let's Encrypt staging CA while testing (avoids rate limits).
 
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| bbe.metallb.blocky.ipAddressPool | string | `nil` |  |
+| bbe.certManager.acme.email | string | `""` | Email address for the Let's Encrypt account. Required to activate the ClusterIssuer |
+| bbe.certManager.acme.staging | bool | `false` | Use the Let's Encrypt staging CA (untrusted but no rate limits) |
+| bbe.metallb.blocky.ipAddressPool | string | `nil` | IP address pool to assign to the Blocky LoadBalancer service |
+| cert-manager.crds.enabled | bool | `true` | Install cert-manager CRDs automatically |
 | ingress-nginx.controller.allowSnippetAnnotations | bool | `true` |  |
 | ingress-nginx.controller.config.annotations-risk-level | string | `"Critical"` |  |
 | ingress-nginx.controller.config.strict-validate-path-type | bool | `false` |  |
@@ -29,7 +64,7 @@ A collection of charts for BBE cluster networking
 | ingress-nginx.controller.metrics.enabled | bool | `true` |  |
 | ingress-nginx.controller.metrics.serviceMonitor.enabled | bool | `true` |  |
 | ingress-nginx.controller.service.enabled | bool | `true` |  |
-| ingress-nginx.controller.service.loadBalancerIP | string | `nil` |  |
+| ingress-nginx.controller.service.loadBalancerIP | string | `nil` | IP address for the ingress-nginx LoadBalancer |
 | ingress-nginx.controller.service.type | string | `"LoadBalancer"` |  |
 | metallb.speaker.ignoreExcludeLB | bool | `true` |  |
 

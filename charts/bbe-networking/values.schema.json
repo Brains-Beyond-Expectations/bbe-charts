@@ -24,7 +24,26 @@
           "required": ["blocky"]
         }
       },
-      "required": ["metallb"]
+      "required": ["metallb"],
+      "certManager": {
+        "type": "object",
+        "description": "cert-manager configuration for automatic TLS certificate issuance via Let's Encrypt",
+        "properties": {
+          "acme": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "string",
+                "description": "Email address for the Let's Encrypt account. Required to activate the ClusterIssuer."
+              },
+              "staging": {
+                "type": "boolean",
+                "description": "Use the Let's Encrypt staging CA. Set to true to test without hitting rate limits."
+              }
+            }
+          }
+        }
+      }
     },
     "ingress-nginx": {
       "type": "object",

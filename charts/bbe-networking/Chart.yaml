@@ -2,13 +2,16 @@ apiVersion: v2
 name: bbe-networking
 description: A collection of charts for BBE cluster networking
 type: application
-version: 0.2.2
+version: 0.3.0
 keywords:
   - bbe
   - networking
   - dns
   - adblock
   - blocky
+  - cert-manager
+  - tls
+  - certificates
 home: https://brains-beyond-expectations.github.io/bbe-charts
 dependencies:
   - name: blocky
@@ -20,3 +23,6 @@ dependencies:
   - name: metallb
     repository: https://metallb.github.io/metallb
     version: 0.14.9
+  - name: cert-manager
+    repository: https://charts.jetstack.io
+    version: 1.17.2
