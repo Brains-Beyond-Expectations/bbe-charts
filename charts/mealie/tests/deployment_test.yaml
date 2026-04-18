@@ -1,0 +1,103 @@
+suite: test deployment
+values:
+  - ./values/required-values.yaml
+templates:
+  - deployment.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should create a Deployment
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should create a deployment with correct specifications
+    asserts:
+      - equal:
+          path: metadata.name
+          value: test-mealie
+      - equal:
+          path: metadata.namespace
+          value: test
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: mealie
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/name"]
+          value: mealie
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/instance"]
+          value: test
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/instance"]
+          value: test
+      - notExists:
+          path: spec.template.metadata.annotations
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: mealie
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: ghcr\.io\/mealie-recipes\/mealie:[^"]+
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TZ
+            value: UTC
+      - notExists:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 512Mi
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 50m
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 256Mi
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 9000
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].mountPath
+          value: /app/data
+      - equal:
+          path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
+          value: test-mealie-data
+
+  - it: can add annotations to the pod
+    set:
+      mealie.annotations:
+        test1: "foo"
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations.test1
+          value: "foo"
+
+  - it: can add extra environment variables
+    set:
+      mealie.env:
+        - name: ALLOW_SIGNUP
+          value: "false"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ALLOW_SIGNUP
+            value: "false"
+
+  - it: can disable the data volume
+    set:
+      data.enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.volumes
+      - notExists:
+          path: spec.template.spec.containers[0].volumeMounts

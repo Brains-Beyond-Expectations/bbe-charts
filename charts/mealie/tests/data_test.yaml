@@ -1,0 +1,50 @@
+suite: test data pvc
+values:
+  - ./values/required-values.yaml
+templates:
+  - data.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should create data PVC
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should create a data PVC with correct specifications
+    asserts:
+      - equal:
+          path: metadata.name
+          value: test-mealie-data
+      - equal:
+          path: spec.accessModes[0]
+          value: ReadWriteOnce
+      - equal:
+          path: spec.resources.requests.storage
+          value: 5Gi
+      - notEqual:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: "keep"
+
+  - it: can set retain annotation
+    set:
+      data.retain: true
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: "keep"
+
+  - it: can use an existing PVC
+    set:
+      data.existingClaim: existing-claim
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: can disable the data PVC
+    set:
+      data.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

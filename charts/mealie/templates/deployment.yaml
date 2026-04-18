@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mealie.fullname" . }}
+  namespace: {{ include "mealie.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "mealie.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.mealie.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "mealie.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.mealie.strategyType }}
+  strategy:
+    type: {{ .Values.mealie.strategyType }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "mealie.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.mealie.annotations }}
+      annotations:
+        {{- toYaml .Values.mealie.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: mealie
+          image: "{{ .Values.mealie.image.repository }}:{{ include "mealie.image" . }}"
+          env: {{- include "mealie.mealieEnv" . | nindent 12 }}
+          {{- if (include "mealie.mealieEnvFrom" .) }}
+          envFrom: {{- include "mealie.mealieEnvFrom" . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.mealie.resources }}
+          resources:
+            {{- if .Values.mealie.resources.requests }}
+            requests:
+              {{- if .Values.mealie.resources.requests.memory }}
+              memory: "{{ .Values.mealie.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.mealie.resources.requests.cpu }}
+              cpu: "{{ .Values.mealie.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.mealie.resources.limits }}
+            limits:
+              {{- if .Values.mealie.resources.limits.memory }}
+              memory: "{{ .Values.mealie.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.mealie.resources.limits.cpu }}
+              cpu: "{{ .Values.mealie.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.data.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          {{- end }}
+          {{- if .Values.mealie.securityContext }}
+          securityContext:
+            {{- toYaml .Values.mealie.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.mealie.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.mealie.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.mealie.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.mealie.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.mealie.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.mealie.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if .Values.data.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "mealie.dataClaimName" . }}
+      {{- end }}

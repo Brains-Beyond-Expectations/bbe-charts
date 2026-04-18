@@ -1,0 +1,67 @@
+nameOverride: ""
+fullnameOverride: ""
+namespaceOverride: ""
+
+mealie:
+  annotations: {}
+  replicas: 1
+  strategyType: Recreate
+  image:
+    repository: ghcr.io/mealie-recipes/mealie
+    tag: ""
+  securityContext:
+    readOnlyRootFilesystem: false
+    runAsUser: 0
+    runAsGroup: 0
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "50m"
+    limits:
+      memory: "512Mi"
+      cpu: ""
+  env: []
+  envFrom: []
+  livenessProbe:
+    failureThreshold: 5
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    tcpSocket:
+      port: 9000
+    timeoutSeconds: 1
+  readinessProbe:
+    failureThreshold: 3
+    periodSeconds: 10
+    tcpSocket:
+      port: 9000
+    timeoutSeconds: 1
+  startupProbe:
+    failureThreshold: 30
+    periodSeconds: 5
+    tcpSocket:
+      port: 9000
+    timeoutSeconds: 1
+
+service:
+  annotations: {}
+  ports:
+    - name: http
+      port: 9000
+      protocol: TCP
+  type: ClusterIP
+
+ingress:
+  enabled: false
+  annotations: {}
+  mainPort: 9000
+  ingressClassName: ""
+  hosts: []
+  tls: []
+
+data:
+  annotations: {}
+  enabled: true
+  existingClaim: ""
+  size: "5Gi"
+  accessMode: ReadWriteOnce
+  retain: false
