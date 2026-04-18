@@ -1,9 +1,13 @@
-prowlarr:
+nameOverride: ""
+fullnameOverride: ""
+namespaceOverride: ""
+
+readarr:
   annotations: {}
   replicas: 1
   strategyType: Recreate
   image:
-    repository: lscr.io/linuxserver/prowlarr
+    repository: lscr.io/linuxserver/readarr
     tag: ""
   securityContext:
     readOnlyRootFilesystem: false
@@ -11,53 +15,61 @@ prowlarr:
     runAsGroup: 0
   resources:
     requests:
-      memory: "512Mi"
+      memory: "256Mi"
       cpu: "50m"
     limits:
       memory: "512Mi"
       cpu: ""
   env: []
+  envFrom: []
   livenessProbe:
-    exec:
-      command:
-        - /usr/bin/env
-        - bash
-        - -c
-        - curl --fail localhost:9696/api/v1/system/status?apiKey=`IFS=\> &&
-          while read -d \< E C; do if [[ $E = "ApiKey" ]]; then echo $C; fi;
-          done < /config/config.xml`
     failureThreshold: 5
     initialDelaySeconds: 60
     periodSeconds: 10
-    successThreshold: 1
-    timeoutSeconds: 10
+    tcpSocket:
+      port: 8787
+    timeoutSeconds: 1
   readinessProbe:
     failureThreshold: 3
-    initialDelaySeconds: 0
     periodSeconds: 10
     tcpSocket:
-      port: 9696
+      port: 8787
     timeoutSeconds: 1
   startupProbe:
     failureThreshold: 30
-    initialDelaySeconds: 0
     periodSeconds: 5
     tcpSocket:
-      port: 9696
+      port: 8787
     timeoutSeconds: 1
 
-prowlarrService:
+service:
   annotations: {}
   ports:
     - name: http
-      port: 9696
+      port: 8787
       protocol: TCP
   type: ClusterIP
 
-prowlarrConfig:
+ingress:
+  enabled: false
+  annotations: {}
+  mainPort: 8787
+  ingressClassName: ""
+  hosts: []
+  tls: []
+
+config:
   annotations: {}
   enabled: true
   existingClaim: ""
   size: "1Gi"
   accessMode: ReadWriteOnce
+  retain: false
+
+books:
+  annotations: {}
+  enabled: true
+  existingClaim: ""
+  size: "50Gi"
+  accessMode: ReadWriteMany
   retain: false

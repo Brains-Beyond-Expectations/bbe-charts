@@ -1,0 +1,19 @@
+{{- if and .Values.books.enabled (not .Values.books.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "calibreweb.booksClaimName" . }}
+  namespace: {{ include "calibreweb.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "calibreweb.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- with (include "calibreweb.booksAnnotations" .) }}
+  annotations: {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.books.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.books.size }}
+{{- end }}

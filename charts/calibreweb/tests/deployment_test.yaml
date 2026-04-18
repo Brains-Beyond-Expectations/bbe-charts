@@ -1,0 +1,51 @@
+suite: test deployment
+values:
+  - ./values/required-values.yaml
+templates:
+  - deployment.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should create a Deployment
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should create a deployment with correct specifications
+    asserts:
+      - equal:
+          path: metadata.name
+          value: test-calibreweb
+      - equal:
+          path: metadata.namespace
+          value: test
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: calibreweb
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: calibreweb
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: lscr\.io\/linuxserver\/calibre-web:[^"]+
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TZ
+            value: UTC
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8083
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].mountPath
+          value: /config
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[1].mountPath
+          value: /books

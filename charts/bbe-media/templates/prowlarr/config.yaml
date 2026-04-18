@@ -1,0 +1,21 @@
+{{- $inBbeLibrary := lookup "apps/v1" "Deployment" "bbe-library" "bbe-library-prowlarr" }}
+{{- $standalone := lookup "apps/v1" "Deployment" "prowlarr" "prowlarr" }}
+{{- if and (not (or $inBbeLibrary $standalone)) .Values.prowlarrConfig.enabled (not .Values.prowlarrConfig.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "bbe-media.prowlarr.configClaimName" . }}
+  namespace: {{ include "bbe-media.prowlarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "bbe-media.prowlarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- with (include "bbe-media.prowlarr.configAnnotations" .) }}
+  annotations: {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.prowlarrConfig.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.prowlarrConfig.size }}
+{{- end }}

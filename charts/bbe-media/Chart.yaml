@@ -23,9 +23,6 @@ dependencies:
   - name: jellyseerr-chart
     version: 2.3.3
     repository: oci://ghcr.io/fallenbagel/jellyseerr
-  - name: prowlarr
-    version: 0.1.3
-    repository: https://brains-beyond-expectations.github.io/bbe-charts
   - name: radarr
     version: 0.1.2
     repository: https://brains-beyond-expectations.github.io/bbe-charts
