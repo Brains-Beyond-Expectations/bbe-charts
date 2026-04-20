@@ -2,6 +2,9 @@ apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
 metadata:
   name: blocky
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   addresses:
     - {{ .Values.bbe.metallb.blocky.ipAddressPool }}
@@ -10,6 +13,9 @@ apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
 metadata:
   name: blocky
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   ipAddressPools:
     - blocky
