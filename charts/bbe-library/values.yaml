@@ -1,3 +1,16 @@
+# Shared Calibre library volume — mounted by both Readarr (/books) and Calibre-Web (/books).
+# The PVC is created by this chart with the name "{release}-library".
+# Since the bbe CLI installs this chart with release name "bbe-library", the PVC will
+# be named "bbe-library-library" by default.
+library:
+  annotations: {}
+  size: "50Gi"
+  accessMode: ReadWriteMany
+  retain: false
+
+# Prowlarr is deployed inline in this chart with a bidirectional lookup guard.
+# If a Prowlarr Deployment already exists in the "bbe-media" namespace (bbe-media-prowlarr)
+# or as a standalone release ("prowlarr"), this chart will skip deploying its own instance.
 prowlarr:
   annotations: {}
   replicas: 1
@@ -61,3 +74,13 @@ prowlarrConfig:
   size: "1Gi"
   accessMode: ReadWriteOnce
   retain: false
+
+# Override sub-chart defaults so both Readarr and Calibre-Web share
+# the single "bbe-library-library" PVC for the Calibre library.
+readarr:
+  books:
+    existingClaim: "bbe-library-library"
+
+calibreweb:
+  books:
+    existingClaim: "bbe-library-library"

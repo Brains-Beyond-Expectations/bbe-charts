@@ -1,0 +1,27 @@
+{{- $inBbeMedia := lookup "apps/v1" "Deployment" "bbe-media" "bbe-media-prowlarr" }}
+{{- $standalone := lookup "apps/v1" "Deployment" "prowlarr" "prowlarr" }}
+{{- if not (or $inBbeMedia $standalone) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "bbe-library.prowlarr.fullname" . }}
+  namespace: {{ include "bbe-library.prowlarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "bbe-library.prowlarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.prowlarrService.annotations }}
+  annotations:
+    {{- toYaml .Values.prowlarrService.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ include "bbe-library.prowlarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    {{- range .Values.prowlarrService.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      protocol: {{ .protocol }}
+    {{- end }}
+  type: {{ .Values.prowlarrService.type }}
+{{- end }}

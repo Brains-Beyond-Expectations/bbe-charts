@@ -1,0 +1,11 @@
+apiVersion: v2
+name: calibreweb
+description: Calibre-Web is a web app providing a clean interface for browsing, reading and downloading eBooks using a Calibre database.
+type: application
+version: 0.1.0
+appVersion: "0.6.24"
+keywords: [calibre, calibre-web, ebook, library, reading]
+home: https://brains-beyond-expectations.github.io/bbe-charts
+icon: https://avatars.githubusercontent.com/u/17788714
+sources:
+  - https://github.com/janeczku/calibre-web

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: readarr
+description: Readarr is a ebook and audiobook collection manager for Usenet and BitTorrent users.
+type: application
+version: 0.1.0
+appVersion: develop
+keywords: [readarr, ebook, audiobook, automation, download]
+home: https://brains-beyond-expectations.github.io/bbe-charts
+icon: https://avatars.githubusercontent.com/u/57576474
+sources:
+  - https://github.com/Readarr/Readarr

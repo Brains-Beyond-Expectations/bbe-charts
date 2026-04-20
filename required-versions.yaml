@@ -3,3 +3,5 @@ charts:
     min-bbe-cli: 0.6.0
   - name: bbe-networking
     min-bbe-cli: 0.6.0
+  - name: bbe-library
+    min-bbe-cli: 0.6.0

@@ -1,0 +1,39 @@
+suite: test books pvc
+values:
+  - ./values/required-values.yaml
+templates:
+  - books.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should create books PVC
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should create a books PVC with correct specifications
+    asserts:
+      - equal:
+          path: metadata.name
+          value: test-readarr-books
+      - equal:
+          path: spec.accessModes[0]
+          value: ReadWriteMany
+      - equal:
+          path: spec.resources.requests.storage
+          value: 50Gi
+
+  - it: can use an existing PVC
+    set:
+      books.existingClaim: existing-library
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: can disable books PVC
+    set:
+      books.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
