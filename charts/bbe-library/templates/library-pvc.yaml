@@ -1,0 +1,17 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "bbe-library.library.claimName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: library
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- with (include "bbe-library.library.annotations" .) }}
+  annotations: {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.library.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.library.size }}

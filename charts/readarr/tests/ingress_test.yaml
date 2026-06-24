@@ -1,0 +1,31 @@
+suite: test ingress
+values:
+  - ./values/required-values.yaml
+templates:
+  - ingress.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should not create Ingress by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: can create an Ingress
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: readarr.example.com
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.rules[0].host
+          value: readarr.example.com
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 8787
