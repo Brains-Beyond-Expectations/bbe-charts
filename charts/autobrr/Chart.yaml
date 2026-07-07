@@ -2,7 +2,7 @@ apiVersion: v2
 name: autobrr
 description: Modern, easy to use download automation for torrents and usenet.
 type: application
-version: 0.1.16
+version: 0.1.17
 appVersion: v1.81.0
 keywords:
   - autobrr
