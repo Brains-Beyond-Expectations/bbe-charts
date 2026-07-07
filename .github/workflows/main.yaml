@@ -59,7 +59,7 @@ jobs:
         uses: azure/setup-helm@v5
         if: steps.changed-files.outputs.chart == 'true'
         with:
-          version: v3.19.2
+          version: v4.2.2
       - name: Install Helm unittest plugin
         if: steps.changed-files.outputs.chart == 'true'
         run:
