@@ -2,6 +2,26 @@ apiVersion: v1
 entries:
   autobrr:
   - apiVersion: v2
+    appVersion: v1.82.1
+    created: "2026-07-16T10:11:39.934059154Z"
+    description: Modern, easy to use download automation for torrents and usenet.
+    digest: f519bbadea21360d47d273b44a32a1a8cc4cc475fb715c0968a208bd57fdcb84
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/88781313
+    keywords:
+    - autobrr
+    - torrent
+    - usenet
+    - automation
+    - download
+    name: autobrr
+    sources:
+    - https://github.com/autobrr/autobrr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/autobrr-0.1.18/autobrr-0.1.18.tgz
+    version: 0.1.18
+  - apiVersion: v2
     appVersion: v1.81.0
     created: "2026-07-07T14:03:20.960507878Z"
     description: Modern, easy to use download automation for torrents and usenet.
@@ -1603,4 +1623,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-07T14:06:15.136621048Z"
+generated: "2026-07-16T10:11:39.932987143Z"
