@@ -1,6 +1,6 @@
 # radarr
 
-![Version: 0.1.12](https://img.shields.io/badge/Version-0.1.12-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 6.3.0](https://img.shields.io/badge/AppVersion-6.3.0-informational?style=flat-square)
+![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 6.3.0](https://img.shields.io/badge/AppVersion-6.3.0-informational?style=flat-square)
 
 Radarr is a movie collection manager for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new movies and will interface with clients and indexers to grab, sort, and rename them.
 
@@ -39,8 +39,8 @@ Radarr is a movie collection manager for Usenet and BitTorrent users. It can mon
 | radarr.env | list | `[]` | The environment variables to set for the Radarr pod |
 | radarr.image.repository | string | `"lscr.io/linuxserver/radarr"` | The image repository to pull from |
 | radarr.image.tag | string | `""` | The image tag to pull |
-| radarr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:7878/api/v3/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Radarr pod |
-| radarr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":7878},"timeoutSeconds":1}` | The readinessProbe configuration for the Radarr pod |
+| radarr.livenessProbe | object | `{"failureThreshold":5,"httpGet":{"path":"/ping","port":7878},"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Radarr pod |
+| radarr.readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/ping","port":7878},"initialDelaySeconds":0,"periodSeconds":10,"timeoutSeconds":1}` | The readinessProbe configuration for the Radarr pod |
 | radarr.replicas | int | `1` | How many replicas of the Radarr pod to run |
 | radarr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Radarr pod to |
 | radarr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Radarr pod to |
@@ -49,7 +49,7 @@ Radarr is a movie collection manager for Usenet and BitTorrent users. It can mon
 | radarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Radarr with a read-only root filesystem |
 | radarr.securityContext.runAsGroup | int | `0` | The group ID to run Prowlarr as |
 | radarr.securityContext.runAsUser | int | `0` | The user ID to run Radarr as |
-| radarr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":7878},"timeoutSeconds":1}` | The startupProbe configuration for the Radarr pod |
+| radarr.startupProbe | object | `{"failureThreshold":30,"httpGet":{"path":"/ping","port":7878},"initialDelaySeconds":0,"periodSeconds":5,"timeoutSeconds":1}` | The startupProbe configuration for the Radarr pod |
 | radarr.strategyType | string | `"Recreate"` | The strategy to use for updating the Radarr pods |
 | service.annotations | object | `{}` | Annotations to apply to the Radarr service |
 | service.ports | list | `[{"name":"http","port":7878,"protocol":"TCP"}]` | Port to expose the Radarr service on |
