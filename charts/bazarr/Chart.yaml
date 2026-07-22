@@ -2,7 +2,7 @@ apiVersion: v2
 name: bazarr
 description: Bazarr is a companion application to Sonarr and Radarr. It manages and downloads subtitles based on your requirements.
 type: application
-version: 0.1.3
+version: 0.2.0
 appVersion: release-v1.6.0
 keywords:
   - bazarr
