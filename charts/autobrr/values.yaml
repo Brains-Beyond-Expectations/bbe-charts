@@ -42,27 +42,30 @@ autobrr:
   # -- The livenessProbe configuration for the Autobrr pod
   livenessProbe:
     failureThreshold: 5
+    httpGet:
+      path: /api/healthz/liveness
+      port: 7474
     initialDelaySeconds: 60
     periodSeconds: 10
     successThreshold: 1
-    tcpSocket:
-      port: 7474
     timeoutSeconds: 10
   # -- The readinessProbe configuration for the Autobrr pod
   readinessProbe:
     failureThreshold: 3
+    httpGet:
+      path: /api/healthz/readiness
+      port: 7474
     initialDelaySeconds: 0
     periodSeconds: 10
-    tcpSocket:
-      port: 7474
     timeoutSeconds: 1
   # -- The startupProbe configuration for the Autobrr pod
   startupProbe:
     failureThreshold: 30
+    httpGet:
+      path: /api/healthz/liveness
+      port: 7474
     initialDelaySeconds: 0
     periodSeconds: 5
-    tcpSocket:
-      port: 7474
     timeoutSeconds: 1
 
 service:
