@@ -1574,6 +1574,31 @@ entries:
   sonarr:
   - apiVersion: v2
     appVersion: 4.0.19
+    created: "2026-07-22T20:35:52.600943411Z"
+    description: Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple
+      RSS feeds for new episodes of your favorite shows and will grab, sort and rename
+      them.
+    digest: 03d0b822d488f8e56822f79fa551c066e966d0955bc9cba8ea8587b6342f50cf
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/1082903
+    keywords:
+    - sonarr
+    - tv
+    - shows
+    - episodes
+    - pvr
+    - usenet
+    - bittorrent
+    - rss
+    name: sonarr
+    sources:
+    - https://github.com/Sonarr/Sonarr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.2.0/sonarr-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
+    appVersion: 4.0.19
     created: "2026-07-07T14:01:04.890612751Z"
     description: Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple
       RSS feeds for new episodes of your favorite shows and will grab, sort and rename
@@ -1747,4 +1772,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-22T20:19:13.599133559Z"
+generated: "2026-07-22T20:35:52.599915881Z"
