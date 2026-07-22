@@ -1,6 +1,6 @@
 # prowlarr
 
-![Version: 0.1.12](https://img.shields.io/badge/Version-0.1.12-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.5.2](https://img.shields.io/badge/AppVersion-2.5.2-informational?style=flat-square)
+![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.5.2](https://img.shields.io/badge/AppVersion-2.5.2-informational?style=flat-square)
 
 Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base stack to integrate with your various PVR apps.
 
@@ -33,8 +33,8 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | prowlarr.env | list | `[]` | The environment variables to set for the Prowlarr pod |
 | prowlarr.image.repository | string | `"lscr.io/linuxserver/prowlarr"` | The image repository to pull from |
 | prowlarr.image.tag | string | `""` | The image tag to pull |
-| prowlarr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:9696/api/v1/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Prowlarr pod |
-| prowlarr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":9696},"timeoutSeconds":1}` | The readinessProbe configuration for the Prowlarr pod |
+| prowlarr.livenessProbe | object | `{"failureThreshold":5,"httpGet":{"path":"/ping","port":9696},"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Prowlarr pod |
+| prowlarr.readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/ping","port":9696},"initialDelaySeconds":0,"periodSeconds":10,"timeoutSeconds":1}` | The readinessProbe configuration for the Prowlarr pod |
 | prowlarr.replicas | int | `1` | How many replicas of the Prowlarr pod to run |
 | prowlarr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Prowlarr pod to |
 | prowlarr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Prowlarr pod to |
@@ -43,7 +43,7 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | prowlarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Prowlarr with a read-only root filesystem |
 | prowlarr.securityContext.runAsGroup | int | `0` | The group ID to run Prowlarr as |
 | prowlarr.securityContext.runAsUser | int | `0` | The user ID to run Prowlarr as |
-| prowlarr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":9696},"timeoutSeconds":1}` | The startupProbe configuration for the Prowlarr pod |
+| prowlarr.startupProbe | object | `{"failureThreshold":30,"httpGet":{"path":"/ping","port":9696},"initialDelaySeconds":0,"periodSeconds":5,"timeoutSeconds":1}` | The startupProbe configuration for the Prowlarr pod |
 | prowlarr.strategyType | string | `"Recreate"` | The strategy to use for updating the Prowlarr pods |
 | service.annotations | object | `{}` | Annotations to apply to the Prowlarr service |
 | service.ports | list | `[{"name":"http","port":9696,"protocol":"TCP"}]` | Port to expose the Prowlarr service on |
