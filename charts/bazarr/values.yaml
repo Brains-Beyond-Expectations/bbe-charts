@@ -40,26 +40,29 @@ bazarr:
   # -- The livenessProbe configuration for the Bazarr pod
   livenessProbe:
     failureThreshold: 3
+    httpGet:
+      path: /api/system/ping
+      port: 6767
     periodSeconds: 10
     successThreshold: 1
-    tcpSocket:
-      port: 6767
     timeoutSeconds: 1
   # -- The readinessProbe configuration for the Bazarr pod
   readinessProbe:
     failureThreshold: 3
+    httpGet:
+      path: /api/system/ping
+      port: 6767
     periodSeconds: 10
     successThreshold: 1
-    tcpSocket:
-      port: 6767
     timeoutSeconds: 1
   # -- The startupProbe configuration for the Bazarr pod
   startupProbe:
     failureThreshold: 30
+    httpGet:
+      path: /api/system/ping
+      port: 6767
     periodSeconds: 5
     successThreshold: 1
-    tcpSocket:
-      port: 6767
     timeoutSeconds: 1
 
 service:

@@ -101,12 +101,15 @@ tests:
 
   - it: comes with probes configured
     asserts:
-      - exists:
-          path: spec.template.spec.containers[0].livenessProbe.tcpSocket.port
-      - exists:
-          path: spec.template.spec.containers[0].readinessProbe.tcpSocket.port
-      - exists:
-          path: spec.template.spec.containers[0].startupProbe.tcpSocket.port
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet
+          value: {path: /api/system/ping, port: 6767}
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value: {path: /api/system/ping, port: 6767}
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet
+          value: {path: /api/system/ping, port: 6767}
 
   - it: should use only chart name if release name contains chart name
     release:
