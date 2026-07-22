@@ -39,15 +39,10 @@ sonarr:
   env: []
   # -- The livenessProbe configuration for the Sonarr pod
   livenessProbe:
-    exec:
-      command:
-        - /usr/bin/env
-        - bash
-        - -c
-        - curl --fail localhost:8989/api/v3/system/status?apiKey=`IFS=\> &&
-          while read -d \< E C; do if [[ $E = "ApiKey" ]]; then echo $C; fi;
-          done < /config/config.xml`
     failureThreshold: 5
+    httpGet:
+      path: /ping
+      port: 8989
     initialDelaySeconds: 60
     periodSeconds: 10
     successThreshold: 1
@@ -55,18 +50,20 @@ sonarr:
   # -- The readinessProbe configuration for the Sonarr pod
   readinessProbe:
     failureThreshold: 3
+    httpGet:
+      path: /ping
+      port: 8989
     initialDelaySeconds: 0
     periodSeconds: 10
-    tcpSocket:
-      port: 8989
     timeoutSeconds: 1
   # -- The startupProbe configuration for the Sonarr pod
   startupProbe:
     failureThreshold: 30
+    httpGet:
+      path: /ping
+      port: 8989
     initialDelaySeconds: 0
     periodSeconds: 5
-    tcpSocket:
-      port: 8989
     timeoutSeconds: 1
 
 service:
