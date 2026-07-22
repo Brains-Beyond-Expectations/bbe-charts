@@ -1,6 +1,6 @@
 # sonarr
 
-![Version: 0.1.6](https://img.shields.io/badge/Version-0.1.6-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 4.0.19](https://img.shields.io/badge/AppVersion-4.0.19-informational?style=flat-square)
+![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 4.0.19](https://img.shields.io/badge/AppVersion-4.0.19-informational?style=flat-square)
 
 Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new episodes of your favorite shows and will grab, sort and rename them.
 
@@ -42,8 +42,8 @@ Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS fee
 | sonarr.env | list | `[]` | The environment variables to set for the Sonarr pod |
 | sonarr.image.repository | string | `"lscr.io/linuxserver/sonarr"` | The image repository to pull from |
 | sonarr.image.tag | string | `""` | The image tag to pull |
-| sonarr.livenessProbe | object | `{"exec":{"command":["/usr/bin/env","bash","-c","curl --fail localhost:8989/api/v3/system/status?apiKey=`IFS=\\> && while read -d \\< E C; do if [[ $E = \"ApiKey\" ]]; then echo $C; fi; done < /config/config.xml`"]},"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Sonarr pod |
-| sonarr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":8989},"timeoutSeconds":1}` | The readinessProbe configuration for the Sonarr pod |
+| sonarr.livenessProbe | object | `{"failureThreshold":5,"httpGet":{"path":"/ping","port":8989},"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Sonarr pod |
+| sonarr.readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/ping","port":8989},"initialDelaySeconds":0,"periodSeconds":10,"timeoutSeconds":1}` | The readinessProbe configuration for the Sonarr pod |
 | sonarr.replicas | int | `1` | How many replicas of the Sonarr pod to run |
 | sonarr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Sonarr pod to |
 | sonarr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Sonarr pod to |
@@ -52,7 +52,7 @@ Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS fee
 | sonarr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Sonarr with a read-only root filesystem |
 | sonarr.securityContext.runAsGroup | int | `0` | The group ID to run Prowlarr as |
 | sonarr.securityContext.runAsUser | int | `0` | The user ID to run Sonarr as |
-| sonarr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":8989},"timeoutSeconds":1}` | The startupProbe configuration for the Sonarr pod |
+| sonarr.startupProbe | object | `{"failureThreshold":30,"httpGet":{"path":"/ping","port":8989},"initialDelaySeconds":0,"periodSeconds":5,"timeoutSeconds":1}` | The startupProbe configuration for the Sonarr pod |
 | sonarr.strategyType | string | `"Recreate"` | The strategy to use for updating the Sonarr pods |
 
 ----------------------------------------------
