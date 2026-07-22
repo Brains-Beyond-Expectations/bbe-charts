@@ -1,6 +1,6 @@
 # autobrr
 
-![Version: 0.1.18](https://img.shields.io/badge/Version-0.1.18-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.82.1](https://img.shields.io/badge/AppVersion-v1.82.1-informational?style=flat-square)
+![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.82.1](https://img.shields.io/badge/AppVersion-v1.82.1-informational?style=flat-square)
 
 Modern, easy to use download automation for torrents and usenet.
 
@@ -19,8 +19,8 @@ Modern, easy to use download automation for torrents and usenet.
 | autobrr.envFrom | list | `[]` | The environment variables to set for the Autobrr pod from a config map or secret |
 | autobrr.image.repository | string | `"ghcr.io/autobrr/autobrr"` | The image repository to pull from |
 | autobrr.image.tag | string | `""` | The image tag to pull |
-| autobrr.livenessProbe | object | `{"failureThreshold":5,"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"tcpSocket":{"port":7474},"timeoutSeconds":10}` | The livenessProbe configuration for the Autobrr pod |
-| autobrr.readinessProbe | object | `{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10,"tcpSocket":{"port":7474},"timeoutSeconds":1}` | The readinessProbe configuration for the Autobrr pod |
+| autobrr.livenessProbe | object | `{"failureThreshold":5,"httpGet":{"path":"/api/healthz/liveness","port":7474},"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":10}` | The livenessProbe configuration for the Autobrr pod |
+| autobrr.readinessProbe | object | `{"failureThreshold":3,"httpGet":{"path":"/api/healthz/readiness","port":7474},"initialDelaySeconds":0,"periodSeconds":10,"timeoutSeconds":1}` | The readinessProbe configuration for the Autobrr pod |
 | autobrr.replicas | int | `1` | How many replicas of the Autobrr pod to run |
 | autobrr.resources.limits.cpu | string | `""` | The amount of CPU to limit the Autobrr pod to |
 | autobrr.resources.limits.memory | string | `"512Mi"` | The amount of memory to limit the Autobrr pod to |
@@ -29,7 +29,7 @@ Modern, easy to use download automation for torrents and usenet.
 | autobrr.securityContext.readOnlyRootFilesystem | bool | `false` | Whether to run Autobrr with a read-only root filesystem |
 | autobrr.securityContext.runAsGroup | int | `0` | The group ID to run Autobrr as |
 | autobrr.securityContext.runAsUser | int | `0` | The user ID to run Autobrr as |
-| autobrr.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":7474},"timeoutSeconds":1}` | The startupProbe configuration for the Autobrr pod |
+| autobrr.startupProbe | object | `{"failureThreshold":30,"httpGet":{"path":"/api/healthz/liveness","port":7474},"initialDelaySeconds":0,"periodSeconds":5,"timeoutSeconds":1}` | The startupProbe configuration for the Autobrr pod |
 | autobrr.strategyType | string | `"Recreate"` | The strategy to use for updating the Autobrr pods |
 | config.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the Autobrr config persistent volume claim |
 | config.annotations | object | `{}` | Annotations to apply to the Autobrr config persistent volume claim |
