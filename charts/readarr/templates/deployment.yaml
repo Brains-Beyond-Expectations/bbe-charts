@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "readarr.fullname" . }}
+  namespace: {{ include "readarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "readarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.readarr.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "readarr.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.readarr.strategyType }}
+  strategy:
+    type: {{ .Values.readarr.strategyType }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "readarr.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.readarr.annotations }}
+      annotations:
+        {{- toYaml .Values.readarr.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: readarr
+          image: "{{ .Values.readarr.image.repository }}:{{ include "readarr.image" . }}"
+          env: {{- include "readarr.readarrEnv" . | nindent 12 }}
+          {{- if (include "readarr.readarrEnvFrom" .) }}
+          envFrom: {{- include "readarr.readarrEnvFrom" . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.readarr.resources }}
+          resources:
+            {{- if .Values.readarr.resources.requests }}
+            requests:
+              {{- if .Values.readarr.resources.requests.memory }}
+              memory: "{{ .Values.readarr.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.readarr.resources.requests.cpu }}
+              cpu: "{{ .Values.readarr.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.readarr.resources.limits }}
+            limits:
+              {{- if .Values.readarr.resources.limits.memory }}
+              memory: "{{ .Values.readarr.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.readarr.resources.limits.cpu }}
+              cpu: "{{ .Values.readarr.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.books.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+            {{- if .Values.books.enabled }}
+            - name: books
+              mountPath: /books
+            {{- end }}
+          {{- end }}
+          {{- if .Values.readarr.securityContext }}
+          securityContext:
+            {{- toYaml .Values.readarr.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readarr.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.readarr.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readarr.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.readarr.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readarr.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.readarr.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if or .Values.config.enabled .Values.books.enabled }}
+      volumes:
+        {{- if .Values.config.enabled }}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "readarr.configClaimName" . }}
+        {{- end }}
+        {{- if .Values.books.enabled }}
+        - name: books
+          persistentVolumeClaim:
+            claimName: {{ include "readarr.booksClaimName" . }}
+        {{- end }}
+      {{- end }}

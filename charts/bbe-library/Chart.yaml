@@ -1,0 +1,20 @@
+apiVersion: v2
+name: bbe-library
+description: A fully automated ebook library — Readarr for acquisition, Prowlarr for indexing, and Calibre-Web for reading.
+type: application
+version: 0.1.0
+keywords:
+  - bbe
+  - library
+  - ebook
+  - readarr
+  - calibre
+  - prowlarr
+home: https://brains-beyond-expectations.github.io/bbe-charts
+dependencies:
+  - name: readarr
+    version: 0.1.0
+    repository: https://brains-beyond-expectations.github.io/bbe-charts
+  - name: calibreweb
+    version: 0.1.0
+    repository: https://brains-beyond-expectations.github.io/bbe-charts

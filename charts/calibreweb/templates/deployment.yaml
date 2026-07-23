@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "calibreweb.fullname" . }}
+  namespace: {{ include "calibreweb.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "calibreweb.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.calibreWeb.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "calibreweb.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.calibreWeb.strategyType }}
+  strategy:
+    type: {{ .Values.calibreWeb.strategyType }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "calibreweb.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.calibreWeb.annotations }}
+      annotations:
+        {{- toYaml .Values.calibreWeb.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: calibreweb
+          image: "{{ .Values.calibreWeb.image.repository }}:{{ include "calibreweb.image" . }}"
+          env: {{- include "calibreweb.calibreWebEnv" . | nindent 12 }}
+          {{- if (include "calibreweb.calibreWebEnvFrom" .) }}
+          envFrom: {{- include "calibreweb.calibreWebEnvFrom" . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.calibreWeb.resources }}
+          resources:
+            {{- if .Values.calibreWeb.resources.requests }}
+            requests:
+              {{- if .Values.calibreWeb.resources.requests.memory }}
+              memory: "{{ .Values.calibreWeb.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.calibreWeb.resources.requests.cpu }}
+              cpu: "{{ .Values.calibreWeb.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.calibreWeb.resources.limits }}
+            limits:
+              {{- if .Values.calibreWeb.resources.limits.memory }}
+              memory: "{{ .Values.calibreWeb.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.calibreWeb.resources.limits.cpu }}
+              cpu: "{{ .Values.calibreWeb.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.books.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+            {{- if .Values.books.enabled }}
+            - name: books
+              mountPath: /books
+            {{- end }}
+          {{- end }}
+          {{- if .Values.calibreWeb.securityContext }}
+          securityContext:
+            {{- toYaml .Values.calibreWeb.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.calibreWeb.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.calibreWeb.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.calibreWeb.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.calibreWeb.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.calibreWeb.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.calibreWeb.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if or .Values.config.enabled .Values.books.enabled }}
+      volumes:
+        {{- if .Values.config.enabled }}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "calibreweb.configClaimName" . }}
+        {{- end }}
+        {{- if .Values.books.enabled }}
+        - name: books
+          persistentVolumeClaim:
+            claimName: {{ include "calibreweb.booksClaimName" . }}
+        {{- end }}
+      {{- end }}
