@@ -4,30 +4,67 @@ tag-prefix: "[PLACEHOLDER]-"
 include-labels:
   - "[PLACEHOLDER]"
 categories:
-  - title: "🚀 Features"
-    labels:
-      - "feature"
-      - "enhancement"
-  - title: "🐛 Bug Fixes"
-    labels:
-      - "fix"
-      - "bugfix"
-      - "bug"
-  - title: "🧰 Maintenance"
-    label: "chore"
+  - title: '🚀 Features'
+    semver-increment: minor
+    when:
+      labels:
+        - 'feature'
+        - 'enhancement'
+  - title: '🐛 Bug Fixes'
+    when:
+      labels:
+        - 'fix'
+        - 'bugfix'
+        - 'bug'
+  - title: '🧰 Maintenance'
+    when:
+      label: 'chore'
+  - type: 'pre-exclude'
+    when:
+      label: 'skip-changelog'
+  - type: 'version-resolver'
+    semver-increment: 'major'
+    when:
+      label: 'major'
+  - type: 'version-resolver'
+    semver-increment: 'minor'
+    when:
+      label: 'minor'
+  - type: 'version-resolver'
+    semver-increment: 'patch'
 change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
 change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
-version-resolver:
-  major:
-    labels:
-      - "major"
-  minor:
-    labels:
-      - "minor"
-  patch:
-    labels:
-      - "patch"
-  default: patch
+
+autolabeler:
+  - label: "major"
+    title:
+      - "/^[a-zA-Z]+!:.*/"
+    body:
+      - "/BREAKING CHANGE:.*/"
+  - label: "enhancement"
+    title:
+      - "/^feat:.*/"
+    branch:
+      - '/feature\/.+/'
+  - label: "bug"
+    title:
+      - "/^fix:.*/"
+    branch:
+      - '/fix\/.+/'
+  - label: "chore"
+    title:
+      - "/^chore:.*/"
+      - "/^style:.*/"
+      - "/^docs:.*/"
+      - "/^refactor:.*/"
+    files:
+      - "*.md"
+      - "README*"
+      - "LICENSE*"
+    branch:
+      - '/docs\/.+/'
+      - '/documentation\/.+/'
+
 template: |
   ## Changes
 

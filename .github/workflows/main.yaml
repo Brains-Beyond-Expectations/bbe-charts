@@ -100,7 +100,7 @@ jobs:
         if: steps.changed-files.outputs.chart == 'true'
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.BRAINZ_BOT_ID }}
+          client-id: ${{ secrets.BRAINZ_BOT_ID }}
           private-key: ${{ secrets.BRAINZ_BOT_PRIVATE_KEY }}
       - name: Update chart version
         id: update-chart-version
@@ -202,7 +202,7 @@ jobs:
         id: generate-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.BRAINZ_BOT_ID }}
+          client-id: ${{ secrets.BRAINZ_BOT_ID }}
           private-key: ${{ secrets.BRAINZ_BOT_PRIVATE_KEY }}
       - name: Set up Go
         uses: actions/setup-go@v7
