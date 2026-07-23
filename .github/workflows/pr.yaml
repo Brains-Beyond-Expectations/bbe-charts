@@ -19,6 +19,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Generate release drafter config
+        run: |
+          cp .github/placeholder-release-drafter.yaml .github/validate-release-drafter.yaml
+          sed -i "s/\[PLACEHOLDER\]/validate/g" .github/validate-release-drafter.yaml
+      - name: Autolabeler
+        uses: release-drafter/release-drafter/autolabeler@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-name: file:validate-release-drafter.yaml
       - name: Get charts
         id: check-folders
         run: |
@@ -51,9 +61,6 @@ jobs:
         if: steps.changed-files.outputs.chart == 'true'
         with:
           add_labels: ${{ matrix.chart }}
-          required_labels: |
-            feature,enhancement,fix,bugfix,bug,chore
-            major,minor,patch
       - name: Set up kubectl
         uses: azure/setup-kubectl@v5
         if: steps.changed-files.outputs.chart == 'true'
@@ -83,6 +90,7 @@ jobs:
         with:
           directory: /tmp/${{ matrix.chart }}
           config: charts/${{ matrix.chart }}/.kube-linter.yaml
+
   test-lib-gen:
     name: Test lib-gen
     runs-on: ubuntu-latest
