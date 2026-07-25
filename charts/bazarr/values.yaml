@@ -106,6 +106,8 @@ config:
   existingClaim: ""
   # -- The amount of storage to request for the Bazarr config
   size: "1Gi"
+  # -- Storage class to use for the Bazarr config persistent volume claim
+  storageClass: ""
   # -- The access mode to use for the Bazarr config persistent volume claim
   accessMode: ReadWriteOnce
   # -- Whether to keep the persistent volume claim for the config after the Bazarr chart is uninstalled

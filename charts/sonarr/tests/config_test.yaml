@@ -37,6 +37,14 @@ tests:
           path: metadata.annotations["helm.sh/resource-policy"]
           value: "keep"
 
+  - it: can set storage class
+    set:
+      config.storageClass: longhorn
+    asserts:
+      - equal:
+          path: spec.storageClassName
+          value: longhorn
+
   - it: can use an existing PVC
     values:
       - ./values/required-values.yaml
