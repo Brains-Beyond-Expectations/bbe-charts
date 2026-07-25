@@ -1,6 +1,6 @@
 # prowlarr
 
-![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.5.2](https://img.shields.io/badge/AppVersion-2.5.2-informational?style=flat-square)
+![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.5.2](https://img.shields.io/badge/AppVersion-2.5.2-informational?style=flat-square)
 
 Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base stack to integrate with your various PVR apps.
 
@@ -20,6 +20,7 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | config.existingClaim | string | `""` | Use this attribute to reference an existing persistent volume claim to use for the Prowlarr config |
 | config.retain | bool | `false` | Whether to keep the persistent volume claim for the config after the Prowlarr chart is uninstalled |
 | config.size | string | `"1Gi"` | The amount of storage to request for the Prowlarr config |
+| config.storageClass | string | `""` | Storage class to use for the Prowlarr config persistent volume claim |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
 | ingress.annotations | object | `{}` | Annotations to apply to the Prowlarr ingress |
 | ingress.enabled | bool | `false` | Whether to create an ingress for Prowlarr |
