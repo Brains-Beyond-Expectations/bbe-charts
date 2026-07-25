@@ -11,6 +11,9 @@ metadata:
   annotations: {{- . | nindent 4 }}
   {{- end }}
 spec:
+  {{- with .Values.config.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
   accessModes:
     - {{ .Values.config.accessMode }}
   resources:
