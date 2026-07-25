@@ -1,6 +1,6 @@
 # autobrr
 
-![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.82.1](https://img.shields.io/badge/AppVersion-v1.82.1-informational?style=flat-square)
+![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.82.1](https://img.shields.io/badge/AppVersion-v1.82.1-informational?style=flat-square)
 
 Modern, easy to use download automation for torrents and usenet.
 
@@ -37,6 +37,7 @@ Modern, easy to use download automation for torrents and usenet.
 | config.existingClaim | string | `""` | Use this attribute to reference an existing persistent volume claim to use for the Autobrr config |
 | config.retain | bool | `false` | Whether to keep the persistent volume claim for the config after the Autobrr chart is uninstalled |
 | config.size | string | `"1Gi"` | The amount of storage to request for the Autobrr config |
+| config.storageClass | string | `""` | Storage class to use for the Autobrr config persistent volume claim |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
 | ingress.annotations | object | `{}` | Annotations to apply to the Autobrr ingress |
 | ingress.enabled | bool | `false` | Whether to create an ingress for Autobrr |
