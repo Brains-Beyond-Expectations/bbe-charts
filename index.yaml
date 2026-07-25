@@ -3,6 +3,26 @@ entries:
   autobrr:
   - apiVersion: v2
     appVersion: v1.82.1
+    created: "2026-07-25T21:37:08.471306525Z"
+    description: Modern, easy to use download automation for torrents and usenet.
+    digest: fd1f1d4b4cdcd8481c65b31b0d659d47137752f04dc64fdbe18076303ba939f4
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/88781313
+    keywords:
+    - autobrr
+    - torrent
+    - usenet
+    - automation
+    - download
+    name: autobrr
+    sources:
+    - https://github.com/autobrr/autobrr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/autobrr-0.3.0/autobrr-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
+    appVersion: v1.82.1
     created: "2026-07-22T20:00:28.262276661Z"
     description: Modern, easy to use download automation for torrents and usenet.
     digest: 44d6a20cb8a83dfc47345111f7213e651971312068a94d2717dc8e7bda0a1943
@@ -1251,29 +1271,6 @@ entries:
   radarr:
   - apiVersion: v2
     appVersion: 6.3.0
-    created: "2026-07-25T21:38:59.529397623Z"
-    description: Radarr is a movie collection manager for Usenet and BitTorrent users.
-      It can monitor multiple RSS feeds for new movies and will interface with clients
-      and indexers to grab, sort, and rename them.
-    digest: 986b49db2c7cb37a667caaa7bcc0ad04002a05b195c93fec39f074a5821e8dea
-    home: https://brains-beyond-expectations.github.io/bbe-charts
-    icon: https://avatars.githubusercontent.com/u/25025331
-    keywords:
-    - radarr
-    - films
-    - pvr
-    - usenet
-    - bittorrent
-    - rss
-    name: radarr
-    sources:
-    - https://github.com/Radarr/Radarr
-    type: application
-    urls:
-    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/radarr-0.3.0/radarr-0.3.0.tgz
-    version: 0.3.0
-  - apiVersion: v2
-    appVersion: 6.3.0
     created: "2026-07-22T20:19:13.60016041Z"
     description: Radarr is a movie collection manager for Usenet and BitTorrent users.
       It can monitor multiple RSS feeds for new movies and will interface with clients
@@ -1597,6 +1594,31 @@ entries:
   sonarr:
   - apiVersion: v2
     appVersion: 4.0.19
+    created: "2026-07-25T21:39:30.369073616Z"
+    description: Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple
+      RSS feeds for new episodes of your favorite shows and will grab, sort and rename
+      them.
+    digest: 8c8bd37eccb4b765fc2f5feeeecc3e2895c3045ff404b7c89faf9844ce3e16b1
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/1082903
+    keywords:
+    - sonarr
+    - tv
+    - shows
+    - episodes
+    - pvr
+    - usenet
+    - bittorrent
+    - rss
+    name: sonarr
+    sources:
+    - https://github.com/Sonarr/Sonarr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.3.0/sonarr-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
+    appVersion: 4.0.19
     created: "2026-07-22T20:35:52.600943411Z"
     description: Sonarr is a PVR for Usenet and BitTorrent users. It can monitor multiple
       RSS feeds for new episodes of your favorite shows and will grab, sort and rename
@@ -1795,4 +1817,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-25T21:38:59.528339881Z"
+generated: "2026-07-25T21:39:30.368060074Z"
