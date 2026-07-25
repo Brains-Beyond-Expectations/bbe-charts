@@ -1,6 +1,6 @@
 # radarr
 
-![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 6.3.0](https://img.shields.io/badge/AppVersion-6.3.0-informational?style=flat-square)
+![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 6.3.0](https://img.shields.io/badge/AppVersion-6.3.0-informational?style=flat-square)
 
 Radarr is a movie collection manager for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new movies and will interface with clients and indexers to grab, sort, and rename them.
 
@@ -20,6 +20,7 @@ Radarr is a movie collection manager for Usenet and BitTorrent users. It can mon
 | config.existingClaim | string | `""` | Use this attribute to reference an existing persistent volume claim to use for the Radarr config |
 | config.retain | bool | `false` | Whether to keep the persistent volume claim for the config after the Radarr chart is uninstalled |
 | config.size | string | `"1Gi"` | The amount of storage to request for the Radarr config |
+| config.storageClass | string | `""` | Storage class to use for the Radarr config persistent volume claim |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
 | ingress.annotations | object | `{}` | Annotations to apply to the Radarr ingress |
 | ingress.enabled | bool | `false` | Whether to create an ingress for Radarr |
