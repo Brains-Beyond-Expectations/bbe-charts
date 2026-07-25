@@ -424,6 +424,26 @@ entries:
   bazarr:
   - apiVersion: v2
     appVersion: release-v1.6.0
+    created: "2026-07-25T21:37:40.029813771Z"
+    description: Bazarr is a companion application to Sonarr and Radarr. It manages
+      and downloads subtitles based on your requirements.
+    digest: d3e620e7d1197c9094fb792fd2cf0ff18be62d3faa2b41cb2095211c0f363798
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://wiki.bazarr.media/img/logo.png
+    keywords:
+    - bazarr
+    - sonarr
+    - radarr
+    - subtitles
+    name: bazarr
+    sources:
+    - https://github.com/morpheus65535/bazarr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/bazarr-0.3.0/bazarr-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
+    appVersion: release-v1.6.0
     created: "2026-07-22T20:03:59.835954339Z"
     description: Bazarr is a companion application to Sonarr and Radarr. It manages
       and downloads subtitles based on your requirements.
@@ -1023,6 +1043,25 @@ entries:
   prowlarr:
   - apiVersion: v2
     appVersion: 2.5.2
+    created: "2026-07-25T21:38:34.216517494Z"
+    description: Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs
+      base stack to integrate with your various PVR apps.
+    digest: d45c0721f7c2ecda809fa7fd43c65701fcd65936bd43e1bfccfeb2459c4d8c81
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/73049443
+    keywords:
+    - prowlarr
+    - indexer
+    - proxy
+    name: prowlarr
+    sources:
+    - https://github.com/Prowlarr/Prowlarr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/prowlarr-0.3.0/prowlarr-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
+    appVersion: 2.5.2
     created: "2026-07-22T20:06:56.247510789Z"
     description: Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs
       base stack to integrate with your various PVR apps.
@@ -1269,6 +1308,29 @@ entries:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/prowlarr-0.1.0/prowlarr-0.1.0.tgz
     version: 0.1.0
   radarr:
+  - apiVersion: v2
+    appVersion: 6.3.0
+    created: "2026-07-25T21:38:59.529397623Z"
+    description: Radarr is a movie collection manager for Usenet and BitTorrent users.
+      It can monitor multiple RSS feeds for new movies and will interface with clients
+      and indexers to grab, sort, and rename them.
+    digest: 986b49db2c7cb37a667caaa7bcc0ad04002a05b195c93fec39f074a5821e8dea
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/25025331
+    keywords:
+    - radarr
+    - films
+    - pvr
+    - usenet
+    - bittorrent
+    - rss
+    name: radarr
+    sources:
+    - https://github.com/Radarr/Radarr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/radarr-0.3.0/radarr-0.3.0.tgz
+    version: 0.3.0
   - apiVersion: v2
     appVersion: 6.3.0
     created: "2026-07-22T20:19:13.60016041Z"
