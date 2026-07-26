@@ -1347,6 +1347,26 @@ entries:
     version: 0.1.0
   qbittorrent:
   - apiVersion: v2
+    appVersion: 5.2.3
+    created: "2026-07-26T15:48:24.497887875Z"
+    description: qBittorrent is a BitTorrent client programmed in C++ / Qt that uses
+      libtorrent
+    digest: 150c682a1763e5f396a9131d35a22408562f79169d0572437b3d32d97f2c310e
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/2131270
+    keywords:
+    - qbittorrent
+    - torrent
+    - bittorrent
+    - download
+    name: qbittorrent
+    sources:
+    - https://github.com/qbittorrent/qbittorrent
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/qbittorrent-0.0.3/qbittorrent-0.0.3.tgz
+    version: 0.0.3
+  - apiVersion: v2
     appVersion: 5.1.2
     created: "2026-07-26T15:43:04.970541228Z"
     description: qBittorrent is a BitTorrent client programmed in C++ / Qt that uses
@@ -1958,4 +1978,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-26T15:43:04.969678953Z"
+generated: "2026-07-26T15:48:24.496785291Z"
