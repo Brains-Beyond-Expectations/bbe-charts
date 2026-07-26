@@ -2,7 +2,7 @@ apiVersion: v2
 name: bbe-media
 description: A collection of charts for BBE cluster media
 type: application
-version: 0.1.1
+version: 0.2.0
 keywords:
   - bbe
   - media
