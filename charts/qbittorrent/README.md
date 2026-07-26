@@ -1,6 +1,6 @@
 # qbittorrent
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: version-5.1.2-r2](https://img.shields.io/badge/AppVersion-version--5.1.2--r2-informational?style=flat-square)
+![Version: 0.0.1](https://img.shields.io/badge/Version-0.0.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: version-5.1.2-r2](https://img.shields.io/badge/AppVersion-version--5.1.2--r2-informational?style=flat-square)
 
 qBittorrent is a BitTorrent client programmed in C++ / Qt that uses libtorrent
 
