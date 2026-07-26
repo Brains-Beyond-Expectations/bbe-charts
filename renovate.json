@@ -55,7 +55,7 @@
       "customType": "regex",
       "managerFilePatterns": ["/charts/qbittorrent/Chart\\.yaml/"],
       "matchStrings": [
-        "appVersion:\\s*\"?(?<currentValue>version-[0-9]+\\.[0-9]+\\.[0-9]+-r[0-9]+)\"?"
+        "appVersion:\\s*\"?(?<currentValue>[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"
       ],
       "depNameTemplate": "ghcr.io/linuxserver/qbittorrent",
       "datasourceTemplate": "docker"
@@ -76,6 +76,12 @@
         "external-chart:\\n\\s*version:\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)\\n\\s*repositoryUrl:\\s*(?<registryUrl>.*)\\n\\s*repositoryName:\\s*(?<depName>[a-z-]+)"
       ],
       "datasourceTemplate": "helm"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["ghcr.io/linuxserver/qbittorrent"],
+      "allowedVersions": "!/^(?:14|20)\\./"
     }
   ],
   "major": {
