@@ -1,0 +1,15 @@
+apiVersion: v2
+name: qbittorrent
+description: qBittorrent is a BitTorrent client programmed in C++ / Qt that uses libtorrent
+type: application
+version: 0.1.0
+appVersion: version-5.1.2-r2
+keywords:
+  - qbittorrent
+  - torrent
+  - bittorrent
+  - download
+home: https://brains-beyond-expectations.github.io/bbe-charts
+icon: https://avatars.githubusercontent.com/u/2131270
+sources:
+  - https://github.com/qbittorrent/qbittorrent

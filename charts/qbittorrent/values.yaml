@@ -1,0 +1,148 @@
+# -- Optional short name override for the resources
+nameOverride: ""
+# -- Optional full name override for the resources
+fullnameOverride: ""
+# -- Optional namespace override for the resources
+namespaceOverride: ""
+
+qbittorrent:
+  # -- Annotations to apply to the qBittorrent pod
+  annotations: {}
+  # -- How many replicas of the qBittorrent pod to run
+  replicas: 1
+  # -- The strategy to use for updating the qBittorrent pods
+  strategyType: Recreate
+  image:
+    # -- The image repository to pull from
+    repository: ghcr.io/linuxserver/qbittorrent
+    # -- The image tag to pull
+    tag: ""
+  securityContext:
+    # -- Whether to run qBittorrent with a read-only root filesystem
+    readOnlyRootFilesystem: false
+    # -- The user ID to run qBittorrent as
+    runAsUser: 0
+    # -- The group ID to run Prowlarr as
+    runAsGroup: 0
+  resources:
+    requests:
+      # -- The amount of memory to request for the qBittorrent pod
+      memory: "512Mi"
+      # -- The amount of CPU to request for the qBittorrent pod
+      cpu: "50m"
+    limits:
+      # -- The amount of memory to limit the qBittorrent pod to
+      memory: "512Mi"
+      # -- The amount of CPU to limit the qBittorrent pod to
+      cpu: ""
+  # -- The environment variables to set for the qBittorrent pod
+  env: []
+  # -- The livenessProbe configuration for the qBittorrent pod
+  livenessProbe:
+    failureThreshold: 5
+    tcpSocket:
+      port: 8080
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 10
+  # -- The readinessProbe configuration for the qBittorrent pod
+  readinessProbe:
+    failureThreshold: 3
+    tcpSocket:
+      port: 8080
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 1
+  # -- The startupProbe configuration for the qBittorrent pod
+  startupProbe:
+    failureThreshold: 30
+    tcpSocket:
+      port: 8080
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    timeoutSeconds: 1
+
+service:
+  # -- Annotations to apply to the qBittorrent service
+  annotations: {}
+  # -- Port to expose the qBittorrent service on
+  ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+  # -- The type of service to create
+  type: ClusterIP
+
+ingress:
+  # -- Whether to create an ingress for qBittorrent
+  enabled: false
+  # -- Annotations to apply to the qBittorrent ingress
+  annotations: {}
+  # -- The main http port to use for the qBittorrent ingress
+  mainPort: 8080
+  # -- The ingress class to use for the qBittorrent ingress
+  ingressClassName: ""
+  # -- Host configuration for the qBittorrent ingress
+  hosts: []
+  #   - host: qbittorrent.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: ImplementationSpecific
+  # -- TLS configuration for the qBittorrent ingress
+  tls: []
+  #   - hosts:
+  #       - qbittorrent.example.com
+  #     secretName: qbittorrent-ingress-tls
+
+config:
+  # -- Annotations to apply to the qBittorrent config persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the qBittorrent config
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the qBittorrent config
+  existingClaim: ""
+  # -- The amount of storage to request for the qBittorrent config
+  size: "1Gi"
+  # -- Storage class to use for the qBittorrent config persistent volume claim
+  storageClass: ""
+  # -- The access mode to use for the qBittorrent config persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the config after the qBittorrent chart is uninstalled
+  retain: false
+
+media:
+  # -- Annotations to apply to the qBittorrent media persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the qBittorrent media
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the qBittorrent media
+  existingClaim: ""
+  # -- The amount of storage to request for the qBittorrent media
+  size: "50Gi"
+  # -- The access mode to use for the qBittorrent media persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the media after the qBittorrent chart is uninstalled
+  retain: false
+
+wireguard:
+  # -- Whether to run qBittorrent behind a WireGuard sidecar
+  enabled: false
+  initContainer:
+    image:
+      # -- The image repository for the WireGuard network initialization container
+      repository: busybox
+      # -- The image tag for the WireGuard network initialization container
+      tag: "1.32.0"
+  image:
+    # -- The image repository for the WireGuard sidecar
+    repository: lscr.io/linuxserver/wireguard
+    # -- The image tag for the WireGuard sidecar
+    tag: latest
+  secret:
+    # -- Name of the existing Secret containing the WireGuard configuration
+    name: ""
+    # -- Key in the WireGuard Secret containing the configuration file
+    key: wireguard-config
+    # -- Mount path for the WireGuard configuration file
+    mountPath: /config/wg_confs
