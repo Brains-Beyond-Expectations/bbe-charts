@@ -53,6 +53,15 @@
     },
     {
       "customType": "regex",
+      "managerFilePatterns": ["/charts/qbittorrent/Chart\\.yaml/"],
+      "matchStrings": [
+        "appVersion:\\s*\"?(?<currentValue>version-[0-9]+\\.[0-9]+\\.[0-9]+-r[0-9]+)\"?"
+      ],
+      "depNameTemplate": "ghcr.io/linuxserver/qbittorrent",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "managerFilePatterns": ["/charts/autobrr/Chart\\.yaml/"],
       "matchStrings": [
         "appVersion:\\s*\"?(?<currentValue>v[0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"?"

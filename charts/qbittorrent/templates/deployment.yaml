@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "qbittorrent.fullname" . }}
+  namespace: {{ include "qbittorrent.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "qbittorrent.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.qbittorrent.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "qbittorrent.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.qbittorrent.strategyType }}
+  strategy:
+    type: {{ .Values.qbittorrent.strategyType }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "qbittorrent.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.qbittorrent.annotations }}
+      annotations:
+        {{- toYaml .Values.qbittorrent.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.wireguard.enabled }}
+      initContainers:
+        - name: wireguard-network-init
+          image: "{{ .Values.wireguard.initContainer.image.repository }}:{{ .Values.wireguard.initContainer.image.tag }}"
+          command:
+            - sh
+            - -c
+            - >-
+              sysctl -w net.ipv4.ip_forward=1 && sysctl -w
+              net.ipv4.conf.all.forwarding=1 && sysctl -w
+              net.ipv4.conf.all.src_valid_mark=1
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+      {{- end }}
+      containers:
+        - name: qbittorrent
+          image: "{{ .Values.qbittorrent.image.repository }}:{{ include "qbittorrent.image" . }}"
+          env: {{- include "qbittorrent.qbittorrentEnv" . | nindent 12 }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.qbittorrent.resources }}
+          resources:
+            {{- if .Values.qbittorrent.resources.requests }}
+            requests:
+              {{- if .Values.qbittorrent.resources.requests.memory }}
+              memory: "{{ .Values.qbittorrent.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.qbittorrent.resources.requests.cpu }}
+              cpu: "{{ .Values.qbittorrent.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.qbittorrent.resources.limits }}
+            limits:
+              {{- if .Values.qbittorrent.resources.limits.memory }}
+              memory: "{{ .Values.qbittorrent.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.qbittorrent.resources.limits.cpu }}
+              cpu: "{{ .Values.qbittorrent.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.media.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+            {{- if .Values.media.enabled }}
+            - name: media
+              mountPath: /media
+            {{- end }}
+          {{- end }}
+          {{- if .Values.qbittorrent.securityContext }}
+          securityContext:
+            {{- toYaml .Values.qbittorrent.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.qbittorrent.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.qbittorrent.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.qbittorrent.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.qbittorrent.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.qbittorrent.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.qbittorrent.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if .Values.wireguard.enabled }}
+        - name: wireguard
+          image: "{{ .Values.wireguard.image.repository }}:{{ .Values.wireguard.image.tag }}"
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_MODULE
+          volumeMounts:
+            - name: wireguard-config
+              mountPath: {{ .Values.wireguard.secret.mountPath }}
+      {{- end }}
+      {{- if or .Values.config.enabled .Values.media.enabled .Values.wireguard.enabled }}
+      volumes:
+        {{- if .Values.config.enabled }}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "qbittorrent.configClaimName" . }}
+        {{- end }}
+        {{- if .Values.media.enabled }}
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ include "qbittorrent.mediaClaimName" . }}
+        {{- end }}
+        {{- if .Values.wireguard.enabled }}
+        - name: wireguard-config
+          secret:
+            secretName: {{ required "wireguard.secret.name is required when wireguard is enabled" .Values.wireguard.secret.name }}
+            items:
+              - key: {{ .Values.wireguard.secret.key }}
+                path: wg0.conf
+        {{- end }}
+      {{- end }}
