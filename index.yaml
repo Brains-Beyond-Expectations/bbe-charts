@@ -787,6 +787,24 @@ entries:
     version: 0.1.0
   blocky:
   - apiVersion: v2
+    appVersion: v0.34.0
+    created: "2026-07-30T13:51:51.839848041Z"
+    description: A DNS proxy and ad-blocker for the local network
+    digest: d0b31f2c9c6f472dcac56837215167ecbd8f47bb2191246fdaeaca7a15a2eb74
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://raw.githubusercontent.com/0xERR0R/blocky/main/docs/blocky.svg
+    keywords:
+    - blocky
+    - dns
+    - adblock
+    name: blocky
+    sources:
+    - https://github.com/0xERR0R/blocky
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/blocky-1.1.9/blocky-1.1.9.tgz
+    version: 1.1.9
+  - apiVersion: v2
     appVersion: v0.33.0
     created: "2026-07-07T13:49:37.406843576Z"
     description: A DNS proxy and ad-blocker for the local network
@@ -1978,4 +1996,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-26T15:48:24.496785291Z"
+generated: "2026-07-30T13:51:51.838830788Z"
