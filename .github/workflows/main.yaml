@@ -63,7 +63,7 @@ jobs:
       - name: Install Helm unittest plugin
         if: steps.changed-files.outputs.chart == 'true'
         run:
-          helm plugin install https://github.com/helm-unittest/helm-unittest.git
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --verify=false
       - name: Run unit tests
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
