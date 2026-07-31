@@ -224,6 +224,10 @@ jobs:
           if [ "$SHA" == "null" ]; then
             SHA=""
           fi
+          if [ "$SHA" = "$(git hash-object "$FILE")" ]; then
+            echo "No changes; skipping commit."
+            exit 0
+          fi
           curl -s -X PUT -H "Authorization: token ${{ steps.generate-token.outputs.token }}" \
             -d "{\"message\":\"chore: update $FILENAME [skip ci]\", \"content\":\"$CONTENT\", \"branch\":\"main\", \"sha\":\"$SHA\"}" \
             https://api.github.com/repos/${{ github.repository }}/contents/$FILE
