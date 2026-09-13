@@ -1,6 +1,6 @@
 # autobrr
 
-![Version: 0.3.3](https://img.shields.io/badge/Version-0.3.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.85.0](https://img.shields.io/badge/AppVersion-v1.85.0-informational?style=flat-square)
+![Version: 0.3.4](https://img.shields.io/badge/Version-0.3.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.86.0](https://img.shields.io/badge/AppVersion-v1.86.0-informational?style=flat-square)
 
 Modern, easy to use download automation for torrents and usenet.
 
