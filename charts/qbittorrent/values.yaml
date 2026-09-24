@@ -37,6 +37,13 @@ qbittorrent:
       cpu: ""
   # -- The environment variables to set for the qBittorrent pod
   env: []
+  webui:
+    # -- Name of an existing secret holding the WebUI login. When set, qBittorrent starts with that login instead of printing a temporary password to its log. Needs `config.enabled`
+    existingSecret: ""
+    # -- The key in the secret holding the WebUI username
+    usernameKey: username
+    # -- The key in the secret holding the WebUI password
+    passwordKey: password
   # -- The livenessProbe configuration for the qBittorrent pod
   livenessProbe:
     failureThreshold: 5

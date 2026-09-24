@@ -1,0 +1,102 @@
+suite: test webui login
+values:
+  - ./values/required-values.yaml
+templates:
+  - deployment.yaml
+  - webui-auth.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should not add the login init container by default
+    asserts:
+      - isNull:
+          path: spec.template.spec.initContainers
+        template: deployment.yaml
+      - hasDocuments:
+          count: 0
+        template: webui-auth.yaml
+
+  - it: should set the login from the secret before qBittorrent starts
+    set:
+      qbittorrent.webui.existingSecret: media-admin
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: webui-auth
+        template: deployment.yaml
+      - equal:
+          path: spec.template.spec.initContainers[0].command
+          value:
+            - python3
+            - /scripts/webui-auth.py
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: WEBUI_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: media-admin
+                key: username
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: WEBUI_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: media-admin
+                key: password
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: config
+            mountPath: /config
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: webui-auth
+            configMap:
+              name: test-qbittorrent-webui-auth
+        template: deployment.yaml
+      - matchRegex:
+          path: data["webui-auth.py"]
+          pattern: pbkdf2_hmac\("sha512"
+        template: webui-auth.yaml
+
+  - it: should use custom secret keys
+    set:
+      qbittorrent.webui.existingSecret: media-admin
+      qbittorrent.webui.usernameKey: user
+      qbittorrent.webui.passwordKey: pass
+    template: deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].env[0].valueFrom.secretKeyRef.key
+          value: user
+      - equal:
+          path: spec.template.spec.initContainers[0].env[1].valueFrom.secretKeyRef.key
+          value: pass
+
+  - it: should keep the wireguard init container after the login one
+    set:
+      qbittorrent.webui.existingSecret: media-admin
+      wireguard.enabled: true
+      wireguard.secret.name: wireguard
+    template: deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].name
+          value: wireguard-network-init
+
+  - it: should fail without a config volume to write the login to
+    set:
+      qbittorrent.webui.existingSecret: media-admin
+      config.enabled: false
+    template: deployment.yaml
+    asserts:
+      - failedTemplate:
+          errorMessage: qbittorrent.webui.existingSecret needs config.enabled, as the login is written to the config volume
