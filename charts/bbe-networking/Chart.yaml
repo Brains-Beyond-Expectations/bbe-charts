@@ -10,6 +10,9 @@ keywords:
   - adblock
   - blocky
 home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # MetalLB's speaker needs the host network and network capabilities, which Talos's default baseline level refuses
+  bbe/pod-security: privileged
 dependencies:
   - name: metallb
     repository: https://metallb.github.io/metallb

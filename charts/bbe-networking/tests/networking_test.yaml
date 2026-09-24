@@ -1,0 +1,71 @@
+suite: bbe-networking
+values:
+  - values/required-values.yaml
+tests:
+  - it: turns a single IP into a CIDR holding only that IP
+    template: templates/metallb-ip-address-pool-blocky.yaml
+    set:
+      bbe.metallb.blocky.ipAddressPool: 192.168.1.240
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.addresses
+          value:
+            - 192.168.1.240/32
+
+  - it: keeps a range as it is
+    template: templates/metallb-ip-address-pool-blocky.yaml
+    set:
+      bbe.metallb.blocky.ipAddressPool: 192.168.1.240-192.168.1.245
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.addresses
+          value:
+            - 192.168.1.240-192.168.1.245
+
+  - it: keeps a CIDR as it is
+    template: templates/metallb-ip-address-pool-blocky.yaml
+    set:
+      bbe.metallb.blocky.ipAddressPool: 192.168.1.240/29
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.addresses
+          value:
+            - 192.168.1.240/29
+
+  - it: turns a single IPv6 address into a CIDR holding only that address
+    template: templates/metallb-ip-address-pool-blocky.yaml
+    set:
+      bbe.metallb.blocky.ipAddressPool: fd00::240
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.addresses
+          value:
+            - fd00::240/128
+
+  - it: gives the load balancer's IP its own pool
+    template: templates/metallb-ip-address-pool-default.yaml
+    set:
+      ingress-nginx.controller.service.loadBalancerIP: 192.168.1.241
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.addresses
+          value:
+            - 192.168.1.241/32
+
+  - it: lets the pools be created before MetalLB's webhook is serving
+    template: charts/metallb/templates/webhooks.yaml
+    documentSelector:
+      path: kind
+      value: ValidatingWebhookConfiguration
+    asserts:
+      - equal:
+          path: webhooks[1].name
+          value: ipaddresspoolvalidationwebhook.metallb.io
+      - equal:
+          path: webhooks[1].failurePolicy
+          value: Ignore

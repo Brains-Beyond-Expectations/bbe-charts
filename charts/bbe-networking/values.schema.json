@@ -15,7 +15,7 @@
                 "ipAddressPool": {
                   "type": "string",
                   "minLength": 1,
-                  "description": "The IP address pool to use for the Blocky service"
+                  "description": "The IP address for the Blocky DNS service, or a range such as 192.168.1.240-192.168.1.245"
                 }
               },
               "required": ["ipAddressPool"]
@@ -41,7 +41,7 @@
                 "loadBalancerIP": {
                   "type": "string",
                   "minLength": 1,
-                  "description": "The IP address to use for the load balancer"
+                  "description": "The IP address for the ingress load balancer, on the same network as your nodes"
                 }
               },
               "required": ["loadBalancerIP"]
