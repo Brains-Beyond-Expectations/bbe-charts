@@ -37,7 +37,7 @@ flowchart TD
     Q5 -.->|rejected| C5[Assume a default StorageClass]
 
     A5 --> Q6{Do the apps' config<br/>volumes move to NFS too?}
-    Q6 -->|chosen| A6[No, they stay on the<br/>cluster's default StorageClass]
+    Q6 -->|chosen| A6[No, they use Longhorn from<br/>bbe-storage, a prerequisite]
     Q6 -.->|rejected| B6[Yes]
 ```
 
@@ -96,7 +96,9 @@ Talos mounts NFS through its kubelet image. NFSv3 needs `nolock` there, as Talos
 
 ### 6. Config volumes stay off NFS
 
-Every app keeps a SQLite database in its config volume, and SQLite over NFS is a known cause of corruption. The Servarr apps warn against it outright. Config volumes keep using the cluster's default StorageClass.
+Every app keeps a SQLite database in its config volume, and SQLite over NFS is a known cause of corruption. The Servarr apps warn against it outright. Config volumes use the cluster's default StorageClass instead.
+
+bbe clusters have no StorageClass of their own, so `bbe-media` declares one as a prerequisite in its `Chart.yaml`: the `longhorn` storage class, provided by the `bbe-storage` package. When it's missing, bbe offers to install `bbe-storage` before `bbe-media`, and to set up the nodes Longhorn needs.
 
 ## What the Job sets up
 
@@ -115,7 +117,6 @@ Left to the user: adding indexers in Prowlarr. They depend on which sites someon
 
 ## Consequences
 
-- **Config storage is still a prerequisite.** A bbe cluster has no default StorageClass, so the config volumes stay `Pending` until one exists. That needs its own decision: for example a local-path provisioner installed by bbe.
 - **The NFS export must let the apps write.** The apps run as root by default, so the export needs `no_root_squash`, or `all_squash` mapped to the share's owner.
 - **Changing the NFS server or path after installing fails the upgrade**, as a volume's source can't be changed. Uninstall and install again instead. The media stays on the share.
 - **Changing `bbe.admin.username` after installing** updates every app except Jellyfin and Jellyseerr, whose accounts are created once.

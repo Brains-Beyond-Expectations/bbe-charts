@@ -14,6 +14,13 @@ keywords:
   - prowlarr
   - qbittorrent
 home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for the apps' config volumes
+      storageClass: longhorn
+      package: bbe-storage
 dependencies:
   - name: bazarr
     version: 0.4.0
