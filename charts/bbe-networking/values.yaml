@@ -4,6 +4,10 @@ bbe:
       ipAddressPool:
 
 metallb:
+  crds:
+    # Helm creates the address pools as soon as MetalLB is installed, before its webhook is serving.
+    # The webhook still checks pools once it's up
+    validationFailurePolicy: Ignore
   speaker:
     ignoreExcludeLB: true
 
