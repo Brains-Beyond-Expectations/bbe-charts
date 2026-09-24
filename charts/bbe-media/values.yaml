@@ -1,0 +1,93 @@
+bbe:
+  media:
+    nfs:
+      # -- The NFS server holding the media library, as a hostname or IP address
+      server: ""
+      # -- The exported path of the media library on the NFS server
+      path: ""
+      # -- Mount options for the NFS share. NFS 4.1 needs no lock daemon, which Talos nodes don't run
+      mountOptions:
+        - nfsvers=4.1
+    # -- The size of the media library. NFS doesn't enforce it, but Kubernetes needs one
+    size: 1Ti
+  admin:
+    # -- The username for every app's web UI. Its password is generated into the `bbe-media-admin` secret
+    username: admin
+  setup:
+    # -- Whether to connect the apps to each other after every install and upgrade
+    enabled: true
+    image:
+      # -- The image to run the setup with, which only needs Python
+      repository: python
+      # -- The tag of the setup image
+      tag: "3.13-alpine"
+    # -- How long the setup waits for the apps to start, in seconds
+    readyTimeout: 900
+    # -- How many times the setup is retried when an app couldn't be set up
+    backoffLimit: 5
+    resources:
+      requests:
+        # -- The amount of memory to request for the setup pod
+        memory: "64Mi"
+        # -- The amount of CPU to request for the setup pod
+        cpu: "50m"
+      limits:
+        # -- The amount of memory to limit the setup pod to
+        memory: "128Mi"
+
+# Each app starts with the API key the setup connects it with, from the `bbe-media-api-keys` secret,
+# and stores its media on the shared library
+sonarr:
+  sonarr:
+    env:
+      - name: SONARR__AUTH__APIKEY
+        valueFrom:
+          secretKeyRef:
+            name: bbe-media-api-keys
+            key: sonarr
+  media:
+    existingClaim: bbe-media-library
+
+radarr:
+  radarr:
+    env:
+      - name: RADARR__AUTH__APIKEY
+        valueFrom:
+          secretKeyRef:
+            name: bbe-media-api-keys
+            key: radarr
+  media:
+    existingClaim: bbe-media-library
+
+prowlarr:
+  prowlarr:
+    env:
+      - name: PROWLARR__AUTH__APIKEY
+        valueFrom:
+          secretKeyRef:
+            name: bbe-media-api-keys
+            key: prowlarr
+
+bazarr:
+  bazarr:
+    env:
+      # Bazarr loads its settings with Dynaconf, which reads overrides from DYNACONF_ variables
+      - name: DYNACONF_AUTH__APIKEY
+        valueFrom:
+          secretKeyRef:
+            name: bbe-media-api-keys
+            key: bazarr
+  media:
+    existingClaim: bbe-media-library
+
+qbittorrent:
+  qbittorrent:
+    webui:
+      existingSecret: bbe-media-admin
+  media:
+    existingClaim: bbe-media-library
+
+jellyfin:
+  persistence:
+    media:
+      existingClaim: bbe-media-library

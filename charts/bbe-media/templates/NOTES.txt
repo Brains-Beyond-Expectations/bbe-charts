@@ -1,0 +1,12 @@
+Every app's web UI uses the same login:
+  username: {{ .Values.bbe.admin.username }}
+  password: kubectl get secret bbe-media-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
+{{- if .Values.bbe.setup.enabled }}
+
+The apps are being connected to each other in the background, which can take a few minutes on a
+first install. To follow along:
+  kubectl logs -n {{ .Release.Namespace }} -f job/bbe-media-setup-{{ .Release.Revision }}
+{{- end }}
+
+Add your indexers in Prowlarr, which shares them with Sonarr and Radarr. Jellyseerr signs in with
+the same login, through Jellyfin.

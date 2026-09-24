@@ -1,0 +1,77 @@
+suite: test media library
+values:
+  - ./values/required-values.yaml
+templates:
+  - library.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should mount the NFS share as a volume that is never deleted with the chart
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-media-bbe-media-library
+      - equal:
+          path: spec.nfs
+          value:
+            server: 192.168.1.10
+            path: /volume1/media
+      - equal:
+          path: spec.accessModes
+          value:
+            - ReadWriteMany
+      - equal:
+          path: spec.persistentVolumeReclaimPolicy
+          value: Retain
+      - equal:
+          path: spec.mountOptions
+          value:
+            - nfsvers=4.1
+      - equal:
+          path: spec.claimRef
+          value:
+            namespace: bbe-media
+            name: bbe-media-library
+
+  - it: should claim that volume for every app
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-media-library
+      - equal:
+          path: spec.volumeName
+          value: bbe-media-bbe-media-library
+      - equal:
+          path: spec.storageClassName
+          value: ""
+
+  - it: should use the configured size and mount options
+    set:
+      bbe.media.size: 4Ti
+      bbe.media.nfs.mountOptions:
+        - nfsvers=3
+        - nolock
+    asserts:
+      - equal:
+          path: spec.capacity.storage
+          value: 4Ti
+        documentIndex: 0
+      - equal:
+          path: spec.mountOptions
+          value:
+            - nfsvers=3
+            - nolock
+        documentIndex: 0
+      - equal:
+          path: spec.resources.requests.storage
+          value: 4Ti
+        documentIndex: 1
+
+  - it: should require the NFS server
+    set:
+      bbe.media.nfs.server: ""
+    asserts:
+      - failedTemplate: {}

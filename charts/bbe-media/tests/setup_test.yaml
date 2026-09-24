@@ -1,0 +1,96 @@
+suite: test setup job
+values:
+  - ./values/required-values.yaml
+templates:
+  - setup.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+  revision: 3
+tests:
+  - it: should ship the setup script
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-media-setup
+      - matchRegex:
+          path: data["setup.py"]
+          pattern: def configure_jellyseerr
+  - it: should run the setup once per revision
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-media-setup-3
+      - equal:
+          path: spec.backoffLimit
+          value: 5
+      - equal:
+          path: spec.template.spec.restartPolicy
+          value: Never
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: python:3.13-alpine
+
+  - it: should give the setup every app's address and key
+    documentIndex: 1
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SONARR_URL
+            value: http://bbe-media-sonarr:8989
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SONARR_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: bbe-media-api-keys
+                key: sonarr
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BAZARR_URL
+            value: http://bbe-media-bazarr:6767
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JELLYSEERR_URL
+            value: http://bbe-media-jellyseerr-chart:80
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: bbe-media-admin
+                key: password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: READY_TIMEOUT
+            value: "900"
+
+  - it: should mount the media library where the apps have it
+    documentIndex: 1
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: library
+            mountPath: /media
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: library
+            persistentVolumeClaim:
+              claimName: bbe-media-library
+
+  - it: should skip the setup when disabled
+    set:
+      bbe.setup.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
