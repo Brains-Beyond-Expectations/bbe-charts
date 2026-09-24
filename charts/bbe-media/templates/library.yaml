@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "bbe-media.libraryVolumeName" . }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .Values.bbe.media.size }}
+  accessModes:
+    - ReadWriteMany
+  # Removing the volume never removes the media on the NFS server
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  {{- with .Values.bbe.media.nfs.mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  claimRef:
+    namespace: {{ .Release.Namespace }}
+    name: bbe-media-library
+  nfs:
+    server: {{ .Values.bbe.media.nfs.server }}
+    path: {{ .Values.bbe.media.nfs.path }}
+---
+# Every app mounts this claim at /media, so a download can be moved into the library without copying it
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-media-library
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: {{ include "bbe-media.libraryVolumeName" . }}
+  resources:
+    requests:
+      storage: {{ .Values.bbe.media.size }}

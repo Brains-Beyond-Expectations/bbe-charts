@@ -1,0 +1,82 @@
+{{- if .Values.bbe.setup.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-media-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+data:
+  setup.py: |
+    {{- .Files.Get "files/setup.py" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job can't be changed once it exists, so each revision gets its own, which also runs it again
+  name: bbe-media-setup-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.bbe.setup.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-media.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: setup
+          image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
+          command:
+            - python3
+            - /scripts/setup.py
+          env:
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-media-admin
+                  key: username
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-media-admin
+                  key: password
+            {{- range $app, $port := dict "sonarr" 8989 "radarr" 7878 "prowlarr" 9696 "bazarr" 6767 }}
+            - name: {{ upper $app }}_URL
+              value: http://{{ $.Release.Name }}-{{ $app }}:{{ $port }}
+            - name: {{ upper $app }}_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-media-api-keys
+                  key: {{ $app }}
+            {{- end }}
+            - name: QBITTORRENT_URL
+              value: http://{{ .Release.Name }}-qbittorrent:8080
+            - name: JELLYFIN_URL
+              value: http://{{ .Release.Name }}-jellyfin:8096
+            - name: JELLYSEERR_URL
+              value: http://{{ .Release.Name }}-jellyseerr-chart:80
+            - name: MEDIA_ROOT
+              value: /media
+            - name: READY_TIMEOUT
+              value: {{ .Values.bbe.setup.readyTimeout | quote }}
+          {{- with .Values.bbe.setup.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: library
+              mountPath: /media
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        - name: library
+          persistentVolumeClaim:
+            claimName: bbe-media-library
+        - name: scripts
+          configMap:
+            name: bbe-media-setup
+{{- end }}
