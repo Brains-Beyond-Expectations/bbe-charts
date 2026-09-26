@@ -523,6 +523,26 @@ entries:
     version: 0.1.0
   bazarr:
   - apiVersion: v2
+    appVersion: release-v1.6.2
+    created: "2026-09-26T22:10:14.133866966Z"
+    description: Bazarr is a companion application to Sonarr and Radarr. It manages
+      and downloads subtitles based on your requirements.
+    digest: 0bac76ee7d763cec1a474f33e07541b8bc4248c676a9c7d3872e7ba10cf93e61
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://wiki.bazarr.media/img/logo.png
+    keywords:
+    - bazarr
+    - sonarr
+    - radarr
+    - subtitles
+    name: bazarr
+    sources:
+    - https://github.com/morpheus65535/bazarr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/bazarr-0.3.2/bazarr-0.3.2.tgz
+    version: 0.3.2
+  - apiVersion: v2
     appVersion: release-v1.6.1
     created: "2026-09-15T08:09:14.825097895Z"
     description: Bazarr is a companion application to Sonarr and Radarr. It manages
@@ -2201,4 +2221,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2026-09-25T21:38:12.652480073Z"
+generated: "2026-09-26T22:10:14.1329268Z"
