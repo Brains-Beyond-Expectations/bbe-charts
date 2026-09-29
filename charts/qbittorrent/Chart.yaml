@@ -3,7 +3,7 @@ name: qbittorrent
 description: qBittorrent is a BitTorrent client programmed in C++ / Qt that uses libtorrent
 type: application
 version: 0.0.3
-appVersion: 5.2.3
+appVersion: 5.2.4
 keywords:
   - qbittorrent
   - torrent
