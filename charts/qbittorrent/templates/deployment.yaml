@@ -26,8 +26,39 @@ spec:
         {{- toYaml .Values.qbittorrent.annotations | nindent 8 }}
       {{- end }}
     spec:
-      {{- if .Values.wireguard.enabled }}
+      {{- if and .Values.qbittorrent.webui.existingSecret (not .Values.config.enabled) }}
+      {{- fail "qbittorrent.webui.existingSecret needs config.enabled, as the login is written to the config volume" }}
+      {{- end }}
+      {{- if or .Values.qbittorrent.webui.existingSecret .Values.wireguard.enabled }}
       initContainers:
+        {{- if .Values.qbittorrent.webui.existingSecret }}
+        - name: webui-auth
+          image: "{{ .Values.qbittorrent.image.repository }}:{{ include "qbittorrent.image" . }}"
+          command:
+            - python3
+            - /scripts/webui-auth.py
+          env:
+            - name: WEBUI_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.qbittorrent.webui.existingSecret }}
+                  key: {{ .Values.qbittorrent.webui.usernameKey }}
+            - name: WEBUI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.qbittorrent.webui.existingSecret }}
+                  key: {{ .Values.qbittorrent.webui.passwordKey }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: webui-auth
+              mountPath: /scripts
+          {{- if .Values.qbittorrent.securityContext }}
+          securityContext:
+            {{- toYaml .Values.qbittorrent.securityContext | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.wireguard.enabled }}
         - name: wireguard-network-init
           image: "{{ .Values.wireguard.initContainer.image.repository }}:{{ .Values.wireguard.initContainer.image.tag }}"
           command:
@@ -42,6 +73,7 @@ spec:
             capabilities:
               add:
                 - NET_ADMIN
+        {{- end }}
       {{- end }}
       containers:
         - name: qbittorrent
@@ -126,6 +158,11 @@ spec:
         - name: media
           persistentVolumeClaim:
             claimName: {{ include "qbittorrent.mediaClaimName" . }}
+        {{- end }}
+        {{- if .Values.qbittorrent.webui.existingSecret }}
+        - name: webui-auth
+          configMap:
+            name: {{ include "qbittorrent.fullname" . }}-webui-auth
         {{- end }}
         {{- if .Values.wireguard.enabled }}
         - name: wireguard-config
