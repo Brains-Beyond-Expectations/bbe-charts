@@ -19,6 +19,18 @@ annotations:
           - siderolabs/util-linux-tools
         directories:
           - /var/mnt/longhorn
+  # What else `bbe uninstall` deletes: Longhorn keeps its own namespace, and only lets itself be removed once its
+  # deleting-confirmation-flag is set
+  bbe/uninstall: |
+    namespaces:
+      - longhorn-system
+    patches:
+      - resource: settings.longhorn.io
+        namespace: longhorn-system
+        name: deleting-confirmation-flag
+        patch: '{"value": "true"}'
+    keeps:
+      - The iSCSI and filesystem extensions, and the /var/mnt/longhorn directory, that bbe set up on each node
 dependencies:
   - name: longhorn
     version: 1.12.1
