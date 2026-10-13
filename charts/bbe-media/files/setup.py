@@ -159,7 +159,7 @@ def upsert_provider(app, resource, implementation, name, fields, extra=None):
             raise SetupError(f"{app.name} doesn't support {implementation}")
         item.update({"name": name, "enable": True})
     else:
-        item = existing
+        item = json.loads(json.dumps(existing))
     item.update(extra or {})
 
     known = {field["name"] for field in item["fields"]}
@@ -170,13 +170,29 @@ def upsert_provider(app, resource, implementation, name, fields, extra=None):
         if field["name"] in fields:
             field["value"] = fields[field["name"]]
 
-    # Saving tests the connection, so a wrong address or key fails here rather than later
+    # Saving tests the connection, so a wrong address or key fails here rather than later. An unchanged one isn't
+    # saved again, as that would test it on every run
     if existing is None:
         app.post(f"{app.api}/{resource}", item)
         log(f"{app.name}: added {name}")
-    else:
+    elif changed(item, existing):
         app.put(f"{app.api}/{resource}/{existing['id']}", item)
         log(f"{app.name}: updated {name}")
+
+
+# How the Servarr apps read back a credential
+MASKED = "********"
+
+
+def changed(item, existing):
+    """Whether saving would change anything. Credentials read back masked, so they count as unchanged: bbe's come
+    from the chart's secrets, which are kept across upgrades"""
+    masked = {field["name"] for field in existing.get("fields", []) if field.get("value") == MASKED}
+    comparable = json.loads(json.dumps(item))
+    for field in comparable.get("fields", []):
+        if field["name"] in masked:
+            field["value"] = MASKED
+    return comparable != existing
 
 
 def ensure_root_folder(app, path):
@@ -414,8 +430,11 @@ def configure_jellyseerr_server(jellyseerr, app, root_folder, extra):
     else:
         # Keep the profile and folder someone picked in Jellyseerr, only the connection is bbe's
         server.update({key: existing[key] for key in ("activeProfileId", "activeProfileName", "activeDirectory") if key in existing})
-        jellyseerr.put(f"{resource}/{existing['id']}", server)
-        log(f"Jellyseerr: updated the connection to {app.name}")
+        # The id is in the path, and Jellyseerr refuses it in the body as it's read-only
+        server.pop("id", None)
+        if server != {key: value for key, value in existing.items() if key != "id"}:
+            jellyseerr.put(f"{resource}/{existing['id']}", server)
+            log(f"Jellyseerr: updated the connection to {app.name}")
 
 
 def main():
