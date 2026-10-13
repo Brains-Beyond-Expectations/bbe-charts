@@ -16,4 +16,4 @@ test: go-mod-tidy
 	go test ./... -race -covermode=atomic -coverprofile=coverage.out
 
 run: go-mod-tidy
-	go run main.go
+	go run .

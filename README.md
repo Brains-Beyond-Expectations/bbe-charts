@@ -36,6 +36,11 @@ The preview is a pre-release of the chart's current version, such as `0.3.0-pr15
 only set when the pull request merges. It's removed when the pull request closes. Pull requests from forks don't
 get a preview.
 
+Charts are compared with `main`, so a pull request stacked on another one includes that one's charts too. When a
+chart depends on another chart the pull request changes, like `bbe-media` on `sonarr`, it's packaged with that
+chart's preview, so both are tested together before either is released. Only charts that are bbe packages, in
+`library.yaml` or `required-versions.yaml`, are listed in the preview library.
+
 For quicker changes, bbe also takes a library file on disk whose charts point at folders, so nothing has to be
 pushed:
 
