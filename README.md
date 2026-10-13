@@ -20,3 +20,34 @@ To install the <chart-name> chart:
 To uninstall the chart:
 
     helm uninstall my-<chart-name>
+
+## Testing a pull request
+
+Every push to a pull request that changes a chart publishes those charts as a pre-release named
+`preview-pr-<number>`, with a library listing them next to the published charts. The pull request gets a comment
+with the command to install them:
+
+    bbe install --library https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/preview-pr-<number>/library.yaml
+
+To test them with a bbe change that isn't released yet, run `go run . install --library <url>` in the `cli` folder
+of that bbe-quest branch. A bbe built from source accepts any library revision.
+
+The preview is a pre-release of the chart's current version, such as `0.3.0-pr153.4`, as the released version is
+only set when the pull request merges. It's removed when the pull request closes. Pull requests from forks don't
+get a preview.
+
+For quicker changes, bbe also takes a library file on disk whose charts point at folders, so nothing has to be
+pushed:
+
+```yaml
+library:
+  - min-bbe-cli: 0.0.0
+    list-revision: 1
+    charts:
+      - name: bbe-networking
+        version: 0.0.0-local
+        repositoryUrl: file://charts/bbe-networking # Relative to the library file
+        repositoryName: local
+```
+
+    bbe install --library ./local-library.yaml
