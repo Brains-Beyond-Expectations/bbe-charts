@@ -2,4 +2,5 @@ charts:
   - name: bbe-media
     min-bbe-cli: 0.6.0
   - name: bbe-networking
-    min-bbe-cli: 0.6.0
+    # Applies the CRDs of Traefik, which helm only installs on a first install
+    min-bbe-cli: 1.6.1
