@@ -108,7 +108,7 @@ spec:
               {{- end }}
             {{- end }}
           {{- end }}
-          {{- if or .Values.config.enabled .Values.media.enabled }}
+          {{- if or .Values.config.enabled .Values.media.enabled .Values.incomplete.enabled }}
           volumeMounts:
             {{- if .Values.config.enabled }}
             - name: config
@@ -117,6 +117,10 @@ spec:
             {{- if .Values.media.enabled }}
             - name: media
               mountPath: /media
+            {{- end }}
+            {{- if .Values.incomplete.enabled }}
+            - name: incomplete
+              mountPath: {{ .Values.incomplete.mountPath }}
             {{- end }}
           {{- end }}
           {{- if .Values.qbittorrent.securityContext }}
@@ -147,7 +151,7 @@ spec:
             - name: wireguard-config
               mountPath: {{ .Values.wireguard.secret.mountPath }}
       {{- end }}
-      {{- if or .Values.config.enabled .Values.media.enabled .Values.wireguard.enabled }}
+      {{- if or .Values.config.enabled .Values.media.enabled .Values.incomplete.enabled .Values.wireguard.enabled }}
       volumes:
         {{- if .Values.config.enabled }}
         - name: config
@@ -158,6 +162,11 @@ spec:
         - name: media
           persistentVolumeClaim:
             claimName: {{ include "qbittorrent.mediaClaimName" . }}
+        {{- end }}
+        {{- if .Values.incomplete.enabled }}
+        - name: incomplete
+          persistentVolumeClaim:
+            claimName: {{ include "qbittorrent.incompleteClaimName" . }}
         {{- end }}
         {{- if .Values.qbittorrent.webui.existingSecret }}
         - name: webui-auth
