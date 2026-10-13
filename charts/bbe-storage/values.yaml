@@ -1,0 +1,13 @@
+longhorn:
+  # -- The namespace Longhorn runs in, which this chart creates to allow its privileged pods
+  namespaceOverride: longhorn-system
+  persistence:
+    # -- Whether Longhorn's storage class is the cluster's default
+    defaultClass: true
+    # -- How many copies of each volume Longhorn keeps, on different nodes. Raise it to 2 or 3 with more nodes
+    defaultClassReplicaCount: 1
+  defaultSettings:
+    # -- Where Longhorn stores volumes on each node: the directory user volume bbe sets up
+    defaultDataPath: /var/mnt/longhorn
+    # -- How many copies of each volume Longhorn keeps when a volume doesn't say
+    defaultReplicaCount: 1

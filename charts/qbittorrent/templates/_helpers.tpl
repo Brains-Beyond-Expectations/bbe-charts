@@ -93,3 +93,14 @@ Create the annotations for media PVC
 {{- printf "%s-media" (include "qbittorrent.fullname" .) -}}
 {{- end }}
 {{- end }}
+
+{{/*
+The claim for downloads in progress
+*/}}
+{{- define "qbittorrent.incompleteClaimName" -}}
+{{- if .Values.incomplete.existingClaim }}
+{{- .Values.incomplete.existingClaim }}
+{{- else }}
+{{- printf "%s-incomplete" (include "qbittorrent.fullname" .) -}}
+{{- end }}
+{{- end }}

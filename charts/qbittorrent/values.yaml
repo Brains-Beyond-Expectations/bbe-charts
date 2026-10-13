@@ -132,6 +132,23 @@ media:
   # -- Whether to keep the persistent volume claim for the media after the qBittorrent chart is uninstalled
   retain: false
 
+incomplete:
+  # -- Annotations to apply to the persistent volume claim for downloads in progress
+  annotations: {}
+  # -- Whether to keep downloads in progress on their own volume, such as a fast one on the node, set as qBittorrent's
+  # "Keep incomplete torrents in" path. qBittorrent moves each download to its save path once it completes
+  enabled: false
+  # -- Use this attribute to reference an existing persistent volume claim for downloads in progress
+  existingClaim: ""
+  # -- The amount of storage to request for downloads in progress. Downloads larger than this together can't complete
+  size: "10Gi"
+  # -- Storage class to use for the persistent volume claim for downloads in progress
+  storageClass: ""
+  # -- The access mode to use for the persistent volume claim for downloads in progress
+  accessMode: ReadWriteOnce
+  # -- Where downloads in progress are kept in the container
+  mountPath: /incomplete
+
 wireguard:
   # -- Whether to run qBittorrent behind a WireGuard sidecar
   enabled: false
