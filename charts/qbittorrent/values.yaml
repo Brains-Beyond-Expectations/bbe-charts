@@ -141,7 +141,7 @@ incomplete:
   # -- Use this attribute to reference an existing persistent volume claim for downloads in progress
   existingClaim: ""
   # -- The amount of storage to request for downloads in progress. Downloads larger than this together can't complete
-  size: "10Gi"
+  size: "20Gi"
   # -- Storage class to use for the persistent volume claim for downloads in progress
   storageClass: ""
   # -- The access mode to use for the persistent volume claim for downloads in progress
