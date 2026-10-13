@@ -512,7 +512,9 @@ def main():
     arrs = [app for app in (sonarr, radarr) if app is not None]
 
     deadline = time.monotonic() + READY_TIMEOUT
-    readiness = [(sonarr, "/ping"), (radarr, "/ping"), (prowlarr, "/ping"), (bazarr, "/"), (qbittorrent, "/api/v2/app/version"), (jellyfin, "/health"), (seerr, "/api/v1/status"), (flaresolverr, "/health")]
+    # Jellyfin 12 answers /health from its startup screen while the server is still loading, and 503 elsewhere until
+    # it's done
+    readiness = [(sonarr, "/ping"), (radarr, "/ping"), (prowlarr, "/ping"), (bazarr, "/"), (qbittorrent, "/api/v2/app/version"), (jellyfin, "/System/Info/Public"), (seerr, "/api/v1/status"), (flaresolverr, "/health")]
     for app, path in readiness:
         if app is not None:
             app.wait_until_ready(path, deadline)

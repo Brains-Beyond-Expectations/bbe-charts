@@ -175,6 +175,8 @@ qbittorrent:
 jellyfin:
   image:
     repository: lscr.io/linuxserver/jellyfin
+    # Jellyfin 12, which the SSO plugin's fixed versions need, instead of the 10.11 the jellyfin chart defaults to
+    tag: 12.2ubu2604-ls53
   jellyfin:
     env:
       - name: PUID
