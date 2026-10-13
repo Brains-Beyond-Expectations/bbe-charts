@@ -271,7 +271,7 @@ def configure_prowlarr_flaresolverr(prowlarr):
     }, extra={"tags": [tag["id"]]})
 
 
-def configure_prowlarr_indexers(prowlarr):
+def configure_prowlarr_indexers(prowlarr, apps):
     """Brings the indexers bbe added in line with the list, leaving the ones added in Prowlarr itself alone"""
     tag = prowlarr_tag(prowlarr, BBE_TAG, create=bool(INDEXERS))
     if tag is None:
@@ -297,9 +297,42 @@ def configure_prowlarr_indexers(prowlarr):
             log(f"ERROR {error}")
             failed.append(wanted_indexer["name"])
 
+    sync_app_indexers(prowlarr, tag, apps)
+
     # The others are set up, and the job tries these again
     if failed:
         raise SetupError(f"Prowlarr couldn't save the indexers {', '.join(failed)}")
+
+
+def sync_app_indexers(prowlarr, tag, apps):
+    """Makes sure bbe's indexers reach Sonarr and Radarr, and says which haven't.
+
+    Prowlarr syncs an indexer to an app that has no tags, or one sharing a tag with it, so an app someone tagged gets
+    bbe's tag too. Then the sync runs now rather than on Prowlarr's schedule. An app still refuses an indexer that
+    fails its test, such as one Cloudflare blocks or one Prowlarr disabled after failures, so that's reported.
+    """
+    for application in prowlarr.get(f"{prowlarr.api}/applications"):
+        if application["tags"] and tag["id"] not in application["tags"]:
+            application["tags"] = sorted(set(application["tags"]) | {tag["id"]})
+            prowlarr.put(f"{prowlarr.api}/applications/{application['id']}", application)
+            log(f"Prowlarr: tagged {application['name']} `{BBE_TAG}`, so bbe's indexers sync to it")
+
+    command = prowlarr.post(f"{prowlarr.api}/command", {"name": "ApplicationIndexerSync", "forceSync": True})
+    deadline = time.monotonic() + INDEXER_SAVE_TIMEOUT
+    while command.get("status") not in ("completed", "failed", "aborted", "cancelled") and time.monotonic() < deadline:
+        time.sleep(5)
+        command = prowlarr.get(f"{prowlarr.api}/command/{command['id']}")
+
+    for app in apps:
+        # Prowlarr names the indexers it syncs after its own, followed by " (Prowlarr)"
+        synced = {indexer["name"] for indexer in app.get(f"{app.api}/indexer")}
+        missing = [indexer["name"] for indexer in INDEXERS if f"{indexer['name']} (Prowlarr)" not in synced]
+        if missing:
+            log(f"WARNING {app.name} doesn't have {', '.join(f'`{name}`' for name in missing)} yet, as it refuses an indexer"
+                " that fails its test, such as one Cloudflare blocks. Prowlarr's System > Events says why, and it syncs"
+                " again every few hours")
+        else:
+            log(f"{app.name}: has bbe's {len(INDEXERS)} indexers from Prowlarr")
 
 
 def save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, tag, flaresolverr_tag=None):
@@ -500,7 +533,7 @@ def main():
         steps.append(("Prowlarr", configure_prowlarr, prowlarr, arrs))
         if flaresolverr:
             steps.append(("FlareSolverr", configure_prowlarr_flaresolverr, prowlarr))
-        steps.append(("Prowlarr indexers", configure_prowlarr_indexers, prowlarr))
+        steps.append(("Prowlarr indexers", configure_prowlarr_indexers, prowlarr, arrs))
     if bazarr and arrs:
         steps.append(("Bazarr", configure_bazarr, bazarr, arrs))
     if jellyfin:

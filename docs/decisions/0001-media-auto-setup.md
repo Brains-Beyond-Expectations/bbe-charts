@@ -140,6 +140,8 @@ Indexers are listed in `bbe.media.prowlarr.indexers`, so a reinstall or a new cl
 
 The Job adds and updates the listed indexers, tagged `bbe`, and removes `bbe`-tagged ones that are no longer listed. Indexers added in Prowlarr itself are left alone. Prowlarr searches an indexer before saving it, which can take up to 100 seconds, and refuses one it can't reach. So each indexer is saved on its own: one failing is reported, the others are still saved, and the Job tries the failed one again.
 
+Tags also decide which apps Prowlarr syncs an indexer to: an app with no tags gets every indexer, and a tagged app only those sharing a tag. Sonarr and Radarr are added without tags, so bbe's tags don't stop them getting its indexers, and if someone tags them, the Job tags them `bbe` too. After saving the indexers, the Job runs Prowlarr's sync, then checks Sonarr and Radarr have each one. An app refuses an indexer that fails its test, such as one Cloudflare blocks or Prowlarr disabled after failures, so the Job names any that's missing rather than failing.
+
 Rejected: shipping a list of indexers to enable by default, which would have bbe decide which sites a cluster searches.
 
 ### 10. FlareSolverr gets the indexers Cloudflare blocks past it
