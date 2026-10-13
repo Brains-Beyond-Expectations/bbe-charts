@@ -38,6 +38,44 @@
               "minLength": 1,
               "description": "The size of the media library"
             },
+            "prowlarr": {
+              "type": "object",
+              "properties": {
+                "indexers": {
+                  "type": "array",
+                  "description": "The indexers Prowlarr searches, and shares with Sonarr and Radarr",
+                  "items": {
+                    "type": "object",
+                    "required": ["name", "definition"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The indexer's name in Prowlarr"
+                      },
+                      "definition": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The Prowlarr definition the indexer is made from, such as internetarchive"
+                      },
+                      "fields": {
+                        "type": "object",
+                        "description": "The indexer's settings by field name"
+                      },
+                      "secretFields": {
+                        "type": "object",
+                        "description": "The key in the bbe-media-indexers secret of each credential, by field name",
+                        "additionalProperties": {
+                          "type": "string",
+                          "pattern": "^[-._a-zA-Z0-9]+$"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
             "user": {
               "type": "object",
               "required": ["uid", "gid"],

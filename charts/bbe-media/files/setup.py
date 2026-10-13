@@ -25,6 +25,13 @@ TRANSCODE_DIR = os.environ.get("JELLYFIN_TRANSCODE_DIR", "")
 # Where qBittorrent keeps downloads in progress, a volume on the node, or empty to keep them in DOWNLOADS_DIR
 INCOMPLETE_DIR = os.environ.get("QBITTORRENT_INCOMPLETE_DIR", "")
 READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
+# The indexers bbe adds to Prowlarr, from `bbe configure`, with their credentials as files in INDEXER_SECRETS_DIR
+INDEXERS = json.loads(os.environ.get("INDEXERS") or "[]")
+INDEXER_SECRETS_DIR = os.environ.get("INDEXER_SECRETS_DIR", "/indexer-secrets")
+# Marks the indexers bbe added, so it only ever changes or removes its own
+BBE_TAG = "bbe"
+# Prowlarr searches an indexer before saving it, waiting up to 100 seconds, then Sonarr and Radarr test it too
+INDEXER_SAVE_TIMEOUT = 300
 
 JELLYFIN_CLIENT = 'MediaBrowser Client="bbe-media-setup", Device="bbe", DeviceId="bbe-media-setup", Version="1.0.0"'
 
@@ -51,7 +58,7 @@ class App:
     def port(self):
         return urllib.parse.urlsplit(self.url).port
 
-    def request(self, method, path, body=None, form=None, headers=None):
+    def request(self, method, path, body=None, form=None, headers=None, timeout=60):
         request_headers = {"Accept": "application/json", **self.headers, **(headers or {})}
         data = None
         if body is not None:
@@ -63,10 +70,12 @@ class App:
 
         request = urllib.request.Request(self.url + path, data=data, method=method, headers=request_headers)
         try:
-            with self.opener.open(request, timeout=60) as response:
+            with self.opener.open(request, timeout=timeout) as response:
                 status, content = response.status, response.read()
         except urllib.error.HTTPError as error:
             status, content = error.code, error.read()
+        except (urllib.error.URLError, TimeoutError) as error:
+            raise SetupError(f"{self.name}: {method} {path} failed: {error}")
 
         if status >= 300:
             raise SetupError(f"{self.name}: {method} {path} returned {status}: {content[:500].decode(errors='replace')}")
@@ -241,6 +250,76 @@ def configure_prowlarr(prowlarr, apps):
         }, extra={"syncLevel": "fullSync"})
 
 
+def configure_prowlarr_indexers(prowlarr):
+    """Brings the indexers bbe added in line with the list, leaving the ones added in Prowlarr itself alone"""
+    tag = next((tag for tag in prowlarr.get("/api/v1/tag") if tag["label"] == BBE_TAG), None)
+    if tag is None:
+        if not INDEXERS:
+            return
+        tag = prowlarr.post("/api/v1/tag", {"label": BBE_TAG})
+
+    existing = prowlarr.get("/api/v1/indexer")
+    wanted = {indexer["name"] for indexer in INDEXERS}
+    for indexer in existing:
+        if tag["id"] in indexer.get("tags", []) and indexer["name"] not in wanted:
+            prowlarr.request("DELETE", f"/api/v1/indexer/{indexer['id']}")
+            log(f"Prowlarr: removed the indexer `{indexer['name']}`")
+    if not INDEXERS:
+        return
+
+    definitions = {definition["definitionName"]: definition for definition in prowlarr.get("/api/v1/indexer/schema")}
+    profile_id = prowlarr.get("/api/v1/appprofile")[0]["id"]
+    failed = []
+    for wanted_indexer in INDEXERS:
+        try:
+            save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, tag)
+        except SetupError as error:
+            log(f"ERROR {error}")
+            failed.append(wanted_indexer["name"])
+
+    # The others are set up, and the job tries these again
+    if failed:
+        raise SetupError(f"Prowlarr couldn't save the indexers {', '.join(failed)}")
+
+
+def save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, tag):
+    """Adds or updates one indexer, and only if bbe added it"""
+    name, definition_name = wanted_indexer["name"], wanted_indexer["definition"]
+    current = next((indexer for indexer in existing if indexer["name"] == name), None)
+    if current is not None and tag["id"] not in current.get("tags", []):
+        log(f"Prowlarr: left `{name}` as it is, as it was added in Prowlarr")
+        return
+    if definition_name not in definitions:
+        raise SetupError(f"Prowlarr has no indexer definition `{definition_name}` for `{name}`")
+
+    values = dict(wanted_indexer.get("fields") or {})
+    for field, key in (wanted_indexer.get("secretFields") or {}).items():
+        try:
+            with open(os.path.join(INDEXER_SECRETS_DIR, key)) as secret:
+                values[field] = secret.read()
+        except OSError:
+            raise SetupError(f"The credential `{key}` for `{name}` is missing from the bbe-media-indexers secret, add the indexer again with `bbe configure bbe-media`")
+
+    indexer = json.loads(json.dumps(current if current is not None else definitions[definition_name]))
+    unknown = set(values) - {field["name"] for field in indexer["fields"]}
+    if unknown:
+        raise SetupError(f"Prowlarr's `{definition_name}` definition has no field {', '.join(sorted(unknown))} for `{name}`")
+    for field in indexer["fields"]:
+        if field["name"] in values:
+            field["value"] = values[field["name"]]
+    indexer.update({"name": name, "enable": True, "tags": sorted(set(indexer.get("tags", [])) | {tag["id"]})})
+    if not indexer.get("appProfileId"):
+        indexer["appProfileId"] = profile_id
+
+    # Prowlarr searches the indexer before saving it, and forceSave only lets a save through warnings
+    if current is None:
+        prowlarr.post("/api/v1/indexer?forceSave=true", indexer, timeout=INDEXER_SAVE_TIMEOUT)
+        log(f"Prowlarr: added the indexer `{name}`")
+    elif indexer != current:
+        prowlarr.put(f"/api/v1/indexer/{current['id']}?forceSave=true", indexer, timeout=INDEXER_SAVE_TIMEOUT)
+        log(f"Prowlarr: updated the indexer `{name}`")
+
+
 def configure_bazarr(bazarr, apps):
     form = {
         "settings-auth-type": "form",
@@ -391,6 +470,7 @@ def main():
         steps.append(("Radarr", configure_arr, radarr, qbittorrent, MOVIES_DIR, "movieCategory", "radarr"))
     if prowlarr:
         steps.append(("Prowlarr", configure_prowlarr, prowlarr, arrs))
+        steps.append(("Prowlarr indexers", configure_prowlarr_indexers, prowlarr))
     if bazarr and arrs:
         steps.append(("Bazarr", configure_bazarr, bazarr, arrs))
     if jellyfin:

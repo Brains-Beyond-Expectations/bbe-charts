@@ -74,6 +74,10 @@ spec:
             - name: QBITTORRENT_INCOMPLETE_DIR
               value: {{ .Values.qbittorrent.incomplete.mountPath | default "/incomplete" | quote }}
             {{- end }}
+            - name: INDEXERS
+              value: {{ .Values.bbe.media.prowlarr.indexers | default list | toJson | quote }}
+            - name: INDEXER_SECRETS_DIR
+              value: /indexer-secrets
             - name: READY_TIMEOUT
               value: {{ .Values.bbe.setup.readyTimeout | quote }}
           {{- with .Values.bbe.setup.resources }}
@@ -85,6 +89,9 @@ spec:
               mountPath: /media
             - name: scripts
               mountPath: /scripts
+            - name: indexer-secrets
+              mountPath: /indexer-secrets
+              readOnly: true
       volumes:
         - name: library
           persistentVolumeClaim:
@@ -92,4 +99,9 @@ spec:
         - name: scripts
           configMap:
             name: bbe-media-setup
+        # Written by `bbe configure`, so it only exists once an indexer needs a credential
+        - name: indexer-secrets
+          secret:
+            secretName: bbe-media-indexers
+            optional: true
 {{- end }}

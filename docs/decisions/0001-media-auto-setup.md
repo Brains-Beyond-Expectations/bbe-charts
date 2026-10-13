@@ -134,6 +134,14 @@ Rejected: mapping all users to the share's owner on the NAS, which Synology only
 4. **Allow the nodes:** edit the share → NFS Permissions → Create, with the nodes' IPs or their range as Hostname or IP, Read/Write, **Map root to guest**, security `sys`, and "Allow users to access mounted subfolders" ticked.
 5. **Enable NFSv4:** Control Panel → File Services → NFS → Maximum NFS protocol: NFSv4, or NFSv4.1 where DSM offers it.
 
+### 9. Indexers are part of the install, added with `bbe configure`
+
+Indexers are listed in `bbe.media.prowlarr.indexers`, so a reinstall or a new cluster gets them back like every other setting. `bbe configure bbe-media` adds and removes them: it searches the definitions Prowlarr ships for one, asks for its fields, keeps credentials in the `bbe-media-indexers` secret instead of `bbe.yaml`, and upgrades the release. The chart declares that list in its `bbe/settings` annotation, so bbe needs no knowledge of Prowlarr beyond reading its catalog.
+
+The Job adds and updates the listed indexers, tagged `bbe`, and removes `bbe`-tagged ones that are no longer listed. Indexers added in Prowlarr itself are left alone. Prowlarr searches an indexer before saving it, which can take up to 100 seconds, and refuses one it can't reach. So each indexer is saved on its own: one failing is reported, the others are still saved, and the Job tries the failed one again.
+
+Rejected: shipping a list of indexers to enable by default, which would have bbe decide which sites a cluster searches.
+
 ## What the Job sets up
 
 Every step reads the current state first, so a second run only updates bbe's own connections and adds nothing twice. The connections are found again by name: `qBittorrent` in Sonarr and Radarr, `Sonarr` and `Radarr` in Prowlarr.
@@ -142,7 +150,7 @@ Every step reads the current state first, so a second run only updates bbe's own
 |---|---|
 | qBittorrent | Keeps downloads in progress in `/incomplete` on the node, then saves them to `/media/downloads` |
 | Sonarr, Radarr | Admin login, root folder, qBittorrent as download client |
-| Prowlarr | Admin login, Sonarr and Radarr as applications with full sync |
+| Prowlarr | Admin login, Sonarr and Radarr as applications with full sync, the indexers in `bbe.media.prowlarr.indexers` |
 | Bazarr | Admin login, connected to Sonarr and Radarr |
 | Jellyfin | Startup wizard with the admin account, Shows and Movies libraries, transcoding in `/transcode` |
 | Jellyseerr | Signed in through Jellyfin, libraries enabled, Sonarr and Radarr connected with the HD-1080p profile when it exists |
