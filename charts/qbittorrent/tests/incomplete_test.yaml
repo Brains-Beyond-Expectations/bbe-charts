@@ -84,3 +84,33 @@ tests:
             persistentVolumeClaim:
               claimName: scratch
         template: deployment.yaml
+
+  - it: hands the volume to the user qBittorrent runs as before it starts
+    template: deployment.yaml
+    set:
+      incomplete.enabled: true
+      qbittorrent.env:
+        - name: PUID
+          value: "1031"
+        - name: PGID
+          value: "100"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[?(@.name == "incomplete-owner")].command[2]
+          value: chown "$PUID:$PGID" "$INCOMPLETE_DIR"
+      - contains:
+          path: spec.template.spec.initContainers[?(@.name == "incomplete-owner")].env
+          content:
+            name: PUID
+            value: "1031"
+      - contains:
+          path: spec.template.spec.initContainers[?(@.name == "incomplete-owner")].volumeMounts
+          content:
+            name: incomplete
+            mountPath: /incomplete
+
+  - it: has no init container for it when disabled
+    template: deployment.yaml
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers

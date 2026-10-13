@@ -1,0 +1,94 @@
+suite: test NAS user
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should hand the NAS user to the apps
+    template: templates/user.yaml
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-media-user
+      - equal:
+          path: data
+          value:
+            PUID: "1031"
+            PGID: "100"
+
+  - it: should start every app on the library as the NAS user
+    templates:
+      - charts/sonarr/templates/deployment.yaml
+      - charts/radarr/templates/deployment.yaml
+      - charts/bazarr/templates/deployment.yaml
+      - charts/qbittorrent/templates/deployment.yaml
+      - charts/jellyfin/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PUID
+            valueFrom:
+              configMapKeyRef:
+                name: bbe-media-user
+                key: PUID
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PGID
+            valueFrom:
+              configMapKeyRef:
+                name: bbe-media-user
+                key: PGID
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PUID
+            value: "0"
+
+  - it: should run Jellyfin from the linuxserver image, transcoding on the bounded cache
+    template: charts/jellyfin/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: lscr.io/linuxserver/jellyfin:10.11.8
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: cache
+            mountPath: /transcode
+
+  - it: should create the library's folders as the NAS user
+    template: templates/setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext
+          value:
+            runAsNonRoot: true
+            runAsUser: 1031
+            runAsGroup: 100
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JELLYFIN_TRANSCODE_DIR
+            value: /transcode
+
+  - it: should need the NAS user's IDs
+    template: templates/user.yaml
+    set:
+      bbe.media.user.uid: null
+    asserts:
+      - failedTemplate:
+          errorPattern: "bbe.media.user: uid is required"
+
+  - it: should refuse root as the NAS user
+    template: templates/user.yaml
+    set:
+      bbe.media.user.uid: 0
+    asserts:
+      - failedTemplate:
+          errorPattern: "bbe.media.user.uid: Must be greater than or equal to 1"

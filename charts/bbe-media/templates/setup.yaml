@@ -27,6 +27,11 @@ spec:
         app.kubernetes.io/component: setup
     spec:
       restartPolicy: Never
+      # The setup creates the library's folders, as the NAS user like the apps
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.bbe.media.user.uid | int }}
+        runAsGroup: {{ .Values.bbe.media.user.gid | int }}
       containers:
         - name: setup
           image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
@@ -61,6 +66,10 @@ spec:
               value: http://{{ .Release.Name }}-jellyseerr-chart:80
             - name: MEDIA_ROOT
               value: /media
+            {{- if .Values.jellyfin.persistence.cache.enabled }}
+            - name: JELLYFIN_TRANSCODE_DIR
+              value: /transcode
+            {{- end }}
             {{- if .Values.qbittorrent.incomplete.enabled }}
             - name: QBITTORRENT_INCOMPLETE_DIR
               value: {{ .Values.qbittorrent.incomplete.mountPath | default "/incomplete" | quote }}

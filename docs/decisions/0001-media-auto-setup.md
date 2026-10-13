@@ -108,11 +108,31 @@ Long-term storage is the NAS. Longhorn keeps its data on the node's system disk,
 |---|---|---|
 | Sonarr, Radarr, Prowlarr, Bazarr, qBittorrent configs | 1Gi each | SQLite databases (decision 6) |
 | Jellyfin config | 3Gi | Its database, plus metadata and images, which grow with the library |
-| Jellyfin cache | 2Gi | Transcoding writes here as it streams. Without a volume, the Jellyfin chart uses an `emptyDir`, which nothing bounds |
+| Jellyfin transcoding | 2Gi | Transcoding writes here as it streams, at `/transcode`, which the Job sets as Jellyfin's transcoding path. Without it, transcodes would share the config volume with Jellyfin's database |
 | Jellyseerr config | 1Gi | Its database |
 | qBittorrent downloads in progress | 20Gi | Torrents write in small random pieces, which a NAS handles slowly. qBittorrent moves each download to `/media/downloads` on the NAS once it completes |
 
 Downloads in progress share the 20Gi, so a torrent that doesn't fit waits for others to complete, and one larger than 20Gi can't complete at all. Raise `qbittorrent.incomplete.size` for large downloads; Longhorn can grow the volume in place. Rejected: keeping downloads in progress on the NAS, which works but is slower, and is what turning `qbittorrent.incomplete.enabled` off does.
+
+### 8. The apps write the library as a dedicated NAS user
+
+Nothing writes to the NAS as root, so the share can map root away and a client allowed to mount it never gets root on it. A NAS user owns the share, and `bbe.media.user.uid` and `gid` (required, bbe asks for them) are its IDs:
+
+- **Sonarr, Radarr, qBittorrent (linuxserver) and Bazarr (hotio)** start as root, then drop to the user in `PUID` and `PGID`, which they read from the `bbe-media-user` config map. The app charts used to always add their own `PUID` and `PGID` after the values, and as the last of two variables with one name wins, that overrode them with root. The charts' defaults now only fill in what the values leave out.
+- **Jellyfin runs the linuxserver image** instead of the official one, which can only change user through the pod's `securityContext`. A parent chart can't fill that in from its own values, so the IDs would have to be entered twice. The linuxserver image keeps its data in `/config/data` and its cache in `/config/cache`, and transcodes in `/transcode`.
+- **The Job runs as the user**, as it creates the library's folders.
+- **qBittorrent's downloads in progress** are handed to the user by an init container, as a new volume belongs to root.
+- Prowlarr and Jellyseerr never touch the library and keep their defaults.
+
+Rejected: mapping all users to the share's owner on the NAS, which Synology only offers for `admin`, and running the apps as root with `no_root_squash`, which gives root on the share to every client allowed to mount it.
+
+#### Setting up the share on a Synology NAS
+
+1. **Create the user:** Control Panel → User & Group → Create, named for example `bbe-media`, with a long random password. Keep it out of `administrators`, and deny it every application.
+2. **Create the share:** Control Panel → Shared Folder → Create, for example `bbe-media`. Give the user Read/Write and nobody else access.
+3. **Find the IDs:** run `id bbe-media` over SSH, or as a one-off Task Scheduler script writing to a file. It prints something like `uid=1031(bbe-media) gid=100(users)`.
+4. **Allow the nodes:** edit the share → NFS Permissions → Create, with the nodes' IPs or their range as Hostname or IP, Read/Write, **Map root to guest**, security `sys`, and "Allow users to access mounted subfolders" ticked.
+5. **Enable NFSv4.1:** Control Panel → File Services → NFS → Maximum NFS protocol: NFSv4.1.
 
 ## What the Job sets up
 
@@ -124,14 +144,15 @@ Every step reads the current state first, so a second run only updates bbe's own
 | Sonarr, Radarr | Admin login, root folder, qBittorrent as download client |
 | Prowlarr | Admin login, Sonarr and Radarr as applications with full sync |
 | Bazarr | Admin login, connected to Sonarr and Radarr |
-| Jellyfin | Startup wizard with the admin account, Shows and Movies libraries |
+| Jellyfin | Startup wizard with the admin account, Shows and Movies libraries, transcoding in `/transcode` |
 | Jellyseerr | Signed in through Jellyfin, libraries enabled, Sonarr and Radarr connected with the HD-1080p profile when it exists |
 
 Left to the user: adding indexers in Prowlarr. They depend on which sites someone uses, and Prowlarr pushes them to Sonarr and Radarr from there.
 
 ## Consequences
 
-- **The NFS export must let the apps write.** The apps run as root by default, so the export needs `no_root_squash`, or `all_squash` mapped to the share's owner.
+- **The NFS export must let the NAS user write**, which owns the share (decision 8). Root can be mapped away.
+- **Jellyfin's data moves.** Earlier `bbe-media` versions ran the official Jellyfin image, which keeps its data directly in `/config`. The linuxserver image starts with an empty `/config/data`, so an upgraded install starts Jellyfin over; the old data stays on its volume.
 - **Changing the NFS server or path after installing fails the upgrade**, as a volume's source can't be changed. Uninstall and install again instead. The media stays on the share.
 - **Changing `bbe.admin.username` after installing** updates every app except Jellyfin and Jellyseerr, whose accounts are created once.
 - **Older bbe versions can't install this chart version**, as they can't ask for the required NFS values. `required-versions.yaml` has to raise `bbe-media`'s `min-bbe-cli` to the first bbe release that can.

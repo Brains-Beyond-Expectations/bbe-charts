@@ -29,7 +29,7 @@ spec:
       {{- if and .Values.qbittorrent.webui.existingSecret (not .Values.config.enabled) }}
       {{- fail "qbittorrent.webui.existingSecret needs config.enabled, as the login is written to the config volume" }}
       {{- end }}
-      {{- if or .Values.qbittorrent.webui.existingSecret .Values.wireguard.enabled }}
+      {{- if or .Values.qbittorrent.webui.existingSecret .Values.incomplete.enabled .Values.wireguard.enabled }}
       initContainers:
         {{- if .Values.qbittorrent.webui.existingSecret }}
         - name: webui-auth
@@ -53,6 +53,26 @@ spec:
               mountPath: /config
             - name: webui-auth
               mountPath: /scripts
+          {{- if .Values.qbittorrent.securityContext }}
+          securityContext:
+            {{- toYaml .Values.qbittorrent.securityContext | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.incomplete.enabled }}
+        # A new volume belongs to root, so it's handed to the user qBittorrent runs as, PUID and PGID
+        - name: incomplete-owner
+          image: "{{ .Values.qbittorrent.image.repository }}:{{ include "qbittorrent.image" . }}"
+          command:
+            - sh
+            - -c
+            - chown "$PUID:$PGID" "$INCOMPLETE_DIR"
+          env:
+            - name: INCOMPLETE_DIR
+              value: {{ .Values.incomplete.mountPath | quote }}
+            {{- include "qbittorrent.qbittorrentEnv" . | nindent 12 }}
+          volumeMounts:
+            - name: incomplete
+              mountPath: {{ .Values.incomplete.mountPath }}
           {{- if .Values.qbittorrent.securityContext }}
           securityContext:
             {{- toYaml .Values.qbittorrent.securityContext | nindent 12 }}

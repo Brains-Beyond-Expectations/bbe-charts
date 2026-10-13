@@ -9,7 +9,7 @@
       "properties": {
         "media": {
           "type": "object",
-          "required": ["nfs"],
+          "required": ["nfs", "user"],
           "properties": {
             "nfs": {
               "type": "object",
@@ -37,6 +37,23 @@
               "type": "string",
               "minLength": 1,
               "description": "The size of the media library"
+            },
+            "user": {
+              "type": "object",
+              "required": ["uid", "gid"],
+              "description": "The NAS user the apps write the media library as",
+              "properties": {
+                "uid": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The user ID of the NAS user owning the media library share, as shown by `id <user>` on the NAS"
+                },
+                "gid": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The group ID of the NAS user owning the media library share, as shown by `id <user>` on the NAS"
+                }
+              }
             }
           }
         },

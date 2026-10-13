@@ -20,6 +20,8 @@ MEDIA_ROOT = os.environ.get("MEDIA_ROOT", "/media")
 TV_DIR = os.path.join(MEDIA_ROOT, "tv")
 MOVIES_DIR = os.path.join(MEDIA_ROOT, "movies")
 DOWNLOADS_DIR = os.path.join(MEDIA_ROOT, "downloads")
+# Where Jellyfin transcodes, a bounded volume on the node, or empty to keep Jellyfin's own default
+TRANSCODE_DIR = os.environ.get("JELLYFIN_TRANSCODE_DIR", "")
 # Where qBittorrent keeps downloads in progress, a volume on the node, or empty to keep them in DOWNLOADS_DIR
 INCOMPLETE_DIR = os.environ.get("QBITTORRENT_INCOMPLETE_DIR", "")
 READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
@@ -267,6 +269,13 @@ def configure_jellyfin(jellyfin):
         query = urllib.parse.urlencode({"name": name, "collectionType": collection, "refreshLibrary": "true"})
         jellyfin.post(f"/Library/VirtualFolders?{query}", {"LibraryOptions": {"PathInfos": [{"Path": path}]}})
         log(f"Jellyfin: added the {name} library for {path}")
+
+    if TRANSCODE_DIR:
+        encoding = jellyfin.get("/System/Configuration/encoding")
+        if encoding.get("TranscodingTempPath") != TRANSCODE_DIR:
+            encoding["TranscodingTempPath"] = TRANSCODE_DIR
+            jellyfin.post("/System/Configuration/encoding", encoding)
+            log(f"Jellyfin: transcoding in {TRANSCODE_DIR}")
 
 
 def configure_jellyseerr(jellyseerr, jellyfin, sonarr, radarr):

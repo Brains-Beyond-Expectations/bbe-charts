@@ -10,6 +10,13 @@ bbe:
         - nfsvers=4.1
     # -- The size of the media library. NFS doesn't enforce it, but Kubernetes needs one
     size: 1Ti
+    # The NAS user the apps write the library as, so nothing is written there as root and the share can map root
+    # away. Its IDs are shown by `id <user>` on the NAS
+    user:
+      # -- The user ID of the NAS user owning the media library share
+      uid:
+      # -- The group ID of the NAS user owning the media library share
+      gid:
   admin:
     # -- The username for every app's web UI. Its password is generated into the `bbe-media-admin` secret
     username: admin
@@ -36,7 +43,8 @@ bbe:
         memory: "128Mi"
 
 # Each app starts with the API key the setup connects it with, from the `bbe-media-api-keys` secret,
-# and stores its media on the shared library.
+# and stores its media on the shared library. The apps on the library are linuxserver or hotio images, which
+# write as the user in PUID and PGID, from the `bbe-media-user` config map.
 #
 # The library lives on the NAS. The node only holds what's faster there, 31Gi together on the default
 # StorageClass: the five apps' configs (1Gi each), Jellyfin's config (3Gi) and transcoding cache (2Gi),
@@ -50,6 +58,16 @@ sonarr:
           secretKeyRef:
             name: bbe-media-api-keys
             key: sonarr
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
   media:
     existingClaim: bbe-media-library
 
@@ -61,6 +79,16 @@ radarr:
           secretKeyRef:
             name: bbe-media-api-keys
             key: radarr
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
   media:
     existingClaim: bbe-media-library
 
@@ -82,6 +110,16 @@ bazarr:
           secretKeyRef:
             name: bbe-media-api-keys
             key: bazarr
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
   media:
     existingClaim: bbe-media-library
 
@@ -89,6 +127,17 @@ qbittorrent:
   qbittorrent:
     webui:
       existingSecret: bbe-media-admin
+    env:
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
   media:
     existingClaim: bbe-media-library
   incomplete:
@@ -96,16 +145,35 @@ qbittorrent:
     # -- The node storage for downloads in progress. Downloads that don't fit together wait until others complete
     size: 20Gi
 
+# The linuxserver image, like the other apps, so Jellyfin also reads the library as the NAS user
 jellyfin:
+  image:
+    repository: lscr.io/linuxserver/jellyfin
+  jellyfin:
+    env:
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
   persistence:
     config:
       size: 3Gi
     media:
       existingClaim: bbe-media-library
-    # Transcoding writes to the cache, so it's bounded instead of filling the node's disk
+    # Transcoding is bounded instead of filling the node's disk. The linuxserver image keeps its cache in /config,
+    # and gives /transcode to Jellyfin for transcoding, which the setup points Jellyfin at
     cache:
       enabled: true
       size: 2Gi
+  volumeMounts:
+    - name: cache
+      mountPath: /transcode
 
 jellyseerr-chart:
   config:
