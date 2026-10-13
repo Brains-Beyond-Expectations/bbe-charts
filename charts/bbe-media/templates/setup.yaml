@@ -58,6 +58,12 @@ spec:
                   name: bbe-media-api-keys
                   key: {{ $app }}
             {{- end }}
+            {{- if .Values.bbe.media.flaresolverr.enabled }}
+            - name: FLARESOLVERR_URL
+              value: http://{{ .Release.Name }}-flaresolverr:8191
+            - name: FLARESOLVERR_TIMEOUT
+              value: {{ .Values.bbe.media.flaresolverr.requestTimeout | quote }}
+            {{- end }}
             - name: QBITTORRENT_URL
               value: http://{{ .Release.Name }}-qbittorrent:8080
             - name: JELLYFIN_URL

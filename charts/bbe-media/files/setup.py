@@ -32,6 +32,12 @@ INDEXER_SECRETS_DIR = os.environ.get("INDEXER_SECRETS_DIR", "/indexer-secrets")
 BBE_TAG = "bbe"
 # Prowlarr searches an indexer before saving it, waiting up to 100 seconds, then Sonarr and Radarr test it too
 INDEXER_SAVE_TIMEOUT = 300
+# FlareSolverr gets past Cloudflare's challenges, for the indexers tagged for it
+FLARESOLVERR_URL = os.environ.get("FLARESOLVERR_URL", "")
+FLARESOLVERR_TIMEOUT = int(os.environ.get("FLARESOLVERR_TIMEOUT", "60"))
+FLARESOLVERR_TAG = "flaresolverr"
+# How Prowlarr refuses to save an indexer behind Cloudflare
+CLOUDFLARE_BLOCKED = "blocked by CloudFlare Protection"
 
 JELLYFIN_CLIENT = 'MediaBrowser Client="bbe-media-setup", Device="bbe", DeviceId="bbe-media-setup", Version="1.0.0"'
 
@@ -250,13 +256,28 @@ def configure_prowlarr(prowlarr, apps):
         }, extra={"syncLevel": "fullSync"})
 
 
+def prowlarr_tag(prowlarr, label, create=True):
+    """Prowlarr's tag with this label, added when it's missing, or None when it's missing and not created"""
+    tag = next((tag for tag in prowlarr.get("/api/v1/tag") if tag["label"] == label), None)
+    if tag is None and create:
+        tag = prowlarr.post("/api/v1/tag", {"label": label})
+    return tag
+
+
+def configure_prowlarr_flaresolverr(prowlarr):
+    """Adds FlareSolverr as Prowlarr's proxy for the indexers tagged for it, as TRaSH's guide sets it up"""
+    tag = prowlarr_tag(prowlarr, FLARESOLVERR_TAG)
+    upsert_provider(prowlarr, "indexerproxy", "FlareSolverr", "FlareSolverr", {
+        "host": FLARESOLVERR_URL,
+        "requestTimeout": FLARESOLVERR_TIMEOUT,
+    }, extra={"tags": [tag["id"]]})
+
+
 def configure_prowlarr_indexers(prowlarr):
     """Brings the indexers bbe added in line with the list, leaving the ones added in Prowlarr itself alone"""
-    tag = next((tag for tag in prowlarr.get("/api/v1/tag") if tag["label"] == BBE_TAG), None)
+    tag = prowlarr_tag(prowlarr, BBE_TAG, create=bool(INDEXERS))
     if tag is None:
-        if not INDEXERS:
-            return
-        tag = prowlarr.post("/api/v1/tag", {"label": BBE_TAG})
+        return
 
     existing = prowlarr.get("/api/v1/indexer")
     wanted = {indexer["name"] for indexer in INDEXERS}
@@ -269,10 +290,11 @@ def configure_prowlarr_indexers(prowlarr):
 
     definitions = {definition["definitionName"]: definition for definition in prowlarr.get("/api/v1/indexer/schema")}
     profile_id = prowlarr.get("/api/v1/appprofile")[0]["id"]
+    flaresolverr_tag = prowlarr_tag(prowlarr, FLARESOLVERR_TAG, create=False) if FLARESOLVERR_URL else None
     failed = []
     for wanted_indexer in INDEXERS:
         try:
-            save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, tag)
+            save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, tag, flaresolverr_tag)
         except SetupError as error:
             log(f"ERROR {error}")
             failed.append(wanted_indexer["name"])
@@ -282,7 +304,7 @@ def configure_prowlarr_indexers(prowlarr):
         raise SetupError(f"Prowlarr couldn't save the indexers {', '.join(failed)}")
 
 
-def save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, tag):
+def save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, tag, flaresolverr_tag=None):
     """Adds or updates one indexer, and only if bbe added it"""
     name, definition_name = wanted_indexer["name"], wanted_indexer["definition"]
     current = next((indexer for indexer in existing if indexer["name"] == name), None)
@@ -311,6 +333,18 @@ def save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, ta
     if not indexer.get("appProfileId"):
         indexer["appProfileId"] = profile_id
 
+    try:
+        write_indexer(prowlarr, name, indexer, current)
+    except SetupError as error:
+        # An indexer Cloudflare blocks goes through FlareSolverr from then on, which Prowlarr uses for its tag
+        if flaresolverr_tag is None or CLOUDFLARE_BLOCKED not in str(error) or flaresolverr_tag["id"] in indexer["tags"]:
+            raise
+        log(f"Prowlarr: Cloudflare blocks `{name}`, so it goes through FlareSolverr")
+        indexer["tags"] = sorted(set(indexer["tags"]) | {flaresolverr_tag["id"]})
+        write_indexer(prowlarr, name, indexer, current)
+
+
+def write_indexer(prowlarr, name, indexer, current):
     # Prowlarr searches the indexer before saving it, and forceSave only lets a save through warnings
     if current is None:
         prowlarr.post("/api/v1/indexer?forceSave=true", indexer, timeout=INDEXER_SAVE_TIMEOUT)
@@ -450,10 +484,11 @@ def main():
     qbittorrent = App("qBittorrent", os.environ["QBITTORRENT_URL"]) if os.environ.get("QBITTORRENT_URL") else None
     jellyfin = App("Jellyfin", os.environ["JELLYFIN_URL"]) if os.environ.get("JELLYFIN_URL") else None
     seerr = App("Seerr", os.environ["SEERR_URL"]) if os.environ.get("SEERR_URL") else None
+    flaresolverr = App("FlareSolverr", FLARESOLVERR_URL) if FLARESOLVERR_URL else None
     arrs = [app for app in (sonarr, radarr) if app is not None]
 
     deadline = time.monotonic() + READY_TIMEOUT
-    readiness = [(sonarr, "/ping"), (radarr, "/ping"), (prowlarr, "/ping"), (bazarr, "/"), (qbittorrent, "/api/v2/app/version"), (jellyfin, "/health"), (seerr, "/api/v1/status")]
+    readiness = [(sonarr, "/ping"), (radarr, "/ping"), (prowlarr, "/ping"), (bazarr, "/"), (qbittorrent, "/api/v2/app/version"), (jellyfin, "/health"), (seerr, "/api/v1/status"), (flaresolverr, "/health")]
     for app, path in readiness:
         if app is not None:
             app.wait_until_ready(path, deadline)
@@ -472,6 +507,8 @@ def main():
         steps.append(("Radarr", configure_arr, radarr, qbittorrent, MOVIES_DIR, "movieCategory", "radarr"))
     if prowlarr:
         steps.append(("Prowlarr", configure_prowlarr, prowlarr, arrs))
+        if flaresolverr:
+            steps.append(("FlareSolverr", configure_prowlarr_flaresolverr, prowlarr))
         steps.append(("Prowlarr indexers", configure_prowlarr_indexers, prowlarr))
     if bazarr and arrs:
         steps.append(("Bazarr", configure_bazarr, bazarr, arrs))
