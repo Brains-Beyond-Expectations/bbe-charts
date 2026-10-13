@@ -383,9 +383,11 @@ def configure_seerr(seerr, jellyfin, sonarr, radarr):
     seerr.post("/api/v1/auth/jellyfin", login)
 
     if not public.get("initialized"):
-        libraries = seerr.get("/api/v1/settings/jellyfin/library?sync=true")
-        enabled = ",".join(library["id"] for library in libraries)
-        seerr.get(f"/api/v1/settings/jellyfin/library?{urllib.parse.urlencode({'enable': enabled})}")
+        # Syncing reads the libraries from Jellyfin, which are then enabled one by one
+        libraries = seerr.post("/api/v1/settings/jellyfin/library/sync")
+        for library in libraries:
+            if not library.get("enabled"):
+                seerr.put(f"/api/v1/settings/jellyfin/library/{library['id']}", {"enabled": True})
         log(f"Seerr: signed in to Jellyfin and enabled {len(libraries)} libraries")
 
     for app, root_folder, extra in (
