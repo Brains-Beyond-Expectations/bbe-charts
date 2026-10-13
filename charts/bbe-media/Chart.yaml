@@ -1,6 +1,6 @@
 apiVersion: v2
 name: bbe-media
-description: A collection of charts for BBE cluster media
+description: A collection of charts for BBE cluster media, connected to each other when installed
 type: application
 version: 0.2.0
 keywords:
@@ -12,23 +12,34 @@ keywords:
   - radarr
   - bazarr
   - prowlarr
+  - qbittorrent
 home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for the apps' config volumes
+      storageClass: longhorn
+      package: bbe-storage
 dependencies:
   - name: bazarr
-    version: 0.1.1
+    version: 0.4.0
     repository: https://brains-beyond-expectations.github.io/bbe-charts
   - name: jellyfin
-    version: 2.3.0
+    version: 3.2.0
     repository: https://jellyfin.github.io/jellyfin-helm
   - name: jellyseerr-chart
-    version: 2.3.3
+    version: 2.7.0
     repository: oci://ghcr.io/fallenbagel/jellyseerr
   - name: prowlarr
-    version: 0.1.3
+    version: 0.4.0
+    repository: https://brains-beyond-expectations.github.io/bbe-charts
+  - name: qbittorrent
+    version: 0.1.0
     repository: https://brains-beyond-expectations.github.io/bbe-charts
   - name: radarr
-    version: 0.1.2
+    version: 0.4.0
     repository: https://brains-beyond-expectations.github.io/bbe-charts
   - name: sonarr
-    version: 0.1.2
+    version: 0.4.0
     repository: https://brains-beyond-expectations.github.io/bbe-charts

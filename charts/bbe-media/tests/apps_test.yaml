@@ -1,0 +1,77 @@
+suite: test app wiring
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should start Sonarr with its key from the secret, on the shared library
+    template: charts/sonarr/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SONARR__AUTH__APIKEY
+            valueFrom:
+              secretKeyRef:
+                name: bbe-media-api-keys
+                key: sonarr
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: media
+            persistentVolumeClaim:
+              claimName: bbe-media-library
+
+  - it: should start Radarr with its key from the secret
+    template: charts/radarr/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RADARR__AUTH__APIKEY
+            valueFrom:
+              secretKeyRef:
+                name: bbe-media-api-keys
+                key: radarr
+
+  - it: should start Prowlarr with its key from the secret
+    template: charts/prowlarr/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PROWLARR__AUTH__APIKEY
+            valueFrom:
+              secretKeyRef:
+                name: bbe-media-api-keys
+                key: prowlarr
+
+  - it: should start Bazarr with its key through Dynaconf
+    template: charts/bazarr/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DYNACONF_AUTH__APIKEY
+            valueFrom:
+              secretKeyRef:
+                name: bbe-media-api-keys
+                key: bazarr
+
+  - it: should set the qBittorrent login from the admin secret
+    template: charts/qbittorrent/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].env[0].valueFrom.secretKeyRef.name
+          value: bbe-media-admin
+
+  - it: should give Jellyfin the shared library
+    template: charts/jellyfin/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: media
+            persistentVolumeClaim:
+              claimName: bbe-media-library

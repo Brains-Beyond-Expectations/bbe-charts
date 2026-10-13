@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["bbe"],
+  "properties": {
+    "bbe": {
+      "type": "object",
+      "required": ["media", "admin"],
+      "properties": {
+        "media": {
+          "type": "object",
+          "required": ["nfs"],
+          "properties": {
+            "nfs": {
+              "type": "object",
+              "required": ["server", "path"],
+              "properties": {
+                "server": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The NFS server holding the media library, as a hostname or IP address"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^/",
+                  "description": "The exported path of the media library on the NFS server, such as /volume1/media"
+                },
+                "mountOptions": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Mount options for the NFS share"
+                }
+              }
+            },
+            "size": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The size of the media library"
+            }
+          }
+        },
+        "admin": {
+          "type": "object",
+          "required": ["username"],
+          "properties": {
+            "username": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._-]+$",
+              "description": "The username for every app's web UI"
+            }
+          }
+        },
+        "setup": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether to connect the apps to each other after every install and upgrade"
+            },
+            "readyTimeout": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How long the setup waits for the apps to start, in seconds"
+            },
+            "backoffLimit": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How many times the setup is retried when an app couldn't be set up"
+            }
+          }
+        }
+      }
+    }
+  }
+}
