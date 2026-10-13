@@ -1,7 +1,25 @@
+global:
+  bbe:
+    # -- The domain the cluster's apps are named under, such as jellyfin.bbe.home.arpa. Blocky answers for it and
+    # everything under it with the ingress's IP, and bbe's own certificate authority signs a certificate for it.
+    # home.arpa itself can't be used: browsers treat it as a public suffix like .com, so a certificate for
+    # *.home.arpa is refused and a login can't be shared between apps under it
+    domain: bbe.home.arpa
+    ingress:
+      # -- The IP address for the ingress, on the same network as your nodes
+      loadBalancerIP:
+
 bbe:
   metallb:
     blocky:
+      # -- The IP address for the Blocky DNS service, or a range such as 192.168.1.240-192.168.1.245
       ipAddressPool:
+  certificates:
+    # -- How long bbe's certificate authority is valid. Devices that trust it need its new certificate once it's
+    # renewed
+    caDuration: 87600h
+    # -- How long the certificate for the domain is valid. cert-manager renews it a third of the way before it expires
+    duration: 2160h
 
 metallb:
   crds:
@@ -11,22 +29,79 @@ metallb:
   speaker:
     ignoreExcludeLB: true
 
-ingress-nginx:
-  controller:
-    service:
-      enabled: true
-      type: LoadBalancer
-      loadBalancerIP:
-    allowSnippetAnnotations: true
-    config:
-      annotations-risk-level: Critical
-      strict-validate-path-type: false
-    ingressClassResource:
-      name: nginx
-      enabled: true
-      default: true
-      controllerValue: "k8s.io/ingress-nginx"
-    metrics:
-      enabled: true
-      serviceMonitor:
-        enabled: false
+traefik:
+  service:
+    type: LoadBalancer
+    annotations:
+      metallb.io/address-pool: default
+  ingressClass:
+    enabled: true
+    isDefaultClass: true
+    name: traefik
+  providers:
+    kubernetesIngress:
+      publishedService:
+        enabled: true
+  ports:
+    web:
+      http:
+        redirections:
+          entryPoint:
+            to: websecure
+            scheme: https
+            permanent: true
+  # Every app under the domain is served with its certificate, so an ingress only lists its host under `tls`
+  tlsStore:
+    default:
+      defaultCertificate:
+        secretName: bbe-domain-tls
+
+cert-manager:
+  crds:
+    enabled: true
+  # The startup check waits for cert-manager's webhook to answer, which it must before the certificates are created.
+  # It runs on upgrades too, so the certificates, which are hooks as well, are only recreated once it's up
+  startupapicheck:
+    jobAnnotations:
+      helm.sh/hook: post-install,post-upgrade
+      helm.sh/hook-weight: "1"
+      helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    rbac:
+      annotations:
+        helm.sh/hook: post-install,post-upgrade
+        helm.sh/hook-weight: "-5"
+        helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    serviceAccount:
+      annotations:
+        helm.sh/hook: post-install,post-upgrade
+        helm.sh/hook-weight: "-5"
+        helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+
+blocky:
+  service:
+    annotations:
+      metallb.io/address-pool: blocky
+  config:
+    # Blocky's own configuration, plus the cluster's domain, which it answers with the ingress's IP
+    yaml: |
+      upstream:
+        default:
+          - 1.1.1.1
+          - 8.8.8.8
+      customDNS:
+        mapping:
+          {{ .Values.global.bbe.domain }}: {{ .Values.global.bbe.ingress.loadBalancerIP }}
+      blocking:
+        blackLists:
+          ads:
+            - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+        clientGroupsBlock:
+          default:
+            - ads
+      port: 53
+      httpPort: 4000
+      caching:
+        minTime: 5m
+        maxTime: 30m
+      prometheus:
+        enable: true

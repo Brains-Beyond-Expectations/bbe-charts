@@ -10,29 +10,44 @@ A collection of charts for BBE cluster networking
 
 | Repository | Name | Version |
 |------------|------|---------|
-| https://brains-beyond-expectations.github.io/bbe-charts | blocky | 1.1.1 |
-| https://kubernetes.github.io/ingress-nginx | ingress-nginx | 4.12.1 |
+| https://brains-beyond-expectations.github.io/bbe-charts | blocky | 1.2.0 |
+| https://charts.jetstack.io | cert-manager | v1.21.2 |
 | https://metallb.github.io/metallb | metallb | 0.14.9 |
+| https://traefik.github.io/charts | traefik | 41.7.1 |
 
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| bbe.metallb.blocky.ipAddressPool | string | `nil` |  |
-| ingress-nginx.controller.allowSnippetAnnotations | bool | `true` |  |
-| ingress-nginx.controller.config.annotations-risk-level | string | `"Critical"` |  |
-| ingress-nginx.controller.config.strict-validate-path-type | bool | `false` |  |
-| ingress-nginx.controller.ingressClassResource.controllerValue | string | `"k8s.io/ingress-nginx"` |  |
-| ingress-nginx.controller.ingressClassResource.default | bool | `true` |  |
-| ingress-nginx.controller.ingressClassResource.enabled | bool | `true` |  |
-| ingress-nginx.controller.ingressClassResource.name | string | `"nginx"` |  |
-| ingress-nginx.controller.metrics.enabled | bool | `true` |  |
-| ingress-nginx.controller.metrics.serviceMonitor.enabled | bool | `false` |  |
-| ingress-nginx.controller.service.enabled | bool | `true` |  |
-| ingress-nginx.controller.service.loadBalancerIP | string | `nil` |  |
-| ingress-nginx.controller.service.type | string | `"LoadBalancer"` |  |
+| bbe.certificates.caDuration | string | `"87600h"` | How long bbe's certificate authority is valid. Devices that trust it need its new certificate once it's renewed |
+| bbe.certificates.duration | string | `"2160h"` | How long the certificate for the domain is valid. cert-manager renews it a third of the way before it expires |
+| bbe.metallb.blocky.ipAddressPool | string | `nil` | The IP address for the Blocky DNS service, or a range such as 192.168.1.240-192.168.1.245 |
+| blocky.config.yaml | string | `"upstream:\n  default:\n    - 1.1.1.1\n    - 8.8.8.8\ncustomDNS:\n  mapping:\n    {{ .Values.global.bbe.domain }}: {{ .Values.global.bbe.ingress.loadBalancerIP }}\nblocking:\n  blackLists:\n    ads:\n      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n  clientGroupsBlock:\n    default:\n      - ads\nport: 53\nhttpPort: 4000\ncaching:\n  minTime: 5m\n  maxTime: 30m\nprometheus:\n  enable: true\n"` |  |
+| blocky.service.annotations."metallb.io/address-pool" | string | `"blocky"` |  |
+| cert-manager.crds.enabled | bool | `true` |  |
+| cert-manager.startupapicheck.jobAnnotations."helm.sh/hook" | string | `"post-install,post-upgrade"` |  |
+| cert-manager.startupapicheck.jobAnnotations."helm.sh/hook-delete-policy" | string | `"before-hook-creation,hook-succeeded"` |  |
+| cert-manager.startupapicheck.jobAnnotations."helm.sh/hook-weight" | string | `"1"` |  |
+| cert-manager.startupapicheck.rbac.annotations."helm.sh/hook" | string | `"post-install,post-upgrade"` |  |
+| cert-manager.startupapicheck.rbac.annotations."helm.sh/hook-delete-policy" | string | `"before-hook-creation,hook-succeeded"` |  |
+| cert-manager.startupapicheck.rbac.annotations."helm.sh/hook-weight" | string | `"-5"` |  |
+| cert-manager.startupapicheck.serviceAccount.annotations."helm.sh/hook" | string | `"post-install,post-upgrade"` |  |
+| cert-manager.startupapicheck.serviceAccount.annotations."helm.sh/hook-delete-policy" | string | `"before-hook-creation,hook-succeeded"` |  |
+| cert-manager.startupapicheck.serviceAccount.annotations."helm.sh/hook-weight" | string | `"-5"` |  |
+| global.bbe.domain | string | `"bbe.home.arpa"` | The domain the cluster's apps are named under, such as jellyfin.bbe.home.arpa. Blocky answers for it and everything under it with the ingress's IP, and bbe's own certificate authority signs a certificate for it. home.arpa itself can't be used: browsers treat it as a public suffix like .com, so a certificate for *.home.arpa is refused and a login can't be shared between apps under it |
+| global.bbe.ingress.loadBalancerIP | string | `nil` | The IP address for the ingress, on the same network as your nodes |
 | metallb.crds.validationFailurePolicy | string | `"Ignore"` |  |
 | metallb.speaker.ignoreExcludeLB | bool | `true` |  |
+| traefik.ingressClass.enabled | bool | `true` |  |
+| traefik.ingressClass.isDefaultClass | bool | `true` |  |
+| traefik.ingressClass.name | string | `"traefik"` |  |
+| traefik.ports.web.http.redirections.entryPoint.permanent | bool | `true` |  |
+| traefik.ports.web.http.redirections.entryPoint.scheme | string | `"https"` |  |
+| traefik.ports.web.http.redirections.entryPoint.to | string | `"websecure"` |  |
+| traefik.providers.kubernetesIngress.publishedService.enabled | bool | `true` |  |
+| traefik.service.annotations."metallb.io/address-pool" | string | `"default"` |  |
+| traefik.service.type | string | `"LoadBalancer"` |  |
+| traefik.tlsStore.default.defaultCertificate.secretName | string | `"bbe-domain-tls"` |  |
 
 ----------------------------------------------
 Autogenerated from chart metadata using [helm-docs v1.14.2](https://github.com/norwoodj/helm-docs/releases/v1.14.2)
