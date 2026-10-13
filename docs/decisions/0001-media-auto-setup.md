@@ -4,7 +4,7 @@
 
 ## Context
 
-`bbe-media` installs Sonarr, Radarr, Prowlarr, Bazarr, Jellyfin and Jellyseerr, and now qBittorrent. Until now every app started unconfigured. Each one asked for its own login on the first visit and generated its own API key, and the user then had to copy keys between six web UIs to connect them. Two things made that worse:
+`bbe-media` installs Sonarr, Radarr, Prowlarr, Bazarr, Jellyfin and Seerr (formerly Jellyseerr), and now qBittorrent. Until now every app started unconfigured. Each one asked for its own login on the first visit and generated its own API key, and the user then had to copy keys between six web UIs to connect them. Two things made that worse:
 
 - qBittorrent 4.6.1 and later print a new temporary password on every start until one is set, so there was no stable login to give Sonarr and Radarr.
 - Each chart created its own media volume, so a file qBittorrent downloaded couldn't be seen by Sonarr, and one Sonarr imported couldn't be seen by Jellyfin.
@@ -72,7 +72,7 @@ The app charts' env schemas now allow `valueFrom`, which is what lets `bbe-media
 
 ### 4. One generated admin login for every UI
 
-`bbe-media-admin` holds a username (`bbe.admin.username`, default `admin`) and a 24-character password generated on the first install and kept on upgrades. The Job sets it as the login of Sonarr, Radarr, Prowlarr and Bazarr, and creates it as Jellyfin's first administrator. Jellyseerr's admin is the same account, as it signs in through Jellyfin. qBittorrent's chart writes it into `qBittorrent.conf` before qBittorrent starts (`qbittorrent.webui.existingSecret`), hashed with PBKDF2-SHA512 like qBittorrent itself.
+`bbe-media-admin` holds a username (`bbe.admin.username`, default `admin`) and a 24-character password generated on the first install and kept on upgrades. The Job sets it as the login of Sonarr, Radarr, Prowlarr and Bazarr, and creates it as Jellyfin's first administrator. Seerr's admin is the same account, as it signs in through Jellyfin. qBittorrent's chart writes it into `qBittorrent.conf` before qBittorrent starts (`qbittorrent.webui.existingSecret`), hashed with PBKDF2-SHA512 like qBittorrent itself.
 
 The chart's notes print the command to read the password. Nothing secret ends up in `bbe.yaml`, which bbe syncs to S3 when AWS storage is on.
 
@@ -109,7 +109,7 @@ Long-term storage is the NAS. Longhorn keeps its data on the node's system disk,
 | Sonarr, Radarr, Prowlarr, Bazarr, qBittorrent configs | 1Gi each | SQLite databases (decision 6) |
 | Jellyfin config | 3Gi | Its database, plus metadata and images, which grow with the library |
 | Jellyfin transcoding | 2Gi | Transcoding writes here as it streams, at `/transcode`, which the Job sets as Jellyfin's transcoding path. Without it, transcodes would share the config volume with Jellyfin's database |
-| Jellyseerr config | 1Gi | Its database |
+| Seerr config | 1Gi | Its database |
 | qBittorrent downloads in progress | 20Gi | Torrents write in small random pieces, which a NAS handles slowly. qBittorrent moves each download to `/media/downloads` on the NAS once it completes |
 
 Downloads in progress share the 20Gi, so a torrent that doesn't fit waits for others to complete, and one larger than 20Gi can't complete at all. Raise `qbittorrent.incomplete.size` for large downloads; Longhorn can grow the volume in place. Rejected: keeping downloads in progress on the NAS, which works but is slower, and is what turning `qbittorrent.incomplete.enabled` off does.
@@ -122,7 +122,7 @@ Nothing writes to the NAS as root, so the share can map root away and a client a
 - **Jellyfin runs the linuxserver image** instead of the official one, which can only change user through the pod's `securityContext`. A parent chart can't fill that in from its own values, so the IDs would have to be entered twice. The linuxserver image keeps its data in `/config/data` and its cache in `/config/cache`, and transcodes in `/transcode`.
 - **The Job runs as the user**, as it creates the library's folders.
 - **qBittorrent's downloads in progress** are handed to the user by an init container, as a new volume belongs to root.
-- Prowlarr and Jellyseerr never touch the library and keep their defaults.
+- Prowlarr and Seerr never touch the library and keep their defaults.
 
 Rejected: mapping all users to the share's owner on the NAS, which Synology only offers for `admin`, and running the apps as root with `no_root_squash`, which gives root on the share to every client allowed to mount it.
 
@@ -153,15 +153,16 @@ Every step reads the current state first, so a second run only updates bbe's own
 | Prowlarr | Admin login, Sonarr and Radarr as applications with full sync, the indexers in `bbe.media.prowlarr.indexers` |
 | Bazarr | Admin login, connected to Sonarr and Radarr |
 | Jellyfin | Startup wizard with the admin account, Shows and Movies libraries, transcoding in `/transcode` |
-| Jellyseerr | Signed in through Jellyfin, libraries enabled, Sonarr and Radarr connected with the HD-1080p profile when it exists |
+| Seerr | Signed in through Jellyfin, libraries enabled, Sonarr and Radarr connected with the HD-1080p profile when it exists |
 
 Left to the user: adding indexers in Prowlarr. They depend on which sites someone uses, and Prowlarr pushes them to Sonarr and Radarr from there.
 
 ## Consequences
 
 - **The NFS export must let the NAS user write**, which owns the share (decision 8). Root can be mapped away.
+- **Seerr replaces Jellyseerr**, which it became, at release 3.5.0 on the `seerr-chart` chart. An upgraded install gets a new Seerr, which the Job signs in and connects again. Jellyseerr's requests stay on its old volume.
 - **Jellyfin's data moves.** Earlier `bbe-media` versions ran the official Jellyfin image, which keeps its data directly in `/config`. The linuxserver image starts with an empty `/config/data`, so an upgraded install starts Jellyfin over; the old data stays on its volume.
 - **Changing the NFS server or path after installing fails the upgrade**, as a volume's source can't be changed. Uninstall and install again instead. The media stays on the share.
-- **Changing `bbe.admin.username` after installing** updates every app except Jellyfin and Jellyseerr, whose accounts are created once.
+- **Changing `bbe.admin.username` after installing** updates every app except Jellyfin and Seerr, whose accounts are created once.
 - **Older bbe versions can't install this chart version**, as they can't ask for the required NFS values. `required-versions.yaml` has to raise `bbe-media`'s `min-bbe-cli` to the first bbe release that can.
 - **Verified against real apps:** Sonarr 4.0.20, Radarr 6.4.4, Prowlarr 2.6.5, qBittorrent 5.2.3 and Jellyfin 10.11.11 ran natively, with the Job's script run twice against them. Bazarr 1.6.1 and Jellyseerr 2.7.3 couldn't be started there. Their steps follow their source and were run against stubs, so the first real install is their first real test.

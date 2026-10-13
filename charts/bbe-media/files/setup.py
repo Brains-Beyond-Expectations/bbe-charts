@@ -373,40 +373,40 @@ def configure_jellyfin(jellyfin):
             log(f"Jellyfin: transcoding in {TRANSCODE_DIR}")
 
 
-def configure_jellyseerr(jellyseerr, jellyfin, sonarr, radarr):
-    """Signs in with the Jellyfin admin account, which makes it Jellyseerr's admin, then connects Sonarr and Radarr"""
-    public = jellyseerr.get("/api/v1/settings/public")
+def configure_seerr(seerr, jellyfin, sonarr, radarr):
+    """Signs in with the Jellyfin admin account, which makes it Seerr's admin, then connects Sonarr and Radarr"""
+    public = seerr.get("/api/v1/settings/public")
     login = {"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD, "email": f"{ADMIN_USERNAME}@bbe.local"}
-    # 4 means no media server is set up yet, and Jellyseerr only accepts the Jellyfin address then
+    # 4 means no media server is set up yet, and Seerr only accepts the Jellyfin address then
     if public.get("mediaServerType") == 4:
         login.update({"hostname": jellyfin.host, "port": jellyfin.port, "useSsl": False, "urlBase": "", "serverType": 2})
-    jellyseerr.post("/api/v1/auth/jellyfin", login)
+    seerr.post("/api/v1/auth/jellyfin", login)
 
     if not public.get("initialized"):
-        libraries = jellyseerr.get("/api/v1/settings/jellyfin/library?sync=true")
+        libraries = seerr.get("/api/v1/settings/jellyfin/library?sync=true")
         enabled = ",".join(library["id"] for library in libraries)
-        jellyseerr.get(f"/api/v1/settings/jellyfin/library?{urllib.parse.urlencode({'enable': enabled})}")
-        log(f"Jellyseerr: signed in to Jellyfin and enabled {len(libraries)} libraries")
+        seerr.get(f"/api/v1/settings/jellyfin/library?{urllib.parse.urlencode({'enable': enabled})}")
+        log(f"Seerr: signed in to Jellyfin and enabled {len(libraries)} libraries")
 
     for app, root_folder, extra in (
         (sonarr, TV_DIR, {"seriesType": "standard", "animeSeriesType": "anime", "enableSeasonFolders": True}),
         (radarr, MOVIES_DIR, {"minimumAvailability": "released"}),
     ):
         if app is not None:
-            configure_jellyseerr_server(jellyseerr, app, root_folder, extra)
+            configure_seerr_server(seerr, app, root_folder, extra)
 
     if not public.get("initialized"):
-        jellyseerr.post("/api/v1/settings/initialize")
-        log("Jellyseerr: setup completed")
+        seerr.post("/api/v1/settings/initialize")
+        log("Seerr: setup completed")
 
 
-def configure_jellyseerr_server(jellyseerr, app, root_folder, extra):
+def configure_seerr_server(seerr, app, root_folder, extra):
     resource = f"/api/v1/settings/{app.name.lower()}"
     connection = {"hostname": app.host, "port": app.port, "apiKey": app.api_key, "useSsl": False, "baseUrl": ""}
-    existing = next((server for server in jellyseerr.get(resource) if server["hostname"] == app.host), None)
+    existing = next((server for server in seerr.get(resource) if server["hostname"] == app.host), None)
 
     # Testing the connection also lists the quality profiles to pick from
-    profiles = jellyseerr.post(f"{resource}/test", connection)["profiles"]
+    profiles = seerr.post(f"{resource}/test", connection)["profiles"]
     profile = next((profile for profile in profiles if profile["name"] == "HD-1080p"), profiles[0])
 
     server = {
@@ -425,16 +425,16 @@ def configure_jellyseerr_server(jellyseerr, app, root_folder, extra):
         **extra,
     }
     if existing is None:
-        jellyseerr.post(resource, server)
-        log(f"Jellyseerr: connected to {app.name}")
+        seerr.post(resource, server)
+        log(f"Seerr: connected to {app.name}")
     else:
-        # Keep the profile and folder someone picked in Jellyseerr, only the connection is bbe's
+        # Keep the profile and folder someone picked in Seerr, only the connection is bbe's
         server.update({key: existing[key] for key in ("activeProfileId", "activeProfileName", "activeDirectory") if key in existing})
-        # The id is in the path, and Jellyseerr refuses it in the body as it's read-only
+        # The id is in the path, and Seerr refuses it in the body as it's read-only
         server.pop("id", None)
         if server != {key: value for key, value in existing.items() if key != "id"}:
-            jellyseerr.put(f"{resource}/{existing['id']}", server)
-            log(f"Jellyseerr: updated the connection to {app.name}")
+            seerr.put(f"{resource}/{existing['id']}", server)
+            log(f"Seerr: updated the connection to {app.name}")
 
 
 def main():
@@ -447,11 +447,11 @@ def main():
     bazarr = App("Bazarr", os.environ["BAZARR_URL"], os.environ.get("BAZARR_API_KEY", ""), {"X-API-KEY": os.environ.get("BAZARR_API_KEY", "")}) if os.environ.get("BAZARR_URL") else None
     qbittorrent = App("qBittorrent", os.environ["QBITTORRENT_URL"]) if os.environ.get("QBITTORRENT_URL") else None
     jellyfin = App("Jellyfin", os.environ["JELLYFIN_URL"]) if os.environ.get("JELLYFIN_URL") else None
-    jellyseerr = App("Jellyseerr", os.environ["JELLYSEERR_URL"]) if os.environ.get("JELLYSEERR_URL") else None
+    seerr = App("Seerr", os.environ["SEERR_URL"]) if os.environ.get("SEERR_URL") else None
     arrs = [app for app in (sonarr, radarr) if app is not None]
 
     deadline = time.monotonic() + READY_TIMEOUT
-    readiness = [(sonarr, "/ping"), (radarr, "/ping"), (prowlarr, "/ping"), (bazarr, "/"), (qbittorrent, "/api/v2/app/version"), (jellyfin, "/health"), (jellyseerr, "/api/v1/status")]
+    readiness = [(sonarr, "/ping"), (radarr, "/ping"), (prowlarr, "/ping"), (bazarr, "/"), (qbittorrent, "/api/v2/app/version"), (jellyfin, "/health"), (seerr, "/api/v1/status")]
     for app, path in readiness:
         if app is not None:
             app.wait_until_ready(path, deadline)
@@ -475,8 +475,8 @@ def main():
         steps.append(("Bazarr", configure_bazarr, bazarr, arrs))
     if jellyfin:
         steps.append(("Jellyfin", configure_jellyfin, jellyfin))
-    if jellyseerr and jellyfin:
-        steps.append(("Jellyseerr", configure_jellyseerr, jellyseerr, jellyfin, sonarr, radarr))
+    if seerr and jellyfin:
+        steps.append(("Seerr", configure_seerr, seerr, jellyfin, sonarr, radarr))
 
     failed = []
     for name, step, *arguments in steps:

@@ -1,6 +1,6 @@
 suite: test node storage
 # The library is on the NAS, and the node holds 31Gi together: five 1Gi configs, Jellyfin's 3Gi config and
-# 2Gi cache, Jellyseerr's 1Gi config, and qBittorrent's 20Gi of downloads in progress
+# 2Gi cache, Seerr's 1Gi config, and qBittorrent's 20Gi of downloads in progress
 values:
   - ./values/required-values.yaml
 release:
@@ -53,8 +53,8 @@ tests:
           path: metadata.name
           value: bbe-media-jellyfin-cache
 
-  - it: should give Jellyseerr a 1Gi config volume
-    template: charts/jellyseerr-chart/templates/persistentvolumeclaim.yaml
+  - it: should give Seerr a 1Gi config volume
+    template: charts/seerr-chart/templates/persistentvolumeclaim.yaml
     asserts:
       - equal:
           path: spec.resources.requests.storage

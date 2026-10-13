@@ -8,5 +8,5 @@ first install. To follow along:
   kubectl logs -n {{ .Release.Namespace }} -f job/bbe-media-setup-{{ .Release.Revision }}
 {{- end }}
 
-Add your indexers in Prowlarr, which shares them with Sonarr and Radarr. Jellyseerr signs in with
-the same login, through Jellyfin.
+Add indexers with `bbe configure {{ .Release.Name }}`, and Prowlarr shares them with Sonarr and Radarr.
+Seerr signs in with the same login, through Jellyfin.

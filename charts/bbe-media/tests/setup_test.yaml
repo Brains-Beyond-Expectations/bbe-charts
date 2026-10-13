@@ -16,7 +16,7 @@ tests:
           value: bbe-media-setup
       - matchRegex:
           path: data["setup.py"]
-          pattern: def configure_jellyseerr
+          pattern: def configure_seerr
   - it: should run the setup once per revision
     documentIndex: 1
     asserts:
@@ -57,8 +57,8 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: JELLYSEERR_URL
-            value: http://bbe-media-jellyseerr-chart:80
+            name: SEERR_URL
+            value: http://bbe-media-seerr-chart:80
       - contains:
           path: spec.template.spec.containers[0].env
           content:

@@ -54,7 +54,7 @@ bbe:
 #
 # The library lives on the NAS. The node only holds what's faster there, 31Gi together on the default
 # StorageClass: the five apps' configs (1Gi each), Jellyfin's config (3Gi) and transcoding cache (2Gi),
-# Jellyseerr's config (1Gi), and qBittorrent's downloads in progress (20Gi), which it moves to the library
+# Seerr's config (1Gi), and qBittorrent's downloads in progress (20Gi), which it moves to the library
 # once complete
 sonarr:
   sonarr:
@@ -181,7 +181,10 @@ jellyfin:
     - name: cache
       mountPath: /transcode
 
-jellyseerr-chart:
+# Seerr, which Jellyseerr became, at its latest release instead of the one its chart defaults to
+seerr-chart:
+  image:
+    tag: v3.5.0
   config:
     persistence:
       size: 1Gi

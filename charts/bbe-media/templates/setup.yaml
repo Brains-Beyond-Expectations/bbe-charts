@@ -62,8 +62,8 @@ spec:
               value: http://{{ .Release.Name }}-qbittorrent:8080
             - name: JELLYFIN_URL
               value: http://{{ .Release.Name }}-jellyfin:8096
-            - name: JELLYSEERR_URL
-              value: http://{{ .Release.Name }}-jellyseerr-chart:80
+            - name: SEERR_URL
+              value: http://{{ .Release.Name }}-seerr-chart:80
             - name: MEDIA_ROOT
               value: /media
             {{- if .Values.jellyfin.persistence.cache.enabled }}
