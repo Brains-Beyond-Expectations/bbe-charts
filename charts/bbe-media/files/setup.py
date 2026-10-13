@@ -20,6 +20,8 @@ MEDIA_ROOT = os.environ.get("MEDIA_ROOT", "/media")
 TV_DIR = os.path.join(MEDIA_ROOT, "tv")
 MOVIES_DIR = os.path.join(MEDIA_ROOT, "movies")
 DOWNLOADS_DIR = os.path.join(MEDIA_ROOT, "downloads")
+# Where qBittorrent keeps downloads in progress, a volume on the node, or empty to keep them in DOWNLOADS_DIR
+INCOMPLETE_DIR = os.environ.get("QBITTORRENT_INCOMPLETE_DIR", "")
 READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
 
 JELLYFIN_CLIENT = 'MediaBrowser Client="bbe-media-setup", Device="bbe", DeviceId="bbe-media-setup", Version="1.0.0"'
@@ -185,9 +187,16 @@ def configure_qbittorrent(qbittorrent):
     if result not in (None, "Ok."):
         raise SetupError(f"qBittorrent refused the login for `{ADMIN_USERNAME}`: {result}")
 
-    # Downloads go on the shared library, so Sonarr and Radarr can move them without copying
-    qbittorrent.post("/api/v2/app/setPreferences", form={"json": json.dumps({"save_path": DOWNLOADS_DIR})})
-    log(f"qBittorrent: downloads saved to {DOWNLOADS_DIR}")
+    # Downloads go on the shared library, so Sonarr and Radarr can move them without copying. While in progress
+    # they can stay on the node, which qBittorrent moves them off once complete
+    preferences = {"save_path": DOWNLOADS_DIR, "temp_path_enabled": bool(INCOMPLETE_DIR)}
+    if INCOMPLETE_DIR:
+        preferences["temp_path"] = INCOMPLETE_DIR
+    qbittorrent.post("/api/v2/app/setPreferences", form={"json": json.dumps(preferences)})
+    if INCOMPLETE_DIR:
+        log(f"qBittorrent: downloads kept in {INCOMPLETE_DIR} while in progress, then saved to {DOWNLOADS_DIR}")
+    else:
+        log(f"qBittorrent: downloads saved to {DOWNLOADS_DIR}")
 
 
 def configure_arr(app, qbittorrent, root_folder, category_field, category):

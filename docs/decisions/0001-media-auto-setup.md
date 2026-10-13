@@ -100,13 +100,27 @@ Every app keeps a SQLite database in its config volume, and SQLite over NFS is a
 
 bbe clusters have no StorageClass of their own, so `bbe-media` declares one as a prerequisite in its `Chart.yaml`: the `longhorn` storage class, provided by the `bbe-storage` package. When it's missing, bbe offers to install `bbe-storage` before `bbe-media`, and to set up the nodes Longhorn needs.
 
+### 7. The node holds 20Gi, only what's faster there
+
+Long-term storage is the NAS. Longhorn keeps its data on the node's system disk, so `bbe-media` only puts there what is faster on a local disk, 20Gi together:
+
+| Volume | Size | Why on the node |
+|---|---|---|
+| Sonarr, Radarr, Prowlarr, Bazarr, qBittorrent configs | 1Gi each | SQLite databases (decision 6) |
+| Jellyfin config | 3Gi | Its database, plus metadata and images, which grow with the library |
+| Jellyfin cache | 2Gi | Transcoding writes here as it streams. Without a volume, the Jellyfin chart uses an `emptyDir`, which nothing bounds |
+| Jellyseerr config | 1Gi | Its database |
+| qBittorrent downloads in progress | 9Gi | Torrents write in small random pieces, which a NAS handles slowly. qBittorrent moves each download to `/media/downloads` on the NAS once it completes |
+
+Downloads in progress share the 9Gi, so a torrent that doesn't fit waits for others to complete, and one larger than 9Gi can't complete at all. Raise `qbittorrent.incomplete.size` for large downloads; Longhorn can grow the volume in place. Rejected: keeping downloads in progress on the NAS, which works but is slower, and is what turning `qbittorrent.incomplete.enabled` off does.
+
 ## What the Job sets up
 
 Every step reads the current state first, so a second run only updates bbe's own connections and adds nothing twice. The connections are found again by name: `qBittorrent` in Sonarr and Radarr, `Sonarr` and `Radarr` in Prowlarr.
 
 | App | Set up |
 |---|---|
-| qBittorrent | Saves downloads to `/media/downloads` |
+| qBittorrent | Keeps downloads in progress in `/incomplete` on the node, then saves them to `/media/downloads` |
 | Sonarr, Radarr | Admin login, root folder, qBittorrent as download client |
 | Prowlarr | Admin login, Sonarr and Radarr as applications with full sync |
 | Bazarr | Admin login, connected to Sonarr and Radarr |

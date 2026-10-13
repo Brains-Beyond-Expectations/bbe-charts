@@ -61,6 +61,10 @@ spec:
               value: http://{{ .Release.Name }}-jellyseerr-chart:80
             - name: MEDIA_ROOT
               value: /media
+            {{- if .Values.qbittorrent.incomplete.enabled }}
+            - name: QBITTORRENT_INCOMPLETE_DIR
+              value: {{ .Values.qbittorrent.incomplete.mountPath | default "/incomplete" | quote }}
+            {{- end }}
             - name: READY_TIMEOUT
               value: {{ .Values.bbe.setup.readyTimeout | quote }}
           {{- with .Values.bbe.setup.resources }}

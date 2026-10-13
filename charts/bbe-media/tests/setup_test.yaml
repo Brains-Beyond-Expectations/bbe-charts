@@ -73,6 +73,32 @@ tests:
             name: READY_TIMEOUT
             value: "900"
 
+  - it: should tell the setup where qBittorrent keeps downloads in progress
+    template: templates/setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QBITTORRENT_INCOMPLETE_DIR
+            value: /incomplete
+
+  - it: should keep downloads in progress with the rest when that volume is off
+    template: templates/setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      qbittorrent.incomplete.enabled: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QBITTORRENT_INCOMPLETE_DIR
+            value: /incomplete
+
   - it: should mount the media library where the apps have it
     documentIndex: 1
     asserts:
