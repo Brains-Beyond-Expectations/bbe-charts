@@ -1,0 +1,147 @@
+name: Preview
+
+# Publishes the charts a pull request changes as a pre-release, with a library listing them, so the changes can be
+# installed with `bbe install --library <url>` before they're merged. The pre-release is removed when the pull
+# request closes.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PR: ${{ github.event.pull_request.number }}
+  TAG: preview-pr-${{ github.event.pull_request.number }}
+  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  BASE_REF: ${{ github.event.pull_request.base.ref }}
+  REPOSITORY: ${{ github.repository }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  COMMENT_MARKER: "<!-- bbe-preview -->"
+
+jobs:
+  publish:
+    name: Publish preview
+    # Pull requests from forks can't publish releases here
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Find changed charts
+        id: changed
+        run: |
+          charts=""
+          for chart in $(git diff --name-only "origin/${BASE_REF}...HEAD" -- charts/ | cut -d/ -f2 | sort -u); do
+            if [ -f "charts/${chart}/Chart.yaml" ]; then
+              charts="${charts} ${chart}"
+            fi
+          done
+          echo "charts=${charts}" >> "$GITHUB_OUTPUT"
+          echo "Changed charts:${charts:- none}"
+      - name: Remove the preview of a pull request that no longer changes charts
+        if: steps.changed.outputs.charts == ''
+        run: gh release delete "$TAG" --cleanup-tag --yes --repo "$REPOSITORY" || true
+      - name: Set up Helm
+        if: steps.changed.outputs.charts != ''
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.3.0
+      - name: Set up Go
+        if: steps.changed.outputs.charts != ''
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27"
+          cache-dependency-path: |
+            lib-gen/go.sum
+      - name: Package charts
+        if: steps.changed.outputs.charts != ''
+        env:
+          CHARTS: ${{ steps.changed.outputs.charts }}
+          RUN: ${{ github.run_number }}
+        run: |
+          wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+          mkdir dist
+          versions=()
+          for chart in $CHARTS; do
+            # The released version is only set when the pull request merges, so the preview builds on the current one
+            version="$(yq '.version' "charts/${chart}/Chart.yaml")-pr${PR}.${RUN}"
+            yq -i ".version = \"${version}\"" "charts/${chart}/Chart.yaml"
+            helm dependency update "charts/${chart}"
+            helm package "charts/${chart}" --destination dist
+            versions+=("${chart}=${version}")
+          done
+          echo "VERSIONS=${versions[*]}" >> "$GITHUB_ENV"
+
+          repository_url="https://github.com/${REPOSITORY}/releases/download/${TAG}"
+          helm repo index dist --url "$repository_url"
+          (cd lib-gen && go run . preview -repository-url "$repository_url" -repository-name "bbe-pr-${PR}" -output ../dist/library.yaml "${versions[@]}")
+          cat dist/library.yaml
+      - name: Publish pre-release
+        if: steps.changed.outputs.charts != ''
+        run: |
+          gh release delete "$TAG" --cleanup-tag --yes --repo "$REPOSITORY" || true
+          gh release create "$TAG" dist/* --repo "$REPOSITORY" --prerelease --target "$HEAD_SHA" \
+            --title "Preview of #${PR}" \
+            --notes "Charts from #${PR} for testing before it's merged. Removed when the pull request closes."
+      - name: Comment on the pull request
+        if: steps.changed.outputs.charts != ''
+        run: |
+          library_url="https://github.com/${REPOSITORY}/releases/download/${TAG}/library.yaml"
+          {
+            echo "$COMMENT_MARKER"
+            echo "### Preview"
+            echo
+            echo "The charts this pull request changes are published for testing, as of ${HEAD_SHA}:"
+            echo
+            echo "| Chart | Version |"
+            echo "|---|---|"
+            for entry in $VERSIONS; do
+              echo "| \`${entry%%=*}\` | \`${entry#*=}\` |"
+            done
+            echo
+            echo "Install them with bbe:"
+            echo
+            echo '```'
+            echo "bbe install --library ${library_url}"
+            echo '```'
+            echo
+            echo "To test them with a bbe-quest branch, run \`go run . install --library ${library_url}\` in its \`cli\` folder."
+            echo "The preview is removed when this pull request closes."
+          } > comment.md
+
+          comment_id=$(gh api "repos/${REPOSITORY}/issues/${PR}/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"${COMMENT_MARKER}\")) | .id" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/${REPOSITORY}/issues/comments/${comment_id}" -F body=@comment.md > /dev/null
+          else
+            gh pr comment "$PR" --repo "$REPOSITORY" --body-file comment.md
+          fi
+
+  cleanup:
+    name: Remove preview
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete pre-release
+        run: gh release delete "$TAG" --cleanup-tag --yes --repo "$REPOSITORY" || true
+      - name: Update the comment
+        run: |
+          comment_id=$(gh api "repos/${REPOSITORY}/issues/${PR}/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"${COMMENT_MARKER}\")) | .id" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            printf '%s\n### Preview\n\nThe preview was removed when this pull request closed.\n' "$COMMENT_MARKER" > comment.md
+            gh api --method PATCH "repos/${REPOSITORY}/issues/comments/${comment_id}" -F body=@comment.md > /dev/null
+          fi

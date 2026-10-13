@@ -1,0 +1,5 @@
+Longhorn runs in the `{{ .Values.longhorn.namespaceOverride }}` namespace, and `longhorn` is now the cluster's
+default storage class. It can take a few minutes to start. To check on it:
+  kubectl get pods -n {{ .Values.longhorn.namespaceOverride }}
+
+Volumes keep {{ .Values.longhorn.persistence.defaultClassReplicaCount }} cop{{ if eq (int .Values.longhorn.persistence.defaultClassReplicaCount) 1 }}y{{ else }}ies{{ end }} each, stored in /var/mnt/longhorn on the nodes.
