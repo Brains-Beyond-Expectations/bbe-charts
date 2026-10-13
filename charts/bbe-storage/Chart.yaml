@@ -1,0 +1,25 @@
+apiVersion: v2
+name: bbe-storage
+description: Longhorn storage for BBE clusters, as the default storage class
+type: application
+version: 0.1.0
+keywords:
+  - bbe
+  - storage
+  - longhorn
+home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and sets up the nodes when something is missing
+  bbe/prerequisites: |
+    - name: longhorn-nodes
+      description: iSCSI and filesystem tools on every node, and a directory for Longhorn's data
+      talos:
+        extensions:
+          - siderolabs/iscsi-tools
+          - siderolabs/util-linux-tools
+        directories:
+          - /var/mnt/longhorn
+dependencies:
+  - name: longhorn
+    version: 1.12.1
+    repository: https://charts.longhorn.io
