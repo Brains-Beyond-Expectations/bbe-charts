@@ -29,8 +29,8 @@ with the command to install them:
 
     bbe install --library https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/preview-pr-<number>/library.yaml
 
-To test them with a bbe change that isn't released yet, run that command from the bbe-quest branch instead, with
-`go run ./cli install --library <url>`. A bbe built from source accepts any library revision.
+To test them with a bbe change that isn't released yet, run `go run . install --library <url>` in the `cli` folder
+of that bbe-quest branch. A bbe built from source accepts any library revision.
 
 The preview is a pre-release of the chart's current version, such as `0.3.0-pr153.4`, as the released version is
 only set when the pull request merges. It's removed when the pull request closes. Pull requests from forks don't

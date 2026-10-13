@@ -118,7 +118,7 @@ jobs:
             echo "bbe install --library ${library_url}"
             echo '```'
             echo
-            echo "From a bbe-quest checkout, \`go run ./cli install --library ${library_url}\` tests them with that branch's bbe."
+            echo "To test them with a bbe-quest branch, run \`go run . install --library ${library_url}\` in its \`cli\` folder."
             echo "The preview is removed when this pull request closes."
           } > comment.md
 
