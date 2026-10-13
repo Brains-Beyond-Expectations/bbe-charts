@@ -32,7 +32,9 @@ func Test_previewLibrary_Succeeds_ReplacingAndAddingCharts(t *testing.T) {
 		{Name: "bbe-storage", Version: "0.1.0-pr153.4", RepositoryUrl: "https://preview.example", RepositoryName: "bbe-pr-153"},
 	}
 
-	result, err := previewLibrary(published, RequiredVersions{}, previews)
+	requiredVersions := RequiredVersions{Charts: []Chart{{Name: "bbe-storage", MinBbeCli: "1.0.0"}}}
+
+	result, err := previewLibrary(published, requiredVersions, previews)
 
 	assert.NoError(t, err)
 	assert.Equal(t, Library{Library: []LibraryEntry{{
@@ -62,13 +64,29 @@ func Test_previewLibrary_Succeeds_RaisingTheMinimumBbeVersion(t *testing.T) {
 	assert.Equal(t, "1.5.0", result.Library[0].MinBbeCli)
 }
 
-func Test_previewLibrary_Succeeds_WithoutAPublishedLibrary(t *testing.T) {
-	previews := []ChartEntry{{Name: "bbe-storage", Version: "0.1.0-pr152.1"}}
+func Test_previewLibrary_Succeeds_LeavingOutChartsThatAreNotPackages(t *testing.T) {
+	previews := []ChartEntry{
+		{Name: "bbe-media", Version: "0.2.0-pr151.3", RepositoryUrl: "https://preview.example", RepositoryName: "bbe-pr-151"},
+		{Name: "sonarr", Version: "0.3.1-pr151.3", RepositoryUrl: "https://preview.example", RepositoryName: "bbe-pr-151"},
+	}
 
-	result, err := previewLibrary(Library{}, RequiredVersions{}, previews)
+	result, err := previewLibrary(published, RequiredVersions{}, previews)
 
 	assert.NoError(t, err)
-	assert.Equal(t, Library{Library: []LibraryEntry{{MinBbeCli: "0.0.0", ListRevision: 1, Charts: previews}}}, result)
+	assert.Equal(t, []ChartEntry{
+		previews[0],
+		{Name: "bbe-networking", Version: "0.3.0", RepositoryUrl: "https://bbe.example", RepositoryName: "bbe"},
+	}, result.Library[0].Charts)
+}
+
+func Test_previewLibrary_Succeeds_WithoutAPublishedLibrary(t *testing.T) {
+	previews := []ChartEntry{{Name: "bbe-storage", Version: "0.1.0-pr152.1"}}
+	requiredVersions := RequiredVersions{Charts: []Chart{{Name: "bbe-storage", MinBbeCli: "1.0.0"}}}
+
+	result, err := previewLibrary(Library{}, requiredVersions, previews)
+
+	assert.NoError(t, err)
+	assert.Equal(t, Library{Library: []LibraryEntry{{MinBbeCli: "1.0.0", ListRevision: 1, Charts: previews}}}, result)
 }
 
 func Test_previewLibrary_Fails_WithAnInvalidMinimumBbeVersion(t *testing.T) {

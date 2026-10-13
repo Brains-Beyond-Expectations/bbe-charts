@@ -12,7 +12,8 @@ import (
 )
 
 // A preview library lists a pull request's charts alongside the published ones, so its changes can be installed
-// with `bbe --library <url>` before they're merged
+// with `bbe --library <url>` before they're merged. Only charts that are bbe packages are listed, those published
+// in the library or in required-versions.yaml. The rest, like the apps bbe-media bundles, are only dependencies
 func previewLibrary(library Library, requiredVersions RequiredVersions, previews []ChartEntry) (Library, error) {
 	base := LibraryEntry{MinBbeCli: "0.0.0"}
 	if len(library.Library) > 0 {
@@ -26,6 +27,10 @@ func previewLibrary(library Library, requiredVersions RequiredVersions, previews
 	}
 
 	for _, preview := range previews {
+		if !isPackage(preview.Name, base, requiredVersions) {
+			continue
+		}
+
 		replaced := false
 		for i := range entry.Charts {
 			if entry.Charts[i].Name == preview.Name {
@@ -58,6 +63,21 @@ func previewLibrary(library Library, requiredVersions RequiredVersions, previews
 	}
 
 	return Library{Library: []LibraryEntry{entry}}, nil
+}
+
+func isPackage(name string, base LibraryEntry, requiredVersions RequiredVersions) bool {
+	for _, chart := range base.Charts {
+		if chart.Name == name {
+			return true
+		}
+	}
+	for _, chart := range requiredVersions.Charts {
+		if chart.Name == name {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Parses `name=version` arguments into the charts of a preview, all served from the same repository
