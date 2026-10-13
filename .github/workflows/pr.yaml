@@ -49,6 +49,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # To find the charts this pull request changes, which a chart depending on them is tested with
+          fetch-depth: 0
       - name: Check for changed files
         uses: dorny/paths-filter@v4
         id: changed-files
@@ -76,7 +79,26 @@ jobs:
       - name: Run unit tests
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
+        env:
+          BASE: origin/${{ github.event.repository.default_branch }}
+          BBE_REPOSITORY: https://brains-beyond-expectations.github.io/bbe-charts
         run: |
+          wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+          # A dependency this pull request also changes is only published once it merges, so the chart is tested
+          # with the copy in the pull request
+          changed=$(git diff --name-only "${BASE}...HEAD" -- .. | cut -d/ -f2 | sort -u)
+          for dependency in $(yq '(.dependencies // [])[] | select(.repository == env(BBE_REPOSITORY)) | .name' Chart.yaml); do
+            if echo "$changed" | grep -qx "$dependency"; then
+              version=$(yq '.version' "../${dependency}/Chart.yaml")
+              DEPENDENCY="$dependency" VERSION="$version" yq -i \
+                '(.dependencies[] | select(.name == env(DEPENDENCY) and .repository == env(BBE_REPOSITORY))) |= (.repository = "file://../" + env(DEPENDENCY) | .version = env(VERSION))' \
+                Chart.yaml
+              echo "Testing with this pull request's ${dependency} ${version}"
+            fi
+          done
+
           helm dependency update
           helm unittest .
       - name: Render chart

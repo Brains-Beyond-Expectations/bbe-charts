@@ -30,8 +30,20 @@ jobs:
           wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
           chmod +x /usr/local/bin/yq
 
-          folders=$(ls charts | jq -R -s -c 'split("\n")[:-1]')
-          echo "charts=$folders" >> $GITHUB_OUTPUT
+          # Charts depending on other charts here go last, so a dependency released in the same push is published
+          # by the time they're packaged. The matrix runs one chart at a time, in this order
+          dependents=()
+          others=()
+          for directory in charts/*/; do
+            chart=$(basename "$directory")
+            if yq -e '(.dependencies // [])[] | select(.repository == "https://brains-beyond-expectations.github.io/bbe-charts")' "charts/${chart}/Chart.yaml" > /dev/null 2>&1; then
+              dependents+=("$chart")
+            else
+              others+=("$chart")
+            fi
+          done
+          folders=$(printf '%s\n' "${others[@]}" "${dependents[@]}" | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "charts=$folders" >> "$GITHUB_OUTPUT"
 
   update-charts:
     needs: get-charts
@@ -68,7 +80,17 @@ jobs:
         if: steps.changed-files.outputs.chart == 'true'
         working-directory: charts/${{ matrix.chart }}
         run: |
-          helm dependency update
+          # A dependency released earlier in this run can take a few minutes to show up in the published index
+          for attempt in $(seq 1 30); do
+            if helm dependency update; then
+              break
+            fi
+            if [ "$attempt" = 30 ]; then
+              exit 1
+            fi
+            echo "Waiting for the dependencies to be published"
+            sleep 30
+          done
           helm unittest .
       - name: Render chart
         if: steps.changed-files.outputs.chart == 'true'
