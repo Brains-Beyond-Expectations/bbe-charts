@@ -92,7 +92,7 @@ The same path in every app means Sonarr and Radarr move finished downloads inste
 
 Rejected: local-path on one node, which ties every media app and the library to that node's disk. Assuming a default StorageClass was also rejected: bbe clusters don't have one, and a `ReadWriteOnce` volume would still need every app on one node.
 
-Talos mounts NFS through its kubelet image. NFSv3 needs `nolock` there, as Talos runs no lock daemon, so the default is `nfsvers=4.1`.
+Talos mounts NFS through its kubelet image. NFSv3 needs `nolock` there, as Talos runs no lock daemon, so the default is `nfsvers=4`, which locks within the protocol. It uses the newest NFSv4 version the server offers: 4.1 where available, 4.0 on a Synology NAS that doesn't offer 4.1. Pinning `nfsvers=4.1` failed against one with `mount.nfs: Protocol not supported`.
 
 ### 6. Config volumes stay off NFS
 
@@ -132,7 +132,7 @@ Rejected: mapping all users to the share's owner on the NAS, which Synology only
 2. **Create the share:** Control Panel → Shared Folder → Create, for example `bbe-media`. Give the user Read/Write and nobody else access.
 3. **Find the IDs:** run `id bbe-media` over SSH, or as a one-off Task Scheduler script writing to a file. It prints something like `uid=1031(bbe-media) gid=100(users)`.
 4. **Allow the nodes:** edit the share → NFS Permissions → Create, with the nodes' IPs or their range as Hostname or IP, Read/Write, **Map root to guest**, security `sys`, and "Allow users to access mounted subfolders" ticked.
-5. **Enable NFSv4.1:** Control Panel → File Services → NFS → Maximum NFS protocol: NFSv4.1.
+5. **Enable NFSv4:** Control Panel → File Services → NFS → Maximum NFS protocol: NFSv4, or NFSv4.1 where DSM offers it.
 
 ## What the Job sets up
 

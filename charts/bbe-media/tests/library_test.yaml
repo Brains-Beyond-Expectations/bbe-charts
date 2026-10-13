@@ -28,7 +28,7 @@ tests:
       - equal:
           path: spec.mountOptions
           value:
-            - nfsvers=4.1
+            - nfsvers=4
       - equal:
           path: spec.claimRef
           value:

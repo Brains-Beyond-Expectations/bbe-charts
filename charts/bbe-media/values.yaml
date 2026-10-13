@@ -5,9 +5,10 @@ bbe:
       server: ""
       # -- The exported path of the media library on the NFS server
       path: ""
-      # -- Mount options for the NFS share. NFS 4.1 needs no lock daemon, which Talos nodes don't run
+      # -- Mount options for the NFS share. NFSv4 needs no lock daemon, which Talos nodes don't run, and `nfsvers=4`
+      # uses the newest NFSv4 version the server offers, such as 4.0 on Synology NAS where 4.1 isn't offered
       mountOptions:
-        - nfsvers=4.1
+        - nfsvers=4
     # -- The size of the media library. NFS doesn't enforce it, but Kubernetes needs one
     size: 1Ti
     # The NAS user the apps write the library as, so nothing is written there as root and the share can map root
