@@ -1,6 +1,6 @@
 suite: test node storage
-# The library is on the NAS, and the node holds 20Gi together: five 1Gi configs, Jellyfin's 3Gi config and
-# 2Gi cache, Jellyseerr's 1Gi config, and qBittorrent's 9Gi of downloads in progress
+# The library is on the NAS, and the node holds 31Gi together: five 1Gi configs, Jellyfin's 3Gi config and
+# 2Gi cache, Jellyseerr's 1Gi config, and qBittorrent's 20Gi of downloads in progress
 values:
   - ./values/required-values.yaml
 release:
@@ -19,12 +19,12 @@ tests:
           path: spec.resources.requests.storage
           value: 1Gi
 
-  - it: should keep qBittorrent's downloads in progress on a 9Gi node volume
+  - it: should keep qBittorrent's downloads in progress on a 20Gi node volume
     template: charts/qbittorrent/templates/incomplete.yaml
     asserts:
       - equal:
           path: spec.resources.requests.storage
-          value: 9Gi
+          value: 20Gi
       - notExists:
           path: spec.storageClassName
 

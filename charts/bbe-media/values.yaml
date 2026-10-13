@@ -38,9 +38,9 @@ bbe:
 # Each app starts with the API key the setup connects it with, from the `bbe-media-api-keys` secret,
 # and stores its media on the shared library.
 #
-# The library lives on the NAS. The node only holds what's faster there, 20Gi together on the default
+# The library lives on the NAS. The node only holds what's faster there, 31Gi together on the default
 # StorageClass: the five apps' configs (1Gi each), Jellyfin's config (3Gi) and transcoding cache (2Gi),
-# Jellyseerr's config (1Gi), and qBittorrent's downloads in progress (9Gi), which it moves to the library
+# Jellyseerr's config (1Gi), and qBittorrent's downloads in progress (20Gi), which it moves to the library
 # once complete
 sonarr:
   sonarr:
@@ -94,7 +94,7 @@ qbittorrent:
   incomplete:
     enabled: true
     # -- The node storage for downloads in progress. Downloads that don't fit together wait until others complete
-    size: 9Gi
+    size: 20Gi
 
 jellyfin:
   persistence:
