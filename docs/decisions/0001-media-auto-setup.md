@@ -160,6 +160,7 @@ Left to the user: adding indexers in Prowlarr. They depend on which sites someon
 ## Consequences
 
 - **The NFS export must let the NAS user write**, which owns the share (decision 8). Root can be mapped away.
+- **Uninstalling deletes the `bbe-media` namespace** with everything in it: the apps' settings and databases, their logins and API keys, and the indexers' credentials. The media on the NFS share stays, as the volume only links to it. bbe asks to confirm first.
 - **Seerr replaces Jellyseerr**, which it became, at release 3.5.0 on the `seerr-chart` chart. An upgraded install gets a new Seerr, which the Job signs in and connects again. Jellyseerr's requests stay on its old volume.
 - **Jellyfin's data moves.** Earlier `bbe-media` versions ran the official Jellyfin image, which keeps its data directly in `/config`. The linuxserver image starts with an empty `/config/data`, so an upgraded install starts Jellyfin over; the old data stays on its volume.
 - **Changing the NFS server or path after installing fails the upgrade**, as a volume's source can't be changed. Uninstall and install again instead. The media stays on the share.
