@@ -36,8 +36,6 @@ INDEXER_SAVE_TIMEOUT = 300
 FLARESOLVERR_URL = os.environ.get("FLARESOLVERR_URL", "")
 FLARESOLVERR_TIMEOUT = int(os.environ.get("FLARESOLVERR_TIMEOUT", "60"))
 FLARESOLVERR_TAG = "flaresolverr"
-# How Prowlarr refuses to save an indexer behind Cloudflare
-CLOUDFLARE_BLOCKED = "blocked by CloudFlare Protection"
 
 JELLYFIN_CLIENT = 'MediaBrowser Client="bbe-media-setup", Device="bbe", DeviceId="bbe-media-setup", Version="1.0.0"'
 
@@ -329,22 +327,15 @@ def save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, ta
     for field in indexer["fields"]:
         if field["name"] in values:
             field["value"] = values[field["name"]]
-    indexer.update({"name": name, "enable": True, "tags": sorted(set(indexer.get("tags", [])) | {tag["id"]})})
+    # Every indexer bbe adds is tagged for FlareSolverr, which Prowlarr only sends a request through once Cloudflare
+    # challenges it. Cloudflare challenges some indexers now and then, so it can't be told in advance which need it
+    tags = set(indexer.get("tags", [])) | {tag["id"]}
+    if flaresolverr_tag is not None:
+        tags.add(flaresolverr_tag["id"])
+    indexer.update({"name": name, "enable": True, "tags": sorted(tags)})
     if not indexer.get("appProfileId"):
         indexer["appProfileId"] = profile_id
 
-    try:
-        write_indexer(prowlarr, name, indexer, current)
-    except SetupError as error:
-        # An indexer Cloudflare blocks goes through FlareSolverr from then on, which Prowlarr uses for its tag
-        if flaresolverr_tag is None or CLOUDFLARE_BLOCKED not in str(error) or flaresolverr_tag["id"] in indexer["tags"]:
-            raise
-        log(f"Prowlarr: Cloudflare blocks `{name}`, so it goes through FlareSolverr")
-        indexer["tags"] = sorted(set(indexer["tags"]) | {flaresolverr_tag["id"]})
-        write_indexer(prowlarr, name, indexer, current)
-
-
-def write_indexer(prowlarr, name, indexer, current):
     # Prowlarr searches the indexer before saving it, and forceSave only lets a save through warnings
     if current is None:
         prowlarr.post("/api/v1/indexer?forceSave=true", indexer, timeout=INDEXER_SAVE_TIMEOUT)

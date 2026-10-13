@@ -24,8 +24,8 @@ bbe:
       # `secretFields` the key in the `bbe-media-indexers` secret of each field that's a credential
       indexers: []
     flaresolverr:
-      # -- Whether to run FlareSolverr, which Prowlarr sends the indexers Cloudflare blocks through. The setup tags
-      # an indexer for it when Prowlarr can't save it because of Cloudflare
+      # -- Whether to run FlareSolverr, which Prowlarr sends an indexer's requests through when Cloudflare challenges
+      # them. The setup tags every indexer it adds for it
       enabled: true
       image:
         # -- The FlareSolverr image

@@ -146,7 +146,7 @@ Rejected: shipping a list of indexers to enable by default, which would have bbe
 
 Many indexers sit behind Cloudflare, and Prowlarr refuses to save one whose challenge it can't pass, with "blocked by CloudFlare Protection". `bbe-media` runs FlareSolverr (`bbe.media.flaresolverr`), and the Job adds it to Prowlarr as an indexer proxy tagged `flaresolverr`, as [TRaSH's guide](https://trash-guides.info/Prowlarr/prowlarr-setup-flaresolverr/) sets it up. Prowlarr only sends an indexer through a proxy that shares its tag, and only when it meets Cloudflare.
 
-Following the guide, only the indexers that need it get the tag: when Prowlarr refuses an indexer because of Cloudflare, the Job tags it `flaresolverr` and saves it again. The tag stays on later runs, so nobody has to know in advance which indexers need it.
+Every indexer the Job adds is tagged `flaresolverr`, where the guide tags only the indexers that need it. Prowlarr only sends a request through FlareSolverr once Cloudflare challenges the response, so the tag costs nothing for an indexer Cloudflare leaves alone. And Cloudflare challenges some indexers only now and then: on `present-sprite`, 1337x and KickassTorrents saved fine, then were blocked when searched. So there's no telling in advance which ones need it.
 
 FlareSolverr runs Chromium as a non-root user, inside the cluster only, with up to 1Gi of memory. It doesn't get past every challenge, and an indexer it can't get past still fails on its own.
 
@@ -158,7 +158,7 @@ Every step reads the current state first, so a second run only updates bbe's own
 |---|---|
 | qBittorrent | Keeps downloads in progress in `/incomplete` on the node, then saves them to `/media/downloads` |
 | Sonarr, Radarr | Admin login, root folder, qBittorrent as download client |
-| Prowlarr | Admin login, Sonarr and Radarr as applications with full sync, FlareSolverr as an indexer proxy, the indexers in `bbe.media.prowlarr.indexers`, tagged for FlareSolverr when Cloudflare blocks them |
+| Prowlarr | Admin login, Sonarr and Radarr as applications with full sync, FlareSolverr as an indexer proxy, the indexers in `bbe.media.prowlarr.indexers`, tagged for FlareSolverr |
 | Bazarr | Admin login, connected to Sonarr and Radarr |
 | Jellyfin | Startup wizard with the admin account, Shows and Movies libraries, transcoding in `/transcode` |
 | Seerr | Signed in through Jellyfin, libraries enabled, Sonarr and Radarr connected with the HD-1080p profile when it exists |
