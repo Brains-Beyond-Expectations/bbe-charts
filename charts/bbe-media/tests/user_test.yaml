@@ -83,7 +83,8 @@ tests:
       bbe.media.user.uid: null
     asserts:
       - failedTemplate:
-          errorPattern: "bbe.media.user: uid is required"
+          # Helm 3 and Helm 4 word schema errors differently
+          errorPattern: "(bbe.media.user: uid is required|/bbe/media/user/uid': got null, want integer)"
 
   - it: should refuse root as the NAS user
     template: templates/user.yaml
@@ -91,4 +92,4 @@ tests:
       bbe.media.user.uid: 0
     asserts:
       - failedTemplate:
-          errorPattern: "bbe.media.user.uid: Must be greater than or equal to 1"
+          errorPattern: "(bbe.media.user.uid: Must be greater than or equal to 1|/bbe/media/user/uid': minimum: got 0, want 1)"
