@@ -21,6 +21,19 @@ annotations:
       description: Longhorn, the storage class for the apps' config volumes
       storageClass: longhorn
       package: bbe-storage
+  # Lists `bbe configure` adds to and removes from, with credentials kept in a secret instead of bbe.yaml
+  bbe/settings: |
+    - name: indexers
+      description: The indexers Prowlarr searches, and shares with Sonarr and Radarr
+      values: bbe.media.prowlarr.indexers
+      secret: bbe-media-indexers
+      catalog:
+        type: prowlarr-indexers
+        service: bbe-media-prowlarr
+        port: 9696
+        apiKey:
+          secret: bbe-media-api-keys
+          key: prowlarr
 dependencies:
   - name: bazarr
     version: 0.4.0
