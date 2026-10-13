@@ -2,7 +2,7 @@ apiVersion: v2
 name: bbe-storage
 description: Longhorn storage for BBE clusters, as the default storage class
 type: application
-version: 0.1.0
+version: 0.0.1
 keywords:
   - bbe
   - storage
