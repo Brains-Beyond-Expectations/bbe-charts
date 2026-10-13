@@ -1,4 +1,7 @@
 charts:
+  - name: bbe-auth
+    # Reads the users setting, which lists fields instead of a catalog, and the prerequisite naming only a package
+    min-bbe-cli: 1.7.0
   - name: bbe-media
     min-bbe-cli: 0.6.0
   - name: bbe-networking

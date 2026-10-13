@@ -1,0 +1,65 @@
+apiVersion: v2
+name: bbe-auth
+description: Single sign-on for the BBE cluster's apps, with Keycloak, its PostgreSQL database and oauth2-proxy
+type: application
+version: 0.0.1
+keywords:
+  - bbe
+  - auth
+  - sso
+  - keycloak
+  - oauth2-proxy
+home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for Keycloak's database
+      storageClass: longhorn
+      package: bbe-storage
+    - name: networking
+      description: Traefik and the domain's certificate, which Keycloak's sign-in page is served with
+      package: bbe-networking
+  # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
+  bbe/uninstall: |
+    keeps: []
+  # Lists `bbe configure` adds to and removes from, with first passwords kept in a secret instead of bbe.yaml
+  bbe/settings: |
+    - name: users
+      description: The people bbe adds to Keycloak, besides those added in its console
+      values: bbe.auth.users
+      secret: bbe-auth-users
+      fields:
+        - name: username
+          label: Username
+          description: What they sign in with, in lower case
+          pattern: "^[a-z0-9][a-z0-9._-]{0,62}$"
+          unique: true
+        - name: email
+          label: Email
+          pattern: "^[^@\\s]+@[^@\\s]+$"
+        - name: firstName
+          label: First name
+          optional: true
+        - name: lastName
+          label: Last name
+          optional: true
+        - name: groups
+          label: Group
+          options:
+            - name: "users: Jellyfin and Seerr"
+              value: [users]
+            - name: "admins: every app, and managing people in Keycloak"
+              value: [admins]
+        - name: password
+          label: First password
+          description: They choose a new one when they first sign in
+          generate: true
+          secret: true
+dependencies:
+  - name: keycloakx
+    repository: https://codecentric.github.io/helm-charts
+    version: 7.3.2
+  - name: oauth2-proxy
+    repository: https://oauth2-proxy.github.io/manifests
+    version: 10.7.1

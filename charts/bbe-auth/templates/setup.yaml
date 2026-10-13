@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-auth-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+data:
+  setup.py: |
+    {{- .Files.Get "files/setup.py" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job can't be changed once it exists, so each revision gets its own, which also runs it again
+  name: bbe-auth-setup-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.bbe.setup.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-auth.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: setup
+          image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
+          command:
+            - python3
+            - /scripts/setup.py
+          env:
+            # Keycloak's service, as the setup's requests stay in the cluster
+            - name: KEYCLOAK_URL
+              value: http://bbe-auth-keycloak-http
+            - name: SETUP_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-auth-keycloak
+                  key: setup-client-id
+            - name: SETUP_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-auth-keycloak
+                  key: setup-client-secret
+            - name: REALM
+              value: bbe
+            - name: CLIENTS
+              value: {{ include "bbe-auth.clients" . | quote }}
+            - name: CLIENT_SECRETS_DIR
+              value: /client-secrets
+            - name: USERS
+              value: {{ include "bbe-auth.users" . | quote }}
+            - name: USER_PASSWORDS_DIR
+              value: /user-passwords
+            - name: READY_TIMEOUT
+              value: {{ .Values.bbe.setup.readyTimeout | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          {{- with .Values.bbe.setup.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: client-secrets
+              mountPath: /client-secrets
+              readOnly: true
+            - name: user-passwords
+              mountPath: /user-passwords
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: bbe-auth-setup
+        - name: client-secrets
+          secret:
+            secretName: bbe-auth-clients
+        - name: user-passwords
+          projected:
+            sources:
+              - secret:
+                  name: bbe-auth-admin
+                  items:
+                    - key: password
+                      path: first-admin
+              # Written by `bbe configure`, so it only exists once a user is added there
+              - secret:
+                  name: bbe-auth-users
+                  optional: true

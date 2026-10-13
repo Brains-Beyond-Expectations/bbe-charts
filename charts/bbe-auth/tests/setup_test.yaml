@@ -1,0 +1,83 @@
+suite: test setup
+values:
+  - ./values/required-values.yaml
+templates:
+  - setup.yaml
+release:
+  name: bbe-auth
+  namespace: bbe-auth
+  revision: 3
+tests:
+  - it: should run the setup as a new Job for every revision
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-auth-setup-3
+      - equal:
+          path: spec.template.spec.containers[0].env[0]
+          value:
+            name: KEYCLOAK_URL
+            value: http://bbe-auth-keycloak-http
+
+  - it: should create the first admin before the users bbe configure added
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      bbe.auth.users:
+        - username: alice
+          email: alice@example.com
+          groups: [users]
+          secretFields:
+            password: alice.password
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: USERS
+            value: '[{"email":"umbo@example.com","groups":["admins"],"secretFields":{"password":"first-admin"},"username":"umbo"},{"email":"alice@example.com","groups":["users"],"secretFields":{"password":"alice.password"},"username":"alice"}]'
+
+  - it: should give the setup oauth2-proxy's client and every app's, with their addresses under the domain
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLIENTS
+            value: '[{"audience":true,"clientId":"oauth2-proxy","name":"bbe apps","redirectUris":["https://auth.lab.home.arpa/oauth2/callback"],"rootUrl":"https://auth.lab.home.arpa"},{"baseUrl":"/","clientId":"jellyfin","name":"Jellyfin","redirectUris":["https://jellyfin.lab.home.arpa/sso/OID/redirect/bbe"],"rootUrl":"https://jellyfin.lab.home.arpa"}]'
+
+  - it: should give the setup the first admin's password and those bbe configure wrote
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: user-passwords
+            projected:
+              sources:
+                - secret:
+                    name: bbe-auth-admin
+                    items:
+                      - key: password
+                        path: first-admin
+                - secret:
+                    name: bbe-auth-users
+                    optional: true
+
+  - it: should ship the setup script
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - matchRegex:
+          path: data["setup.py"]
+          pattern: def configure_users

@@ -1,0 +1,33 @@
+{{- /*
+Keycloak signs people in at auth.<domain>, where oauth2-proxy takes their sign-in back under /oauth2. Traefik serves it
+with the domain's certificate
+*/ -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bbe-auth
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+spec:
+  tls:
+    - hosts:
+        - auth.{{ .Values.global.bbe.domain }}
+  rules:
+    - host: auth.{{ .Values.global.bbe.domain }}
+      http:
+        paths:
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: bbe-auth-oauth2-proxy
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bbe-auth-keycloak-http
+                port:
+                  name: http

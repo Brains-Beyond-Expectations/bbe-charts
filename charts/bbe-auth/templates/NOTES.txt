@@ -1,0 +1,14 @@
+Keycloak signs people in at https://auth.{{ .Values.global.bbe.domain }}, in the `bbe` realm.
+
+The first admin is `{{ .Values.bbe.auth.admin.username }}`, who chooses a new password when first signing in with:
+  kubectl get secret bbe-auth-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
+
+Admins manage people at https://auth.{{ .Values.global.bbe.domain }}/admin/bbe/console/, and `bbe configure {{ .Release.Name }}`
+adds and removes them too. People in `admins` get into every app, those in `users` into Jellyfin and Seerr.
+
+Keycloak's own admin, for when nobody in the realm can sign in, is `bbe-admin` at
+https://auth.{{ .Values.global.bbe.domain }}/admin/, with the password:
+  kubectl get secret bbe-auth-keycloak -n {{ .Release.Namespace }} -o jsonpath='{.data.admin-password}' | base64 -d
+
+Keycloak is being set up in the background, which takes a few minutes on a first install. To follow along:
+  kubectl logs -n {{ .Release.Namespace }} -f job/bbe-auth-setup-{{ .Release.Revision }}

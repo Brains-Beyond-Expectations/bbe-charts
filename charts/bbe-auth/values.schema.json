@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "global",
+    "bbe"
+  ],
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "bbe": {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+              "description": "The domain the cluster's apps are named under, the same as bbe-networking's"
+            }
+          },
+          "required": [
+            "domain"
+          ]
+        }
+      },
+      "required": [
+        "bbe"
+      ]
+    },
+    "bbe": {
+      "type": "object",
+      "required": [
+        "auth"
+      ],
+      "properties": {
+        "auth": {
+          "type": "object",
+          "required": [
+            "admin"
+          ],
+          "properties": {
+            "admin": {
+              "type": "object",
+              "required": [
+                "username",
+                "email"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,62}$",
+                  "minLength": 1,
+                  "not": {
+                    "enum": [
+                      "admin"
+                    ]
+                  },
+                  "description": "The username of the first admin, in lower case and not `admin`, which is bbe-media's own login"
+                },
+                "email": {
+                  "type": "string",
+                  "minLength": 3,
+                  "pattern": "^[^@\\s]+@[^@\\s]+$",
+                  "description": "The first admin's email address"
+                }
+              }
+            },
+            "users": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "username"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]{0,62}$"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "admins",
+                        "users"
+                      ]
+                    }
+                  },
+                  "secretFields": {
+                    "type": "object",
+                    "properties": {
+                      "password": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "clients": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "clientId",
+                  "host",
+                  "redirectPath"
+                ],
+                "properties": {
+                  "clientId": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]+$"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "redirectPath": {
+                    "type": "string",
+                    "pattern": "^/"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
