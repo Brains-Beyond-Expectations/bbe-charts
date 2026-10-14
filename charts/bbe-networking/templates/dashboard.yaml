@@ -115,6 +115,24 @@ spec:
         runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # Homepage creates the config files it's missing on start, so its config folder is writable, and starts from bbe's
+      initContainers:
+        - name: config
+          image: "{{ .Values.bbe.dashboard.image.repository }}:{{ .Values.bbe.dashboard.image.tag }}"
+          command:
+            - sh
+            - -c
+            - cp /config-source/* /app/config/
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config-source
+              mountPath: /config-source
+            - name: config
+              mountPath: /app/config
       containers:
         - name: homepage
           image: "{{ .Values.bbe.dashboard.image.repository }}:{{ .Values.bbe.dashboard.image.tag }}"
@@ -151,18 +169,13 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-            {{- range $file := list "kubernetes.yaml" "settings.yaml" "services.yaml" "bookmarks.yaml" "widgets.yaml" "docker.yaml" "custom.css" "custom.js" }}
             - name: config
-              mountPath: /app/config/{{ $file }}
-              subPath: {{ $file }}
-            {{- end }}
-            - name: logs
-              mountPath: /app/config/logs
+              mountPath: /app/config
       volumes:
-        - name: config
+        - name: config-source
           configMap:
             name: {{ .Release.Name }}-dashboard
-        - name: logs
+        - name: config
           emptyDir: {}
 ---
 # The landing page is the domain itself, which the domain's certificate covers

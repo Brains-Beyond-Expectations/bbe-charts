@@ -25,7 +25,7 @@ The others fall short:
 - **Dashy** is heavier, with no Kubernetes discovery.
 - **Heimdall** and **Organizr** are configured in their UI and keep it in their own database, not in code.
 
-Homepage's only Helm chart is unofficial and was last updated in May 2025. So `bbe-networking` follows the manifests in Homepage's own Kubernetes docs instead: a Deployment, a ConfigMap, and a ClusterRole that only gets and lists namespaces, pods, nodes, Ingresses and IngressRoutes.
+Homepage's only Helm chart is unofficial and was last updated in May 2025. So `bbe-networking` follows the manifests in Homepage's own Kubernetes docs instead: a Deployment, a ConfigMap, and a ClusterRole that only gets and lists namespaces, pods, nodes, Ingresses and IngressRoutes. Unlike those manifests, its config folder is a writable empty folder, which an init container fills from the ConfigMap. Homepage creates any config file it's missing on start, and 2.5.0 added `proxmox.yaml`, which it couldn't write into a folder of mounted files.
 
 ### 2. It's part of bbe-networking, at the domain itself
 

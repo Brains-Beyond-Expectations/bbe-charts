@@ -216,6 +216,26 @@ tests:
           path: data["settings.yaml"]
           pattern: "Watch:(.|\\n)*Manage:(.|\\n)*Cluster:"
 
+  - it: should give Homepage a writable config folder, starting from bbe's files
+    template: templates/dashboard.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].command[2]
+          value: cp /config-source/* /app/config/
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: config
+              mountPath: /app/config
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: config
+            emptyDir: {}
+
   - it: should only read what Homepage needs
     template: templates/dashboard.yaml
     documentSelector:
