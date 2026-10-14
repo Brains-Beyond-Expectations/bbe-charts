@@ -159,3 +159,80 @@ tests:
       global.bbe.domain: home.arpa
     asserts:
       - failedTemplate: {}
+
+  - it: should serve the dashboard at the domain itself, with its certificate
+    template: templates/dashboard.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: kind
+      value: Ingress
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: lab.home.arpa
+      - equal:
+          path: spec.tls[0].hosts
+          value:
+            - lab.home.arpa
+
+  - it: should let Homepage answer for the domain and the probes
+    template: templates/dashboard.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HOMEPAGE_ALLOWED_HOSTS
+            value: lab.home.arpa,$(POD_IP):3000
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/gethomepage/homepage:v2.5.0
+
+  - it: should find the apps in every namespace from their Ingresses
+    template: templates/dashboard.yaml
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - equal:
+          path: data["kubernetes.yaml"]
+          value: |
+            mode: cluster
+            ingress: true
+            traefik: true
+
+  - it: should keep the dashboard's groups in the order of its settings
+    template: templates/dashboard.yaml
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - matchRegex:
+          path: data["settings.yaml"]
+          pattern: "Watch:(.|\\n)*Manage:(.|\\n)*Cluster:"
+
+  - it: should only read what Homepage needs
+    template: templates/dashboard.yaml
+    documentSelector:
+      path: kind
+      value: ClusterRole
+    asserts:
+      - equal:
+          path: rules[0].verbs
+          value: [get, list]
+      - equal:
+          path: rules[1].resources
+          value: [ingresses]
+
+  - it: should serve no dashboard when it's off
+    template: templates/dashboard.yaml
+    set:
+      bbe.dashboard.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

@@ -14,6 +14,45 @@ bbe:
     blocky:
       # -- The IP address for the Blocky DNS service, or a range such as 192.168.1.240-192.168.1.245
       ipAddressPool:
+  dashboard:
+    # -- Whether to serve the cluster's landing page at https://<domain>, with Homepage. It lists every app whose
+    # Ingress has `gethomepage.dev/enabled: "true"`, with whether its pods run
+    enabled: true
+    image:
+      # -- The Homepage image
+      repository: ghcr.io/gethomepage/homepage
+      # -- The Homepage version
+      tag: v2.5.0
+    # -- Homepage's settings.yaml, see https://gethomepage.dev/configs/settings. Its layout orders the groups the apps'
+    # annotations put them in, so it's kept as text, as Helm would sort the groups by name
+    settings: |
+      title: bbe
+      headerStyle: clean
+      layout:
+        Watch:
+          style: row
+          columns: 4
+        Manage:
+          style: row
+          columns: 4
+        Cluster:
+          style: row
+          columns: 4
+    # -- Links to list besides the apps found in the cluster, as Homepage's services.yaml
+    services: []
+    # -- Homepage's bookmarks.yaml
+    bookmarks: []
+    # -- Homepage's widgets.yaml. Its Kubernetes widgets need metrics-server, which Talos doesn't run by default
+    widgets: []
+    resources:
+      requests:
+        # -- The memory to request for the dashboard
+        memory: 96Mi
+        # -- The CPU to request for the dashboard
+        cpu: 10m
+      limits:
+        # -- The memory to limit the dashboard to
+        memory: 256Mi
   certificates:
     # -- How long bbe's certificate authority is valid. Devices that trust it need its new certificate once it's
     # renewed
