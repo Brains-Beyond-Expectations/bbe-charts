@@ -131,6 +131,8 @@ oauth2-proxy:
   fullnameOverride: bbe-auth-oauth2-proxy
   config:
     existingSecret: bbe-auth-oauth2-proxy
+    # Named so the oauth2-proxy in front of qBittorrent, in bbe-media, reads the same cookie
+    cookieName: _bbe_sso
     emailDomains:
       - "*"
     # Traefik asks oauth2-proxy whether a request may go through, and sends it on itself

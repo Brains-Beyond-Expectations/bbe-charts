@@ -56,6 +56,9 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].args
           content: --allowed-group=admins
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --cookie-name=_bbe_sso
 
   - it: should serve Keycloak at auth.<domain>, with oauth2-proxy under /oauth2
     template: templates/ingress.yaml

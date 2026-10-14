@@ -58,6 +58,7 @@ Single sign-on for the BBE cluster's apps, with Keycloak, its PostgreSQL databas
 | keycloakx.securityContext.runAsNonRoot | bool | `true` |  |
 | keycloakx.securityContext.runAsUser | int | `1000` |  |
 | keycloakx.securityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
+| oauth2-proxy.config.cookieName | string | `"_bbe_sso"` |  |
 | oauth2-proxy.config.emailDomains[0] | string | `"*"` |  |
 | oauth2-proxy.config.existingSecret | string | `"bbe-auth-oauth2-proxy"` |  |
 | oauth2-proxy.config.upstreams[0] | string | `"static://202"` |  |
