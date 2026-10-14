@@ -89,6 +89,10 @@ spec:
             {{- end }}
             - name: INDEXERS
               value: {{ .Values.bbe.media.prowlarr.indexers | default list | toJson | quote }}
+            - name: BAZARR_PROVIDERS
+              value: {{ .Values.bbe.media.bazarr.providers | default list | toJson | quote }}
+            - name: BAZARR_LANGUAGES
+              value: {{ .Values.bbe.media.bazarr.languages | default list | toJson | quote }}
             - name: INDEXER_SECRETS_DIR
               value: /indexer-secrets
             - name: READY_TIMEOUT

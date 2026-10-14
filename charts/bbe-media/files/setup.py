@@ -37,6 +37,12 @@ FLARESOLVERR_URL = os.environ.get("FLARESOLVERR_URL", "")
 FLARESOLVERR_TIMEOUT = int(os.environ.get("FLARESOLVERR_TIMEOUT", "60"))
 FLARESOLVERR_TAG = "flaresolverr"
 
+# The subtitle providers bbe enables in Bazarr, from `bbe configure`, besides those enabled in Bazarr itself
+BAZARR_PROVIDERS = [entry["name"] for entry in json.loads(os.environ.get("BAZARR_PROVIDERS") or "[]")]
+# The languages of the profile bbe gives series and movies in Bazarr, as two-letter codes, or none for no profile
+BAZARR_LANGUAGES = json.loads(os.environ.get("BAZARR_LANGUAGES") or "[]")
+# The name of that profile, which finds it again
+BAZARR_PROFILE = "bbe"
 # Whether bbe-auth's oauth2-proxy signs people in to the apps managing the media, so they skip their own logins
 SSO = os.environ.get("SSO", "").lower() == "true"
 # The API key Sonarr and Radarr sign in to qBittorrent with, or empty for its login
@@ -416,6 +422,63 @@ def configure_bazarr(bazarr, apps):
     log(f"Bazarr: {login} and connected to {', '.join(app.name for app in apps)}")
 
 
+def configure_bazarr_subtitles(bazarr):
+    """Turns on the subtitle providers and languages bbe lists, keeping those turned on in Bazarr, and gives series and
+    movies without a languages profile bbe's. Bazarr replaces each of these lists with what it's sent, so they're read
+    and merged first, and only sent when something changed"""
+    settings = bazarr.get("/api/system/settings")
+    general = settings.get("general", {})
+
+    enabled = list(general.get("enabled_providers") or [])
+    missing_providers = [provider for provider in BAZARR_PROVIDERS if provider not in enabled]
+    if missing_providers:
+        bazarr.post("/api/system/settings", form=[("settings-general-enabled_providers", provider) for provider in enabled + missing_providers])
+        log(f"Bazarr: searches {', '.join(missing_providers)} for subtitles")
+
+    if not BAZARR_LANGUAGES:
+        return
+
+    languages = [language["code2"] for language in bazarr.get("/api/system/languages") if language.get("enabled")]
+    missing_languages = [code for code in BAZARR_LANGUAGES if code not in languages]
+    if missing_languages:
+        bazarr.post("/api/system/settings", form=[("languages-enabled", code) for code in languages + missing_languages])
+        log(f"Bazarr: turned on {', '.join(missing_languages)}")
+
+    profiles = bazarr.get("/api/system/languages/profiles")
+    current = next((profile for profile in profiles if profile["name"] == BAZARR_PROFILE), None)
+    profile_id = current["profileId"] if current else max([profile["profileId"] for profile in profiles] + [0]) + 1
+    items = [{"id": index, "language": code, "audio_exclude": "False", "audio_only_include": "False", "hi": "False", "forced": "False"} for index, code in enumerate(BAZARR_LANGUAGES, start=1)]
+    wanted = {**(current or {"cutoff": None, "mustContain": [], "mustNotContain": [], "originalFormat": False, "tag": None}), "profileId": profile_id, "name": BAZARR_PROFILE, "items": items}
+    if current is None or [{key: item.get(key) for key in items[0]} for item in current.get("items", [])] != items:
+        # Every profile is sent, as Bazarr deletes the ones left out
+        others = [profile for profile in profiles if profile["profileId"] != profile_id]
+        bazarr.post("/api/system/settings", form={"languages-profiles": json.dumps(others + [wanted])})
+        log(f"Bazarr: the `{BAZARR_PROFILE}` languages profile asks for {', '.join(BAZARR_LANGUAGES)}")
+
+    # New series and movies get it, unless someone picked another default in Bazarr
+    defaults = []
+    for kind in ("serie", "movie"):
+        if not general.get(f"{kind}_default_profile"):
+            defaults += [(f"settings-general-{kind}_default_enabled", "true"), (f"settings-general-{kind}_default_profile", str(profile_id))]
+    if defaults:
+        bazarr.post("/api/system/settings", form=defaults)
+        log(f"Bazarr: new series and movies get the `{BAZARR_PROFILE}` languages profile")
+
+    # The ones Bazarr already knows get it only if they have none, then their missing subtitles are searched for
+    for kind, id_field, form_field, task in (
+        ("series", "sonarrSeriesId", "seriesid", "wanted_search_missing_subtitles_series"),
+        ("movies", "radarrId", "radarrid", "wanted_search_missing_subtitles_movies"),
+    ):
+        without = bazarr.get(f"/api/{kind}?profileid=none").get("data", [])
+        if without:
+            form = []
+            for item in without:
+                form += [(form_field, str(item[id_field])), ("profileid", str(profile_id))]
+            bazarr.post(f"/api/{kind}", form=form)
+            bazarr.post("/api/system/tasks", form={"taskid": task})
+            log(f"Bazarr: gave {len(without)} {kind} the `{BAZARR_PROFILE}` languages profile, and searches their subtitles")
+
+
 def configure_jellyfin(jellyfin):
     """Completes the startup wizard with the bbe admin account and adds the TV and movie libraries"""
     info = jellyfin.get("/System/Info/Public")
@@ -554,6 +617,8 @@ def main():
         steps.append(("Prowlarr indexers", configure_prowlarr_indexers, prowlarr, arrs))
     if bazarr and arrs:
         steps.append(("Bazarr", configure_bazarr, bazarr, arrs))
+    if bazarr:
+        steps.append(("Bazarr subtitles", configure_bazarr_subtitles, bazarr))
     if jellyfin:
         steps.append(("Jellyfin", configure_jellyfin, jellyfin))
     if seerr and jellyfin:

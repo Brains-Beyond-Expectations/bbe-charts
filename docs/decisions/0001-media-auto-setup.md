@@ -148,7 +148,19 @@ The chart also suggests nine public indexers needing no login: 1337x, The Pirate
 
 Rejected: adding indexers by default without asking, which would have bbe decide which sites a cluster searches.
 
-### 10. FlareSolverr gets the indexers Cloudflare blocks past it
+### 10. Bazarr gets subtitle providers and a languages profile
+
+Bazarr downloads nothing until it has subtitle providers, and a languages profile on each series and movie. The Job sets both up:
+- **Providers.** It turns on those in `bbe.media.bazarr.providers`, a `bbe configure bbe-media` setting.
+  - The chart suggests four needing no account, which bbe offers once like the indexers: Gestdown (Addic7ed's catalogue, series), TVsubtitles (series), YIFY Subtitles (movies) and SuperSubtitles.
+  - The best English sources, OpenSubtitles.com, SubDL and Addic7ed, need an account or key, so they're left to Bazarr itself. Podnapisi is gone from Bazarr 1.6.2, and Subscene and BSPlayer are dead.
+- **Languages profile.** It creates `bbe` with the languages in `bbe.media.bazarr.languages`, English by default.
+  - New series and movies get it, unless Bazarr has another default.
+  - Those Bazarr already knows get it if they have none, and their missing subtitles are searched for straight away.
+
+Bazarr replaces its enabled providers, enabled languages and languages profiles with whatever it's sent, deleting what's left out. So the Job reads each first, merges in its own, and only sends them when something changed. Providers, languages and profiles turned on in Bazarr stay, and removing a provider from the list doesn't turn it off in Bazarr.
+
+### 11. FlareSolverr gets the indexers Cloudflare blocks past it
 
 Many indexers sit behind Cloudflare, and Prowlarr refuses to save one whose challenge it can't pass, with "blocked by CloudFlare Protection". `bbe-media` runs FlareSolverr (`bbe.media.flaresolverr`), and the Job adds it to Prowlarr as an indexer proxy tagged `flaresolverr`, as [TRaSH's guide](https://trash-guides.info/Prowlarr/prowlarr-setup-flaresolverr/) sets it up. Prowlarr only sends an indexer through a proxy that shares its tag, and only when it meets Cloudflare.
 
@@ -165,7 +177,7 @@ Every step reads the current state first, so a second run only updates bbe's own
 | qBittorrent | Keeps downloads in progress in `/incomplete` on the node, then saves them to `/media/downloads` |
 | Sonarr, Radarr | Admin login, or single sign-on (0002), root folder, qBittorrent as download client with its API key |
 | Prowlarr | Admin login, or single sign-on, Sonarr and Radarr as applications with full sync, FlareSolverr as an indexer proxy, the indexers in `bbe.media.prowlarr.indexers`, tagged for FlareSolverr |
-| Bazarr | Admin login, or single sign-on, connected to Sonarr and Radarr |
+| Bazarr | Admin login, or single sign-on, subtitle providers and the `bbe` languages profile, connected to Sonarr and Radarr |
 | Jellyfin | Startup wizard with the admin account, Shows and Movies libraries, transcoding in `/transcode` |
 | Seerr | Signed in through Jellyfin, libraries enabled, Sonarr and Radarr connected with the HD-1080p profile when it exists |
 

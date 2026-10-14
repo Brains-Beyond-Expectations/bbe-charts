@@ -33,6 +33,8 @@ A collection of charts for BBE cluster media, connected to each other when insta
 | bazarr.bazarr.env[2].valueFrom.configMapKeyRef.name | string | `"bbe-media-user"` |  |
 | bazarr.media.existingClaim | string | `"bbe-media-library"` |  |
 | bbe.admin.username | string | `"admin"` | The username for every app's web UI. Its password is generated into the `bbe-media-admin` secret |
+| bbe.media.bazarr.languages | list | `["en"]` | The languages Bazarr downloads subtitles in, as two-letter codes. The setup puts them in a languages profile named `bbe`, which new series and movies get unless Bazarr has another default, and so do those without one. Empty for no profile |
+| bbe.media.bazarr.providers | list | `[]` | The subtitle providers bbe turns on in Bazarr, besides those turned on in Bazarr. Add them with `bbe configure bbe-media`, each with the `name` Bazarr knows it by. Removing one here doesn't turn it off |
 | bbe.media.flaresolverr.enabled | bool | `true` | Whether to run FlareSolverr, which Prowlarr sends an indexer's requests through when Cloudflare challenges them. The setup tags every indexer it adds for it |
 | bbe.media.flaresolverr.image.repository | string | `"ghcr.io/flaresolverr/flaresolverr"` | The FlareSolverr image |
 | bbe.media.flaresolverr.image.tag | string | `"v3.5.2"` | The FlareSolverr image tag |

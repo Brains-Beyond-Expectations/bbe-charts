@@ -34,6 +34,31 @@
           "type": "object",
           "required": ["nfs", "user"],
           "properties": {
+            "bazarr": {
+              "type": "object",
+              "properties": {
+                "providers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["name"],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9_]+$"
+                      }
+                    }
+                  }
+                },
+                "languages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2}$"
+                  }
+                }
+              }
+            },
             "ingress": {
               "type": "object",
               "properties": {

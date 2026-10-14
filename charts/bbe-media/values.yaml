@@ -36,6 +36,15 @@ bbe:
       # Each has the `name` it gets in Prowlarr, the Prowlarr `definition` it's made from, its `fields`, and in
       # `secretFields` the key in the `bbe-media-indexers` secret of each field that's a credential
       indexers: []
+    bazarr:
+      # -- The subtitle providers bbe turns on in Bazarr, besides those turned on in Bazarr. Add them with
+      # `bbe configure bbe-media`, each with the `name` Bazarr knows it by. Removing one here doesn't turn it off
+      providers: []
+      # -- The languages Bazarr downloads subtitles in, as two-letter codes. The setup puts them in a languages profile
+      # named `bbe`, which new series and movies get unless Bazarr has another default, and so do those without one.
+      # Empty for no profile
+      languages:
+        - en
     flaresolverr:
       # -- Whether to run FlareSolverr, which Prowlarr sends an indexer's requests through when Cloudflare challenges
       # them. The setup tags every indexer it adds for it
