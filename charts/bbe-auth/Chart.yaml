@@ -47,9 +47,9 @@ annotations:
         - name: groups
           label: Group
           options:
-            - name: "users: Jellyfin and Seerr"
+            - name: "users: an account, without the apps that manage the media"
               value: [users]
-            - name: "admins: every app, and managing people in Keycloak"
+            - name: "admins: the apps that manage the media, and managing people in Keycloak"
               value: [admins]
         - name: password
           label: First password

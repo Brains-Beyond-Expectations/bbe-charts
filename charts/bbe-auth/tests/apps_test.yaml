@@ -95,12 +95,6 @@ tests:
           path: spec.template.spec.containers[0].image
           value: postgres:18.6
 
-  - it: should refuse admin as the first admin's name, which is bbe-media's own login
-    set:
-      bbe.auth.admin.username: admin
-    asserts:
-      - failedTemplate: {}
-
   - it: should refuse a first admin's name in upper case, as Keycloak would change it
     set:
       bbe.auth.admin.username: Umbo

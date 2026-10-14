@@ -4,7 +4,9 @@ The first admin is `{{ .Values.bbe.auth.admin.username }}`, who chooses a new pa
   kubectl get secret bbe-auth-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
 
 Admins manage people at https://auth.{{ .Values.global.bbe.domain }}/admin/bbe/console/, and `bbe configure {{ .Release.Name }}`
-adds and removes them too. People in `admins` get into every app, those in `users` into Jellyfin and Seerr.
+adds and removes them too. People in `admins` get into the apps behind oauth2-proxy, which manage the media, and
+manage people in Keycloak. Those in `users` have an account, for apps that let everyone signed in through. Jellyfin and
+Seerr keep their own logins.
 
 Keycloak's own admin, for when nobody in the realm can sign in, is `bbe-admin` at
 https://auth.{{ .Values.global.bbe.domain }}/admin/, with the password:

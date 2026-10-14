@@ -50,12 +50,7 @@
                   "type": "string",
                   "pattern": "^[a-z0-9][a-z0-9._-]{0,62}$",
                   "minLength": 1,
-                  "not": {
-                    "enum": [
-                      "admin"
-                    ]
-                  },
-                  "description": "The username of the first admin, in lower case and not `admin`, which is bbe-media's own login"
+                  "description": "The username of the first admin, in lower case"
                 },
                 "email": {
                   "type": "string",

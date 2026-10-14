@@ -18,8 +18,8 @@ Single sign-on for the BBE cluster's apps, with Keycloak, its PostgreSQL databas
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | bbe.auth.admin.email | string | `nil` | The first admin's email address |
-| bbe.auth.admin.username | string | `nil` | The username of the first admin, who can manage everyone else in Keycloak's console. Not `admin`, which is bbe-media's own login. Their first password is generated into the `bbe-auth-admin` secret |
-| bbe.auth.clients | list | `[{"clientId":"jellyfin","host":"jellyfin","name":"Jellyfin","redirectPath":"/sso/OID/redirect/bbe"}]` | The apps signing people in with Keycloak themselves, each a client in the realm with a secret generated into the `bbe-auth-clients` secret. `host` is the app's name under the domain, `redirectPath` where Keycloak sends people back to |
+| bbe.auth.admin.username | string | `nil` | The username of the first admin, who can manage everyone else in Keycloak's console. Their first password is generated into the `bbe-auth-admin` secret |
+| bbe.auth.clients | list | `[]` | Apps signing people in with Keycloak themselves, rather than behind oauth2-proxy. Each is a client in the realm, with a secret generated into the `bbe-auth-clients` secret. `clientId` names it, `host` is the app's name under the domain, and `redirectPath` where Keycloak sends people back to. None of bbe's apps do yet: Jellyfin's SSO plugin and Seerr's sign-in can't, so they keep their own logins |
 | bbe.auth.users | list | `[]` | The users bbe adds to Keycloak, with `bbe configure bbe-auth`. Each has a `username`, an `email`, an optional `firstName` and `lastName`, `groups` (`users` or `admins`), and `secretFields.password`, the key of their first password in the `bbe-auth-users` secret. People added in Keycloak's console aren't listed here |
 | bbe.postgres.image.repository | string | `"postgres"` | The PostgreSQL image, the official one |
 | bbe.postgres.image.tag | string | `"18.6"` | The PostgreSQL version. A new major version needs the database dumped and restored, which an upgrade doesn't |

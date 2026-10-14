@@ -7,8 +7,8 @@ global:
 bbe:
   auth:
     admin:
-      # -- The username of the first admin, who can manage everyone else in Keycloak's console. Not `admin`, which is
-      # bbe-media's own login. Their first password is generated into the `bbe-auth-admin` secret
+      # -- The username of the first admin, who can manage everyone else in Keycloak's console. Their first password is
+      # generated into the `bbe-auth-admin` secret
       username:
       # -- The first admin's email address
       email:
@@ -16,14 +16,11 @@ bbe:
     # `firstName` and `lastName`, `groups` (`users` or `admins`), and `secretFields.password`, the key of their first
     # password in the `bbe-auth-users` secret. People added in Keycloak's console aren't listed here
     users: []
-    # -- The apps signing people in with Keycloak themselves, each a client in the realm with a secret generated into
-    # the `bbe-auth-clients` secret. `host` is the app's name under the domain, `redirectPath` where Keycloak sends people
-    # back to
-    clients:
-      - clientId: jellyfin
-        name: Jellyfin
-        host: jellyfin
-        redirectPath: /sso/OID/redirect/bbe
+    # -- Apps signing people in with Keycloak themselves, rather than behind oauth2-proxy. Each is a client in the realm,
+    # with a secret generated into the `bbe-auth-clients` secret. `clientId` names it, `host` is the app's name under the
+    # domain, and `redirectPath` where Keycloak sends people back to. None of bbe's apps do yet: Jellyfin's SSO plugin and
+    # Seerr's sign-in can't, so they keep their own logins
+    clients: []
   postgres:
     image:
       # -- The PostgreSQL image, the official one

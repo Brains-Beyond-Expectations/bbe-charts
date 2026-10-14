@@ -46,12 +46,17 @@ tests:
       value: Job
     set:
       global.bbe.domain: lab.home.arpa
+      bbe.auth.clients:
+        - clientId: wiki
+          name: Wiki
+          host: wiki
+          redirectPath: /oidc/callback
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
             name: CLIENTS
-            value: '[{"audience":true,"clientId":"oauth2-proxy","name":"bbe apps","redirectUris":["https://auth.lab.home.arpa/oauth2/callback"],"rootUrl":"https://auth.lab.home.arpa"},{"baseUrl":"/","clientId":"jellyfin","name":"Jellyfin","redirectUris":["https://jellyfin.lab.home.arpa/sso/OID/redirect/bbe"],"rootUrl":"https://jellyfin.lab.home.arpa"}]'
+            value: '[{"audience":true,"clientId":"oauth2-proxy","name":"bbe apps","redirectUris":["https://auth.lab.home.arpa/oauth2/callback"],"rootUrl":"https://auth.lab.home.arpa"},{"baseUrl":"/","clientId":"wiki","name":"Wiki","redirectUris":["https://wiki.lab.home.arpa/oidc/callback"],"rootUrl":"https://wiki.lab.home.arpa"}]'
 
   - it: should give the setup the first admin's password and those bbe configure wrote
     documentSelector:
@@ -72,6 +77,17 @@ tests:
                 - secret:
                     name: bbe-auth-users
                     optional: true
+
+  - it: should only give the setup oauth2-proxy's client by default
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CLIENTS
+            value: '[{"audience":true,"clientId":"oauth2-proxy","name":"bbe apps","redirectUris":["https://auth.bbe.home.arpa/oauth2/callback"],"rootUrl":"https://auth.bbe.home.arpa"}]'
 
   - it: should ship the setup script
     documentSelector:
