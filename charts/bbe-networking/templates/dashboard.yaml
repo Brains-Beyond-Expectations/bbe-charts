@@ -1,0 +1,191 @@
+{{- /*
+The cluster's landing page, at https://<domain>, with Homepage (https://gethomepage.dev). It lists the apps it finds
+through their Ingresses' `gethomepage.dev/*` annotations, with whether their pods run, so a package only annotates its
+own Ingresses to appear here
+*/ -}}
+{{- if .Values.bbe.dashboard.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-networking.dashboardLabels" . | nindent 4 }}
+---
+# Homepage reads Ingresses and pods in every namespace, to find the apps and their status
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  labels:
+    {{- include "bbe-networking.dashboardLabels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [namespaces, pods, nodes]
+    verbs: [get, list]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list]
+  - apiGroups: [traefik.io]
+    resources: [ingressroutes]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  labels:
+    {{- include "bbe-networking.dashboardLabels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-dashboard
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-dashboard
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-networking.dashboardLabels" . | nindent 4 }}
+data:
+  # Apps are found in the whole cluster, from their Ingresses
+  kubernetes.yaml: |
+    mode: cluster
+    ingress: true
+    traefik: true
+  settings.yaml: |
+    {{- .Values.bbe.dashboard.settings | nindent 4 }}
+  services.yaml: |
+    {{- toYaml .Values.bbe.dashboard.services | nindent 4 }}
+  bookmarks.yaml: |
+    {{- toYaml .Values.bbe.dashboard.bookmarks | nindent 4 }}
+  widgets.yaml: |
+    {{- toYaml .Values.bbe.dashboard.widgets | nindent 4 }}
+  docker.yaml: ""
+  custom.css: ""
+  custom.js: ""
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-networking.dashboardLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "bbe-networking.dashboardLabels" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-networking.dashboardLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "bbe-networking.dashboardLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-networking.dashboardLabels" . | nindent 8 }}
+      annotations:
+        # Homepage reads its configuration on start
+        checksum/config: {{ toYaml .Values.bbe.dashboard | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-dashboard
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: homepage
+          image: "{{ .Values.bbe.dashboard.image.repository }}:{{ .Values.bbe.dashboard.image.tag }}"
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            # Homepage only answers for these hosts. The pod's own address is for the probes
+            - name: HOMEPAGE_ALLOWED_HOSTS
+              value: "{{ .Values.global.bbe.domain }},$(POD_IP):3000"
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /api/healthcheck
+              port: http
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /api/healthcheck
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          {{- with .Values.bbe.dashboard.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- range $file := list "kubernetes.yaml" "settings.yaml" "services.yaml" "bookmarks.yaml" "widgets.yaml" "docker.yaml" "custom.css" "custom.js" }}
+            - name: config
+              mountPath: /app/config/{{ $file }}
+              subPath: {{ $file }}
+            {{- end }}
+            - name: logs
+              mountPath: /app/config/logs
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-dashboard
+        - name: logs
+          emptyDir: {}
+---
+# The landing page is the domain itself, which the domain's certificate covers
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-networking.dashboardLabels" . | nindent 4 }}
+spec:
+  tls:
+    - hosts:
+        - {{ .Values.global.bbe.domain }}
+  rules:
+    - host: {{ .Values.global.bbe.domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-dashboard
+                port:
+                  name: http
+{{- end }}
