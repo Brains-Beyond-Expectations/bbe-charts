@@ -82,6 +82,18 @@ tests:
           path: spec.rules[0].http.paths[1].backend.service.name
           value: bbe-auth-keycloak-http
 
+  - it: should link to Keycloak's console from bbe-networking's dashboard
+    template: templates/ingress.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - equal:
+          path: metadata.annotations["gethomepage.dev/href"]
+          value: https://auth.lab.home.arpa/admin/bbe/console/
+      - equal:
+          path: metadata.annotations["gethomepage.dev/pod-selector"]
+          value: app.kubernetes.io/name=keycloakx,app.kubernetes.io/instance=bbe-auth
+
   - it: should run PostgreSQL as its own user with a read-only root
     template: templates/postgres.yaml
     documentSelector:

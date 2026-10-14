@@ -16,18 +16,18 @@ tests:
       - equal:
           path: spec.rules[0].host
           value: sonarr.lab.home.arpa
-        documentIndex: 0
+        documentIndex: 2
       - equal:
           path: spec.tls[0].hosts[0]
           value: sonarr.lab.home.arpa
-        documentIndex: 0
+        documentIndex: 2
       - equal:
           path: spec.rules[0].http.paths[0].backend.service
           value:
             name: bbe-media-sonarr
             port:
               number: 8989
-        documentIndex: 0
+        documentIndex: 2
 
   - it: should put the apps managing the media behind oauth2-proxy
     documentSelector:
@@ -41,12 +41,12 @@ tests:
   - it: should leave Jellyfin and Seerr on their own logins
     asserts:
       - notExists:
-          path: metadata.annotations
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
         documentSelector:
           path: metadata.name
           value: bbe-media-jellyfin
       - notExists:
-          path: metadata.annotations
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
         documentSelector:
           path: metadata.name
           value: bbe-media-seerr
@@ -71,7 +71,7 @@ tests:
       global.bbe.sso.enabled: false
     asserts:
       - notExists:
-          path: metadata.annotations
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.port.number
           value: 8080
@@ -85,3 +85,27 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: should list every app on bbe-networking's dashboard, with its pods' status
+    documentSelector:
+      path: metadata.name
+      value: bbe-media-seerr
+    asserts:
+      - equal:
+          path: metadata.annotations
+          value:
+            gethomepage.dev/enabled: "true"
+            gethomepage.dev/name: Seerr
+            gethomepage.dev/description: Ask for shows and movies
+            gethomepage.dev/group: Watch
+            gethomepage.dev/icon: seerr.png
+            gethomepage.dev/pod-selector: app.kubernetes.io/name=seerr-chart,app.kubernetes.io/instance=bbe-media
+
+  - it: should put the apps managing the media in their own group on the dashboard
+    documentSelector:
+      path: metadata.name
+      value: bbe-media-qbittorrent
+    asserts:
+      - equal:
+          path: metadata.annotations["gethomepage.dev/group"]
+          value: Manage

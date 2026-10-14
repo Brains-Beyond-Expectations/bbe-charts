@@ -1,48 +1,56 @@
 {{- /*
 Every app is served at <app>.<domain> with the domain's certificate, which bbe-networking makes Traefik's default. The
 apps managing the media are behind oauth2-proxy, while Jellyfin and Seerr keep their own logins: their apps and
-sign-in can't go through single sign-on
+sign-in can't go through single sign-on. bbe-networking's dashboard lists them from their `gethomepage.dev/*`
+annotations
 */ -}}
 {{- if .Values.bbe.media.ingress.enabled }}
 {{- $domain := .Values.global.bbe.domain }}
-{{- range $app := list "sonarr" "radarr" "prowlarr" "bazarr" "qbittorrent" "jellyfin" "seerr" }}
-{{- $sso := and $.Values.global.bbe.sso.enabled (not (has $app (list "jellyfin" "seerr"))) }}
-{{- $backend := get (dict
-    "sonarr" (list (printf "%s-sonarr" $.Release.Name) 8989)
-    "radarr" (list (printf "%s-radarr" $.Release.Name) 7878)
-    "prowlarr" (list (printf "%s-prowlarr" $.Release.Name) 9696)
-    "bazarr" (list (printf "%s-bazarr" $.Release.Name) 6767)
-    "qbittorrent" (list (printf "%s-qbittorrent" $.Release.Name) (ternary 4180 8080 $sso))
-    "jellyfin" (list (printf "%s-jellyfin" $.Release.Name) 8096)
-    "seerr" (list (printf "%s-seerr-chart" $.Release.Name) 80)
-  ) $app }}
+{{- $apps := list
+    (dict "app" "jellyfin" "service" "jellyfin" "port" 8096 "label" "jellyfin" "name" "Jellyfin" "group" "Watch" "description" "Watch the library")
+    (dict "app" "seerr" "service" "seerr-chart" "port" 80 "label" "seerr-chart" "name" "Seerr" "group" "Watch" "description" "Ask for shows and movies")
+    (dict "app" "sonarr" "service" "sonarr" "port" 8989 "label" "sonarr" "name" "Sonarr" "group" "Manage" "description" "Shows" "sso" true)
+    (dict "app" "radarr" "service" "radarr" "port" 7878 "label" "radarr" "name" "Radarr" "group" "Manage" "description" "Movies" "sso" true)
+    (dict "app" "prowlarr" "service" "prowlarr" "port" 9696 "label" "prowlarr" "name" "Prowlarr" "group" "Manage" "description" "Indexers" "sso" true)
+    (dict "app" "bazarr" "service" "bazarr" "port" 6767 "label" "bazarr" "name" "Bazarr" "group" "Manage" "description" "Subtitles" "sso" true)
+    (dict "app" "qbittorrent" "service" "qbittorrent" "port" 8080 "label" "qbittorrent" "name" "qBittorrent" "group" "Manage" "description" "Downloads" "sso" true)
+}}
+{{- range $apps }}
+{{- $sso := and $.Values.global.bbe.sso.enabled (hasKey . "sso") }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ $.Release.Name }}-{{ $app }}
+  name: {{ $.Release.Name }}-{{ .app }}
   namespace: {{ $.Release.Namespace }}
   labels:
     {{- include "bbe-media.labels" $ | nindent 4 }}
-  {{- if $sso }}
   annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: {{ .name }}
+    gethomepage.dev/description: {{ .description }}
+    gethomepage.dev/group: {{ .group }}
+    gethomepage.dev/icon: {{ .app }}.png
+    gethomepage.dev/pod-selector: app.kubernetes.io/name={{ .label }},app.kubernetes.io/instance={{ $.Release.Name }}
+    {{- if $sso }}
     # Traefik asks oauth2-proxy first, which sends whoever isn't signed in to Keycloak
     traefik.ingress.kubernetes.io/router.middlewares: {{ $.Release.Namespace }}-sso@kubernetescrd
-  {{- end }}
+    {{- end }}
 spec:
   tls:
     - hosts:
-        - {{ $app }}.{{ $domain }}
+        - {{ .app }}.{{ $domain }}
   rules:
-    - host: {{ $app }}.{{ $domain }}
+    - host: {{ .app }}.{{ $domain }}
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ index $backend 0 }}
+                name: {{ $.Release.Name }}-{{ .service }}
                 port:
-                  number: {{ index $backend 1 }}
+                  # qBittorrent is reached through the oauth2-proxy in its pod
+                  number: {{ ternary 4180 .port (and $sso (eq .app "qbittorrent")) }}
 {{- end }}
 {{- end }}

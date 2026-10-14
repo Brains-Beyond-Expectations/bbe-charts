@@ -9,6 +9,15 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "bbe-auth.labels" . | nindent 4 }}
+  # bbe-networking's dashboard links to where admins manage people
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: Keycloak
+    gethomepage.dev/description: People, and how they sign in
+    gethomepage.dev/group: Cluster
+    gethomepage.dev/icon: keycloak.png
+    gethomepage.dev/href: https://auth.{{ .Values.global.bbe.domain }}/admin/bbe/console/
+    gethomepage.dev/pod-selector: app.kubernetes.io/name=keycloakx,app.kubernetes.io/instance={{ .Release.Name }}
 spec:
   tls:
     - hosts:
