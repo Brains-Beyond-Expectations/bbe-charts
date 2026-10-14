@@ -1,0 +1,48 @@
+{{- /*
+Every app is served at <app>.<domain> with the domain's certificate, which bbe-networking makes Traefik's default. The
+apps managing the media are behind oauth2-proxy, while Jellyfin and Seerr keep their own logins: their apps and
+sign-in can't go through single sign-on
+*/ -}}
+{{- if .Values.bbe.media.ingress.enabled }}
+{{- $domain := .Values.global.bbe.domain }}
+{{- range $app := list "sonarr" "radarr" "prowlarr" "bazarr" "qbittorrent" "jellyfin" "seerr" }}
+{{- $sso := and $.Values.global.bbe.sso.enabled (not (has $app (list "jellyfin" "seerr"))) }}
+{{- $backend := get (dict
+    "sonarr" (list (printf "%s-sonarr" $.Release.Name) 8989)
+    "radarr" (list (printf "%s-radarr" $.Release.Name) 7878)
+    "prowlarr" (list (printf "%s-prowlarr" $.Release.Name) 9696)
+    "bazarr" (list (printf "%s-bazarr" $.Release.Name) 6767)
+    "qbittorrent" (list (printf "%s-qbittorrent" $.Release.Name) (ternary 4180 8080 $sso))
+    "jellyfin" (list (printf "%s-jellyfin" $.Release.Name) 8096)
+    "seerr" (list (printf "%s-seerr-chart" $.Release.Name) 80)
+  ) $app }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $.Release.Name }}-{{ $app }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" $ | nindent 4 }}
+  {{- if $sso }}
+  annotations:
+    # Traefik asks oauth2-proxy first, which sends whoever isn't signed in to Keycloak
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $.Release.Namespace }}-sso@kubernetescrd
+  {{- end }}
+spec:
+  tls:
+    - hosts:
+        - {{ $app }}.{{ $domain }}
+  rules:
+    - host: {{ $app }}.{{ $domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ index $backend 0 }}
+                port:
+                  number: {{ index $backend 1 }}
+{{- end }}
+{{- end }}

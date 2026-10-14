@@ -1,0 +1,26 @@
+suite: test notes
+values:
+  - ./values/required-values.yaml
+templates:
+  - NOTES.txt
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should say which apps sign people in with Keycloak, and which use bbe's login
+    asserts:
+      - matchRegexRaw:
+          pattern: "https://<app>.bbe.home.arpa"
+      - matchRegexRaw:
+          pattern: "Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent sign people in with Keycloak"
+      - matchRegexRaw:
+          pattern: "Jellyfin and Seerr use their own login"
+
+  - it: should give every app's login without single sign-on
+    set:
+      global.bbe.sso.enabled: false
+    asserts:
+      - matchRegexRaw:
+          pattern: "Every app's web UI uses the same login:\n  username: admin"
+      - notMatchRegexRaw:
+          pattern: Keycloak

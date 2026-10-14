@@ -66,6 +66,13 @@ spec:
             {{- end }}
             - name: QBITTORRENT_URL
               value: http://{{ .Release.Name }}-qbittorrent:8080
+            - name: QBITTORRENT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-media-api-keys
+                  key: qbittorrent
+            - name: SSO
+              value: {{ .Values.global.bbe.sso.enabled | quote }}
             - name: JELLYFIN_URL
               value: http://{{ .Release.Name }}-jellyfin:8096
             - name: SEERR_URL

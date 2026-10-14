@@ -1,4 +1,14 @@
+{{- if .Values.bbe.media.ingress.enabled }}
+The apps are at https://<app>.{{ .Values.global.bbe.domain }}: sonarr, radarr, prowlarr, bazarr, qbittorrent, jellyfin and seerr.
+{{- end }}
+{{- if .Values.global.bbe.sso.enabled }}
+Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent sign people in with Keycloak, and let in its admins.
+
+Jellyfin and Seerr use their own login, which every app also has behind single sign-on:
+{{- else }}
+
 Every app's web UI uses the same login:
+{{- end }}
   username: {{ .Values.bbe.admin.username }}
   password: kubectl get secret bbe-media-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
 {{- if .Values.bbe.setup.enabled }}

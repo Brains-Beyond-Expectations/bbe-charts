@@ -48,6 +48,15 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.qbittorrent.webui.existingSecret }}
                   key: {{ .Values.qbittorrent.webui.passwordKey }}
+            {{- with .Values.qbittorrent.webui.apiKeySecret }}
+            - name: WEBUI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.qbittorrent.webui.apiKeyKey }}
+            {{- end }}
+            - name: WEBUI_LOCAL_HOST_AUTH
+              value: {{ .Values.qbittorrent.webui.localHostAuth | quote }}
           volumeMounts:
             - name: config
               mountPath: /config
@@ -159,6 +168,9 @@ spec:
           startupProbe:
             {{- toYaml .Values.qbittorrent.startupProbe | nindent 12 }}
           {{- end }}
+      {{- with .Values.extraContainers }}
+        {{- tpl . $ | nindent 8 }}
+      {{- end }}
       {{- if .Values.wireguard.enabled }}
         - name: wireguard
           image: "{{ .Values.wireguard.image.repository }}:{{ .Values.wireguard.image.tag }}"

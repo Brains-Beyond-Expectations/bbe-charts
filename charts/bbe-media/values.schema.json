@@ -3,6 +3,29 @@
   "type": "object",
   "required": ["bbe"],
   "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "bbe": {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+              "description": "The domain the apps are named under, the same as bbe-networking's"
+            },
+            "sso": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "bbe": {
       "type": "object",
       "required": ["media", "admin"],
@@ -11,6 +34,14 @@
           "type": "object",
           "required": ["nfs", "user"],
           "properties": {
+            "ingress": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "nfs": {
               "type": "object",
               "required": ["server", "path"],

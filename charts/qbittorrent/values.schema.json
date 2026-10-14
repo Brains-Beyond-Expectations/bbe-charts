@@ -152,6 +152,19 @@
               "type": "string",
               "minLength": 1,
               "description": "The key in the secret holding the WebUI password"
+            },
+            "apiKeySecret": {
+              "type": "string",
+              "description": "Name of an existing secret holding a WebUI API key"
+            },
+            "apiKeyKey": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The key in the secret holding the WebUI API key"
+            },
+            "localHostAuth": {
+              "type": "boolean",
+              "description": "Whether requests from qBittorrent's own pod sign in too"
             }
           }
         }
@@ -193,6 +206,10 @@
           "type": "string",
           "description": "The service type",
           "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
+        },
+        "extraPorts": {
+          "type": "string",
+          "description": "More ports of the service, as a YAML string rendered as a template"
         }
       },
       "required": ["ports", "type"]
@@ -361,6 +378,10 @@
           }
         }
       }
+    },
+    "extraContainers": {
+      "type": "string",
+      "description": "More containers for the qBittorrent pod, as a YAML string rendered as a template"
     },
     "ingress": {
       "type": "object",

@@ -21,7 +21,15 @@ qBittorrent is a BitTorrent client programmed in C++ / Qt that uses libtorrent
 | config.retain | bool | `false` | Whether to keep the persistent volume claim for the config after the qBittorrent chart is uninstalled |
 | config.size | string | `"1Gi"` | The amount of storage to request for the qBittorrent config |
 | config.storageClass | string | `""` | Storage class to use for the qBittorrent config persistent volume claim |
+| extraContainers | string | `""` | More containers for the qBittorrent pod, such as a proxy in front of it, as a YAML string rendered as a template |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
+| incomplete.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the persistent volume claim for downloads in progress |
+| incomplete.annotations | object | `{}` | Annotations to apply to the persistent volume claim for downloads in progress |
+| incomplete.enabled | bool | `false` | Whether to keep downloads in progress on their own volume, such as a fast one on the node, set as qBittorrent's "Keep incomplete torrents in" path. qBittorrent moves each download to its save path once it completes |
+| incomplete.existingClaim | string | `""` | Use this attribute to reference an existing persistent volume claim for downloads in progress |
+| incomplete.mountPath | string | `"/incomplete"` | Where downloads in progress are kept in the container |
+| incomplete.size | string | `"20Gi"` | The amount of storage to request for downloads in progress. Downloads larger than this together can't complete |
+| incomplete.storageClass | string | `""` | Storage class to use for the persistent volume claim for downloads in progress |
 | ingress.annotations | object | `{}` | Annotations to apply to the qBittorrent ingress |
 | ingress.enabled | bool | `false` | Whether to create an ingress for qBittorrent |
 | ingress.hosts | list | `[]` | Host configuration for the qBittorrent ingress |
@@ -52,7 +60,14 @@ qBittorrent is a BitTorrent client programmed in C++ / Qt that uses libtorrent
 | qbittorrent.securityContext.runAsUser | int | `0` | The user ID to run qBittorrent as |
 | qbittorrent.startupProbe | object | `{"failureThreshold":30,"initialDelaySeconds":0,"periodSeconds":5,"tcpSocket":{"port":8080},"timeoutSeconds":1}` | The startupProbe configuration for the qBittorrent pod |
 | qbittorrent.strategyType | string | `"Recreate"` | The strategy to use for updating the qBittorrent pods |
+| qbittorrent.webui.apiKeyKey | string | `"api-key"` | The key in apiKeySecret holding the API key |
+| qbittorrent.webui.apiKeySecret | string | `""` | Name of an existing secret holding a WebUI API key, which clients such as Sonarr send instead of signing in (qBittorrent 5.2 and later). It's `qbt_` and 28 letters or digits. Needs `existingSecret` |
+| qbittorrent.webui.existingSecret | string | `""` | Name of an existing secret holding the WebUI login. When set, qBittorrent starts with that login instead of printing a temporary password to its log. Needs `config.enabled` |
+| qbittorrent.webui.localHostAuth | bool | `true` | Whether qBittorrent asks requests from its own pod (127.0.0.1) to sign in too. Turn it off when a proxy in the pod, such as oauth2-proxy in `extraContainers`, signs people in in front of it. Needs `existingSecret` |
+| qbittorrent.webui.passwordKey | string | `"password"` | The key in the secret holding the WebUI password |
+| qbittorrent.webui.usernameKey | string | `"username"` | The key in the secret holding the WebUI username |
 | service.annotations | object | `{}` | Annotations to apply to the qBittorrent service |
+| service.extraPorts | string | `""` | More ports of the service, such as one for a container in `extraContainers`, as a YAML string rendered as a template |
 | service.ports | list | `[{"name":"http","port":8080,"protocol":"TCP"}]` | Port to expose the qBittorrent service on |
 | service.type | string | `"ClusterIP"` | The type of service to create |
 | wireguard.enabled | bool | `false` | Whether to run qBittorrent behind a WireGuard sidecar |

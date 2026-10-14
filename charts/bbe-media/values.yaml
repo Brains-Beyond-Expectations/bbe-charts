@@ -1,5 +1,18 @@
+global:
+  bbe:
+    # -- The domain the apps are named under, such as sonarr.bbe.home.arpa, the same as bbe-networking's
+    domain: bbe.home.arpa
+    sso:
+      # -- Whether the apps managing the media sign people in with Keycloak, through bbe-auth's oauth2-proxy. They then
+      # skip their own logins, which only bbe's setup and the apps' connections to each other use. Jellyfin and Seerr
+      # keep their own logins either way
+      enabled: true
+
 bbe:
   media:
+    ingress:
+      # -- Whether to serve every app at <app>.<domain>, through bbe-networking's Traefik
+      enabled: true
     nfs:
       # -- The NFS server holding the media library, as a hostname or IP address
       server: ""
@@ -153,6 +166,11 @@ qbittorrent:
   qbittorrent:
     webui:
       existingSecret: bbe-media-admin
+      # Sonarr, Radarr and the setup sign in with the API key
+      apiKeySecret: bbe-media-api-keys
+      apiKeyKey: qbittorrent
+      # Only the oauth2-proxy in qBittorrent's pod reaches it from 127.0.0.1, after checking the sign-in
+      localHostAuth: false
     env:
       - name: PUID
         valueFrom:
@@ -170,6 +188,78 @@ qbittorrent:
     enabled: true
     # -- The node storage for downloads in progress. Downloads that don't fit together wait until others complete
     size: 20Gi
+  # qBittorrent only skips its own login for requests from its pod, so browsers go through an oauth2-proxy in the pod.
+  # It reads the sign-in from bbe-auth's oauth2-proxy, which Traefik asks first, with the same cookie
+  extraContainers: |
+    {{- if .Values.global.bbe.sso.enabled }}
+    - name: sso
+      image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.5
+      args:
+        - --http-address=0.0.0.0:4180
+        - --upstream=http://127.0.0.1:8080
+        - --provider=keycloak-oidc
+        - --oidc-issuer-url=https://auth.{{ .Values.global.bbe.domain }}/realms/bbe
+        - --skip-oidc-discovery=true
+        - --login-url=https://auth.{{ .Values.global.bbe.domain }}/realms/bbe/protocol/openid-connect/auth
+        - --redeem-url=http://bbe-auth-keycloak-http.bbe-auth.svc/realms/bbe/protocol/openid-connect/token
+        - --oidc-jwks-url=http://bbe-auth-keycloak-http.bbe-auth.svc/realms/bbe/protocol/openid-connect/certs
+        - --redirect-url=https://auth.{{ .Values.global.bbe.domain }}/oauth2/callback
+        - --cookie-name=_bbe_sso
+        - --cookie-domain=.{{ .Values.global.bbe.domain }}
+        - --whitelist-domain=.{{ .Values.global.bbe.domain }}
+        - --cookie-secure=true
+        - --reverse-proxy=true
+        - --skip-provider-button=true
+        - --email-domain=*
+        - --allowed-group=admins
+        - --code-challenge-method=S256
+        - --scope=openid email profile groups
+      env:
+        - name: OAUTH2_PROXY_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: bbe-media-sso
+              key: client-id
+        - name: OAUTH2_PROXY_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: bbe-media-sso
+              key: client-secret
+        - name: OAUTH2_PROXY_COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: bbe-media-sso
+              key: cookie-secret
+      ports:
+        - name: sso
+          containerPort: 4180
+      readinessProbe:
+        httpGet:
+          path: /ping
+          port: sso
+      resources:
+        requests:
+          memory: 32Mi
+          cpu: 10m
+        limits:
+          memory: 128Mi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000
+        runAsGroup: 2000
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+    {{- end }}
+  service:
+    extraPorts: |
+      {{- if .Values.global.bbe.sso.enabled }}
+      - name: sso
+        port: 4180
+        protocol: TCP
+      {{- end }}
 
 # The linuxserver image, like the other apps, so Jellyfin also reads the library as the NAS user
 jellyfin:

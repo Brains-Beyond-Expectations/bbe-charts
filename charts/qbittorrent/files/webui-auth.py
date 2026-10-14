@@ -1,4 +1,5 @@
-"""Sets the qBittorrent WebUI login from a Kubernetes secret before qBittorrent starts.
+"""Sets the qBittorrent WebUI login from a Kubernetes secret before qBittorrent starts, with its API key and whether
+requests from its own pod sign in too.
 
 Without it, qBittorrent 4.6.1 and later only print a temporary password to the log on every start.
 The password is written the way qBittorrent stores it itself: PBKDF2-HMAC-SHA512 with 100000
@@ -16,6 +17,8 @@ import shutil
 CONFIG_FILE = os.environ.get("QBITTORRENT_CONFIG", "/config/qBittorrent/qBittorrent.conf")
 DEFAULT_CONFIG_FILE = os.environ.get("QBITTORRENT_DEFAULT_CONFIG", "/defaults/qBittorrent.conf")
 ITERATIONS = 100000
+# qBittorrent ignores an API key that isn't `qbt_` and 28 more characters, so clients using it would be refused
+API_KEY = re.compile(r"qbt_[A-Za-z0-9]{28}")
 
 
 def hash_password(password, salt=None):
@@ -79,6 +82,19 @@ def main():
     values = {"WebUI\\Username": username}
     if not matches(stored, password):
         values["WebUI\\Password_PBKDF2"] = f'"{hash_password(password)}"'
+
+    api_key = os.environ.get("WEBUI_API_KEY", "")
+    if api_key:
+        if not API_KEY.fullmatch(api_key):
+            raise SystemExit("The WebUI API key has to be `qbt_` and 28 letters or digits")
+        values["WebUI\\APIKey"] = api_key
+
+    local_host_auth = os.environ.get("WEBUI_LOCAL_HOST_AUTH", "true").lower() != "false"
+    values["WebUI\\LocalHostAuth"] = str(local_host_auth).lower()
+    if not local_host_auth:
+        # With reverse proxy support, qBittorrent takes the client's address from X-Forwarded-For instead of the
+        # connection, so the proxy in the pod would no longer count as 127.0.0.1
+        values["WebUI\\ReverseProxySupportEnabled"] = "false"
 
     with open(CONFIG_FILE, "w") as file:
         file.write("\n".join(set_preferences(lines, values)) + "\n")

@@ -1,0 +1,87 @@
+suite: test ingresses
+values:
+  - ./values/required-values.yaml
+templates:
+  - ingress.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should serve every app under the domain
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - hasDocuments:
+          count: 7
+      - equal:
+          path: spec.rules[0].host
+          value: sonarr.lab.home.arpa
+        documentIndex: 0
+      - equal:
+          path: spec.tls[0].hosts[0]
+          value: sonarr.lab.home.arpa
+        documentIndex: 0
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service
+          value:
+            name: bbe-media-sonarr
+            port:
+              number: 8989
+        documentIndex: 0
+
+  - it: should put the apps managing the media behind oauth2-proxy
+    documentSelector:
+      path: metadata.name
+      value: bbe-media-radarr
+    asserts:
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-media-sso@kubernetescrd
+
+  - it: should leave Jellyfin and Seerr on their own logins
+    asserts:
+      - notExists:
+          path: metadata.annotations
+        documentSelector:
+          path: metadata.name
+          value: bbe-media-jellyfin
+      - notExists:
+          path: metadata.annotations
+        documentSelector:
+          path: metadata.name
+          value: bbe-media-seerr
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: bbe-media-seerr-chart
+        documentSelector:
+          path: metadata.name
+          value: bbe-media-seerr
+
+  - it: should send qBittorrent through the oauth2-proxy in its pod
+    documentSelector:
+      path: metadata.name
+      value: bbe-media-qbittorrent
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 4180
+
+  - it: should serve the apps without oauth2-proxy when single sign-on is off
+    set:
+      global.bbe.sso.enabled: false
+    asserts:
+      - notExists:
+          path: metadata.annotations
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 8080
+        documentSelector:
+          path: metadata.name
+          value: bbe-media-qbittorrent
+
+  - it: should serve nothing when the ingress is off
+    set:
+      bbe.media.ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

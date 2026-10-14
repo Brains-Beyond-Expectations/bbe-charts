@@ -1,0 +1,30 @@
+suite: test single sign-on
+values:
+  - ./values/required-values.yaml
+templates:
+  - sso.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should ask bbe-auth's oauth2-proxy about every request
+    asserts:
+      - equal:
+          path: spec.forwardAuth.address
+          value: http://bbe-auth-oauth2-proxy.bbe-auth.svc.cluster.local/
+      - equal:
+          path: metadata.name
+          value: sso
+
+  - it: should have no middleware when single sign-on is off
+    set:
+      global.bbe.sso.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should trust Traefik's forwarded headers, so oauth2-proxy sends people back where they were going
+    asserts:
+      - equal:
+          path: spec.forwardAuth.trustForwardHeader
+          value: true

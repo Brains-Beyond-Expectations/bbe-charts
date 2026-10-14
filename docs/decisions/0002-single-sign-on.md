@@ -182,8 +182,14 @@ The Job creates each listed user with that password, marked temporary, and an at
 - **What's verified, and what isn't:**
   - bbe-networking ran on `present-sprite`: Traefik, the certificates, Blocky's answers, and HTTPS against bbe's CA.
   - Keycloak 26.7.5 and PostgreSQL 18.6 ran in Docker. The setup script ran against them, and a second run changed nothing. They also showed group changes, removals, a user the console added being left alone, the issuer staying public while tokens came through the service, and PostgreSQL running as 999 on a read-only root.
-  - Nothing of `bbe-auth` has run on a cluster yet, as the test cluster was torn down. Not tested end to end:
-    - the chart as a whole;
-    - oauth2-proxy behind Traefik's ForwardAuth;
+  - bbe-media's side was checked against the apps' source, not the running apps, as Docker was no longer available:
+    - Sonarr 4.0.20, Radarr 6.4.4 and Prowlarr 2.6.5 accept `authenticationMethod: external` and still check API keys.
+    - Bazarr 1.6.2 reads `settings-auth-type=None` as no authentication.
+    - qBittorrent 5.2.4 accepts a `WebUI\APIKey` written before it starts, and `WebUI\LocalHostAuth=false` only lets in the TCP peer `127.0.0.1` while reverse proxy support is off.
+    - Sonarr and Radarr send its API key as a Bearer token, and want no username or password with it.
+  - The setup's requests were checked against stubbed apps, with and without single sign-on. qBittorrent's `webui-auth.py` ran against sample config files.
+  - Nothing of `bbe-auth`, or bbe-media's single sign-on, has run on a cluster yet, as the test cluster was torn down. Not tested end to end:
+    - the charts as a whole;
+    - oauth2-proxy behind Traefik's ForwardAuth, and the one in qBittorrent's pod reading its cookie;
     - signing in from a browser;
     - `bbe configure bbe-auth` against a real install.

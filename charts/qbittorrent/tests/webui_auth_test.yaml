@@ -100,3 +100,41 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: qbittorrent.webui.existingSecret needs config.enabled, as the login is written to the config volume
+
+  - it: should set the API key and whether the pod's own requests sign in, with the login
+    set:
+      qbittorrent.webui.existingSecret: media-admin
+      qbittorrent.webui.apiKeySecret: media-keys
+      qbittorrent.webui.apiKeyKey: qbittorrent
+      qbittorrent.webui.localHostAuth: false
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: WEBUI_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: media-keys
+                key: qbittorrent
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: WEBUI_LOCAL_HOST_AUTH
+            value: "false"
+
+  - it: should keep the pod's own requests signing in by default, without an API key
+    set:
+      qbittorrent.webui.existingSecret: media-admin
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: WEBUI_LOCAL_HOST_AUTH
+            value: "true"
+      - notContains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: WEBUI_API_KEY
+          any: true

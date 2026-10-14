@@ -37,6 +37,11 @@ FLARESOLVERR_URL = os.environ.get("FLARESOLVERR_URL", "")
 FLARESOLVERR_TIMEOUT = int(os.environ.get("FLARESOLVERR_TIMEOUT", "60"))
 FLARESOLVERR_TAG = "flaresolverr"
 
+# Whether bbe-auth's oauth2-proxy signs people in to the apps managing the media, so they skip their own logins
+SSO = os.environ.get("SSO", "").lower() == "true"
+# The API key Sonarr and Radarr sign in to qBittorrent with, or empty for its login
+QBITTORRENT_API_KEY = os.environ.get("QBITTORRENT_API_KEY", "")
+
 JELLYFIN_CLIENT = 'MediaBrowser Client="bbe-media-setup", Device="bbe", DeviceId="bbe-media-setup", Version="1.0.0"'
 
 
@@ -137,17 +142,21 @@ def servarr(name, variable, api_version):
 
 
 def configure_servarr_login(app):
-    """Replaces the 'create a login' prompt the app shows on its first visit with the bbe admin account"""
+    """Replaces the 'create a login' prompt the app shows on its first visit with the bbe admin account. With single
+    sign-on, the app trusts oauth2-proxy instead (`external`), and the login stays for going back to it"""
     host = app.get(f"{app.api}/config/host")
     host.update({
-        "authenticationMethod": "forms",
+        "authenticationMethod": "external" if SSO else "forms",
         "authenticationRequired": "enabled",
         "username": ADMIN_USERNAME,
         "password": ADMIN_PASSWORD,
         "passwordConfirmation": ADMIN_PASSWORD,
     })
     app.put(f"{app.api}/config/host/{host['id']}", host)
-    log(f"{app.name}: login set up for `{ADMIN_USERNAME}`")
+    if SSO:
+        log(f"{app.name}: signs people in through single sign-on")
+    else:
+        log(f"{app.name}: login set up for `{ADMIN_USERNAME}`")
 
 
 def upsert_provider(app, resource, implementation, name, fields, extra=None):
@@ -234,11 +243,12 @@ def configure_arr(app, qbittorrent, root_folder, category_field, category):
     configure_servarr_login(app)
     ensure_root_folder(app, root_folder)
     if qbittorrent is not None:
+        # The API key replaces the login, which Sonarr and Radarr then want empty
+        credentials = {"apiKey": QBITTORRENT_API_KEY, "username": "", "password": ""} if QBITTORRENT_API_KEY else {"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD}
         upsert_provider(app, "downloadclient", "QBittorrent", "qBittorrent", {
             "host": qbittorrent.host,
             "port": qbittorrent.port,
-            "username": ADMIN_USERNAME,
-            "password": ADMIN_PASSWORD,
+            **credentials,
             category_field: category,
         })
 
@@ -379,7 +389,9 @@ def save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, ta
 
 
 def configure_bazarr(bazarr, apps):
-    form = {
+    # With single sign-on, Bazarr asks for no login, as only oauth2-proxy lets anyone through. Bazarr reads "None" as
+    # no authentication
+    form = {"settings-auth-type": "None"} if SSO else {
         "settings-auth-type": "form",
         "settings-auth-username": ADMIN_USERNAME,
         # Bazarr stores a hash of the password it's given
@@ -397,7 +409,8 @@ def configure_bazarr(bazarr, apps):
         })
 
     bazarr.post("/api/system/settings", form=form)
-    log(f"Bazarr: login set up and connected to {', '.join(app.name for app in apps)}")
+    login = "signs people in through single sign-on" if SSO else "login set up"
+    log(f"Bazarr: {login} and connected to {', '.join(app.name for app in apps)}")
 
 
 def configure_jellyfin(jellyfin):

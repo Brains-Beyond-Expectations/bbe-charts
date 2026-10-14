@@ -21,5 +21,8 @@ spec:
       port: {{ .port }}
       protocol: {{ .protocol }}
     {{- end }}
+    {{- with .Values.service.extraPorts }}
+    {{- tpl . $ | nindent 4 }}
+    {{- end }}
   {{- end }}
   type: {{ .Values.service.type }}
