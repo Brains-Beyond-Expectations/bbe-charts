@@ -44,6 +44,27 @@ annotations:
         apiKey:
           secret: bbe-media-api-keys
           key: prowlarr
+      # Public indexers needing no login, which bbe offers to add when the list isn't set yet. FlareSolverr gets the
+      # ones Cloudflare challenges past it
+      suggested:
+        - name: 1337x
+          definition: 1337x
+        - name: The Pirate Bay
+          definition: thepiratebay
+        - name: EZTV
+          definition: eztv
+        - name: YTS
+          definition: yts
+        - name: LimeTorrents
+          definition: limetorrents
+        - name: Knaben
+          definition: Knaben
+        - name: TorrentDownload
+          definition: torrentdownload
+        - name: Uindex
+          definition: uindex
+        - name: kickasstorrents.to
+          definition: kickasstorrents-to
 dependencies:
   - name: bazarr
     version: 0.4.0

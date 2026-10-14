@@ -364,6 +364,9 @@ def save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, ta
             raise SetupError(f"The credential `{key}` for `{name}` is missing from the bbe-media-indexers secret, add the indexer again with `bbe configure bbe-media`")
 
     indexer = json.loads(json.dumps(current if current is not None else definitions[definition_name]))
+    # A suggested indexer comes without an address, so it gets the definition's first, as `bbe configure` would pick
+    if current is None and "baseUrl" not in values and indexer.get("indexerUrls"):
+        values["baseUrl"] = indexer["indexerUrls"][0]
     unknown = set(values) - {field["name"] for field in indexer["fields"]}
     if unknown:
         raise SetupError(f"Prowlarr's `{definition_name}` definition has no field {', '.join(sorted(unknown))} for `{name}`")

@@ -144,7 +144,9 @@ The Job adds and updates the listed indexers, tagged `bbe`, and removes `bbe`-ta
 
 Tags also decide which apps Prowlarr syncs an indexer to: an app with no tags gets every indexer, and a tagged app only those sharing a tag. Sonarr and Radarr are added without tags, so bbe's tags don't stop them getting its indexers, and if someone tags them, the Job tags them `bbe` too. After saving the indexers, the Job runs Prowlarr's sync, then checks Sonarr and Radarr have each one. An app refuses an indexer that fails its test, such as one Cloudflare blocks or Prowlarr disabled after failures, so the Job names any that's missing rather than failing.
 
-Rejected: shipping a list of indexers to enable by default, which would have bbe decide which sites a cluster searches.
+The chart also suggests nine public indexers needing no login: 1337x, The Pirate Bay, EZTV, YTS, LimeTorrents, Knaben, TorrentDownload, Uindex and kickasstorrents.to (`suggested` in the annotation). When the list isn't set yet, an interactive `bbe install` or `bbe upgrade` asks once whether to add them. The answer is kept either way, a "no" as an empty list, and `bbe configure bbe-media` changes them like any other. They're entries in the list, without credentials, and the setup gives each the first address of its definition, as `bbe configure` would.
+
+Rejected: adding indexers by default without asking, which would have bbe decide which sites a cluster searches.
 
 ### 10. FlareSolverr gets the indexers Cloudflare blocks past it
 
