@@ -62,6 +62,9 @@ bbe:
 
 metallb:
   crds:
+    # MetalLB's CRDs are in this chart's crds/ folder, written by update-crds.sh, so Helm knows them before the hooks
+    # creating the address pools run
+    enabled: false
     # Helm creates the address pools as soon as MetalLB is installed, before its webhook is serving.
     # The webhook still checks pools once it's up
     validationFailurePolicy: Ignore
@@ -97,7 +100,9 @@ traefik:
 
 cert-manager:
   crds:
-    enabled: true
+    # cert-manager's CRDs are in this chart's crds/ folder, written by update-crds.sh, so Helm knows them before the
+    # hooks creating the certificates run
+    enabled: false
   # The startup check waits for cert-manager's webhook to answer, which it must before the certificates are created.
   # It runs on upgrades too, so the certificates, which are hooks as well, are only recreated once it's up
   startupapicheck:

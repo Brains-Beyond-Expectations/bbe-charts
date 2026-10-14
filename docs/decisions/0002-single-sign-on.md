@@ -90,7 +90,11 @@ Rejected: **CloudNativePG**, which would handle backups and upgrades. Its operat
 
 `bbe-networking` runs Traefik 3.7 (chart 41.7.1) on the ingress's IP. Apps behind oauth2-proxy use its `ForwardAuth` middleware.
 
-Traefik ships its CRDs in its chart's `crds/` folder, which Helm only installs on a first install. bbe applies them before every install and upgrade (bbe-quest#54).
+Traefik ships its CRDs in its chart's `crds/` folder, which Helm only installs on a first install. bbe applies them before every install and upgrade (bbe-quest#55).
+
+MetalLB's and cert-manager's CRDs are in `bbe-networking`'s own `crds/` folder too, with their charts' CRD templates off. On a first install, Helm 3.22 couldn't map the address pools and certificates its hooks create to kinds the same install had just created from templates: it only refreshes the kinds it knows after installing `crds/`. `update-crds.sh` writes them from the chart versions `Chart.yaml` pins, so they're regenerated whenever MetalLB or cert-manager is bumped.
+
+They're marked `helm.sh/resource-policy: keep`. Earlier releases created MetalLB's CRDs from its templates, so upgrading them would make Helm delete the CRDs it no longer renders, with every address pool. Helm reads the annotation on the live object, which bbe has just applied. MetalLB's conversion webhook names its service in the `bbe-networking` namespace, where bbe installs the package.
 
 Rejected: **ingress-nginx**, which was retired in March 2026. bbe-networking also allowed its snippet annotations at risk level `Critical`, with which any Ingress could get around the login.
 

@@ -236,3 +236,11 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: should leave cert-manager's CRDs to the crds folder, which Helm installs first
+    templates:
+      - charts/cert-manager/templates/crd-cert-manager.io_certificates.yaml
+      - charts/cert-manager/templates/crd-cert-manager.io_issuers.yaml
+    asserts:
+      - hasDocuments:
+          count: 0

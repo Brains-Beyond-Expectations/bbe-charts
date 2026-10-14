@@ -34,7 +34,7 @@ A collection of charts for BBE cluster networking
 | bbe.metallb.blocky.ipAddressPool | string | `nil` | The IP address for the Blocky DNS service, or a range such as 192.168.1.240-192.168.1.245 |
 | blocky.config.yaml | string | `"upstream:\n  default:\n    - 1.1.1.1\n    - 8.8.8.8\ncustomDNS:\n  mapping:\n    {{ .Values.global.bbe.domain }}: {{ .Values.global.bbe.ingress.loadBalancerIP }}\nblocking:\n  blackLists:\n    ads:\n      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n  clientGroupsBlock:\n    default:\n      - ads\nport: 53\nhttpPort: 4000\ncaching:\n  minTime: 5m\n  maxTime: 30m\nprometheus:\n  enable: true\n"` |  |
 | blocky.service.annotations."metallb.io/address-pool" | string | `"blocky"` |  |
-| cert-manager.crds.enabled | bool | `true` |  |
+| cert-manager.crds.enabled | bool | `false` |  |
 | cert-manager.startupapicheck.jobAnnotations."helm.sh/hook" | string | `"post-install,post-upgrade"` |  |
 | cert-manager.startupapicheck.jobAnnotations."helm.sh/hook-delete-policy" | string | `"before-hook-creation,hook-succeeded"` |  |
 | cert-manager.startupapicheck.jobAnnotations."helm.sh/hook-weight" | string | `"1"` |  |
@@ -46,6 +46,7 @@ A collection of charts for BBE cluster networking
 | cert-manager.startupapicheck.serviceAccount.annotations."helm.sh/hook-weight" | string | `"-5"` |  |
 | global.bbe.domain | string | `"bbe.home.arpa"` | The domain the cluster's apps are named under, such as jellyfin.bbe.home.arpa. Blocky answers for it and everything under it with the ingress's IP, and bbe's own certificate authority signs a certificate for it. home.arpa itself can't be used: browsers treat it as a public suffix like .com, so a certificate for *.home.arpa is refused and a login can't be shared between apps under it |
 | global.bbe.ingress.loadBalancerIP | string | `nil` | The IP address for the ingress, on the same network as your nodes |
+| metallb.crds.enabled | bool | `false` |  |
 | metallb.crds.validationFailurePolicy | string | `"Ignore"` |  |
 | metallb.speaker.ignoreExcludeLB | bool | `true` |  |
 | traefik.ingressClass.enabled | bool | `true` |  |
