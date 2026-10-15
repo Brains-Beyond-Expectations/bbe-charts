@@ -61,7 +61,7 @@ jobs:
         if: steps.changed.outputs.charts != ''
         uses: azure/setup-helm@v5
         with:
-          version: v4.3.0
+          version: v4.3.1
       - name: Set up Go
         if: steps.changed.outputs.charts != ''
         uses: actions/setup-go@v7
