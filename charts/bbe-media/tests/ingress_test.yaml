@@ -29,7 +29,7 @@ tests:
               number: 8989
         documentIndex: 2
 
-  - it: should put the apps managing the media behind oauth2-proxy
+  - it: should put the apps managing the media behind authentik's forward auth
     documentSelector:
       path: metadata.name
       value: bbe-media-radarr
@@ -57,7 +57,7 @@ tests:
           path: metadata.name
           value: bbe-media-seerr
 
-  - it: should send qBittorrent through the oauth2-proxy in its pod
+  - it: should send qBittorrent through the nginx in its pod
     documentSelector:
       path: metadata.name
       value: bbe-media-qbittorrent
@@ -66,7 +66,7 @@ tests:
           path: spec.rules[0].http.paths[0].backend.service.port.number
           value: 4180
 
-  - it: should serve the apps without oauth2-proxy when single sign-on is off
+  - it: should serve the apps without forward auth when single sign-on is off
     set:
       global.bbe.sso.enabled: false
     asserts:

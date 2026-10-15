@@ -1,0 +1,202 @@
+# bbe's setup of authentik: the groups, signing in to the apps behind Traefik, LDAP for Jellyfin, and bbe's looks.
+# The worker applies it on start, and again whenever it changes. Users are left to the setup Job and the admin UI
+version: 1
+metadata:
+  name: bbe
+  labels:
+    blueprints.goauthentik.io/description: bbe's groups, forward auth, LDAP and branding
+context:
+  domain: !Env [BBE_DOMAIN, bbe.home.arpa]
+entries:
+  # The default flows and brand this builds on, which authentik applies itself in no set order
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Authentication flow
+      required: false
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Invalidation flow
+      required: false
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider authorization flow (implicit consent)
+      required: false
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider invalidation flow
+      required: false
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Brand
+      required: false
+
+  # `admins` manage the media, and people in authentik. `users` watch: Jellyfin, and Seerr through it
+  - model: authentik_core.group
+    id: admins
+    identifiers:
+      name: admins
+    attrs:
+      is_superuser: false
+  - model: authentik_core.group
+    id: users
+    identifiers:
+      name: users
+
+  # Signing in to the apps behind Traefik, with one cookie for everything under the domain
+  - model: authentik_providers_proxy.proxyprovider
+    id: forward-auth
+    identifiers:
+      name: bbe apps
+    attrs:
+      mode: forward_domain
+      external_host: !Format ["https://auth.%s", !Context domain]
+      cookie_domain: !Context domain
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+  - model: authentik_core.application
+    id: forward-auth-app
+    identifiers:
+      slug: bbe-apps
+    attrs:
+      name: bbe apps
+      provider: !KeyOf forward-auth
+      meta_description: Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent
+  # Only admins get in
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf forward-auth-app
+      group: !KeyOf admins
+    attrs:
+      order: 0
+  - model: authentik_outposts.outpost
+    identifiers:
+      managed: goauthentik.io/outposts/embedded
+    attrs:
+      providers:
+        - !KeyOf forward-auth
+      config:
+        authentik_host: !Format ["https://auth.%s/", !Context domain]
+        log_level: info
+
+  # LDAP, which Jellyfin signs people in with, so its TV and phone apps use the same people and passwords
+  - model: authentik_core.user
+    id: jellyfin-ldap
+    identifiers:
+      username: jellyfin-ldap
+    attrs:
+      name: Jellyfin's LDAP account
+      type: service_account
+      path: bbe
+  - model: authentik_core.token
+    identifiers:
+      identifier: jellyfin-ldap-password
+    attrs:
+      user: !KeyOf jellyfin-ldap
+      intent: app_password
+      expiring: false
+      key: !Env BBE_JELLYFIN_LDAP_PASSWORD
+      description: The password Jellyfin binds to LDAP with
+  - model: authentik_providers_ldap.ldapprovider
+    id: ldap
+    identifiers:
+      name: bbe LDAP
+    attrs:
+      base_dn: DC=ldap,DC=goauthentik,DC=io
+      bind_mode: direct
+      search_mode: direct
+      # People sign in with only their password, without a code after it
+      mfa_support: false
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+    permissions:
+      - permission: authentik_providers_ldap.search_full_directory
+        user: !KeyOf jellyfin-ldap
+  - model: authentik_core.application
+    id: ldap-app
+    identifiers:
+      slug: jellyfin
+    attrs:
+      name: Jellyfin
+      provider: !KeyOf ldap
+      meta_launch_url: !Format ["https://jellyfin.%s", !Context domain]
+      meta_description: Signs people in with LDAP, in every Jellyfin app
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf ldap-app
+      group: !KeyOf users
+    attrs:
+      order: 0
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf ldap-app
+      group: !KeyOf admins
+    attrs:
+      order: 1
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf ldap-app
+      user: !KeyOf jellyfin-ldap
+    attrs:
+      order: 2
+  # Its token is set by the setup Job, which the outpost's own Deployment signs in with
+  - model: authentik_outposts.outpost
+    id: ldap-outpost
+    identifiers:
+      name: bbe LDAP
+    attrs:
+      type: ldap
+      service_connection: null
+      providers:
+        - !KeyOf ldap
+      config:
+        authentik_host: !Format ["https://auth.%s/", !Context domain]
+        log_level: info
+
+  # bbe's looks. authentik 2026.8 shows a flow's own background, not the brand's, so the flows people see get it too
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-authentication-flow
+    attrs:
+      title: Brains Beyond Expectations
+      background: branding/background.webp
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-provider-authorization-implicit-consent
+    attrs:
+      background: branding/background.webp
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-invalidation-flow
+    attrs:
+      background: branding/background.webp
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-provider-invalidation-flow
+    attrs:
+      background: branding/background.webp
+  # bbe's looks, on authentik's default brand
+  - model: authentik_brands.brand
+    identifiers:
+      domain: authentik-default
+    attrs:
+      branding_title: Brains Beyond Expectations
+      branding_logo: branding/brain.webp
+      branding_favicon: branding/brain.webp
+      branding_default_flow_background: branding/background.webp
+      # The banner's magenta, violet and cyan, through the PatternFly 4 and 5 variables authentik builds on
+      branding_custom_css: |
+        :root {
+          --pf-global--primary-color--100: #d946ef;
+          --pf-global--primary-color--200: #7c3aed;
+          --pf-global--link--Color: #22d3ee;
+          --pf-global--link--Color--hover: #d946ef;
+          --pf-v5-global--primary-color--100: #d946ef;
+          --pf-v5-global--primary-color--200: #7c3aed;
+          --pf-v5-global--link--Color: #22d3ee;
+          --pf-v5-global--link--Color--hover: #d946ef;
+        }

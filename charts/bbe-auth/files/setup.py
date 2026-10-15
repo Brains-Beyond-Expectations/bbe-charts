@@ -1,43 +1,40 @@
-"""Sets up Keycloak for bbe after every install and upgrade: the realm, its groups, a client per app and the users
-bbe manages.
+"""Sets up authentik for bbe after every install and upgrade: applies bbe's blueprint, gives the LDAP outpost its
+token, and keeps the people bbe manages in line with the chart's values.
 
-Every step reads what is already there first, so running it again only adds what is missing and brings bbe's own
-clients and users back in line with the chart's values. Users and clients made in Keycloak's console are left alone.
-Only the Python standard library is used, so the job runs on the plain python image.
+The blueprint holds the groups, the forward auth and LDAP providers and the branding. People added in authentik's
+admin interface are left alone: bbe only changes and removes the ones it created, under the `bbe/people` path. Every
+step reads what's already there first, so running it again changes nothing. Only the Python standard library is used,
+so the job runs on the plain python image.
 """
 
 import json
 import os
+from hashlib import sha512
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
-KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", "").rstrip("/")
-# The service account Keycloak creates on its first start, in the master realm
-SETUP_CLIENT_ID = os.environ.get("SETUP_CLIENT_ID", "")
-SETUP_CLIENT_SECRET = os.environ.get("SETUP_CLIENT_SECRET", "")
-REALM = os.environ.get("REALM", "bbe")
-# The clients bbe creates, with their secrets as files in CLIENT_SECRETS_DIR
-CLIENTS = json.loads(os.environ.get("CLIENTS") or "[]")
-CLIENT_SECRETS_DIR = os.environ.get("CLIENT_SECRETS_DIR", "/client-secrets")
-# The users bbe creates, from `bbe configure`, with their first passwords as files in USER_PASSWORDS_DIR named in
+AUTHENTIK_URL = os.environ.get("AUTHENTIK_URL", "").rstrip("/")
+# authentik's bootstrap token, which belongs to its own admin
+AUTHENTIK_TOKEN = os.environ.get("AUTHENTIK_TOKEN", "")
+BLUEPRINT = os.environ.get("BLUEPRINT", "bbe")
+# The blueprint as the chart mounts it, whose hash tells when authentik applied this version
+BLUEPRINT_FILE = os.environ.get("BLUEPRINT_FILE", "/blueprints/bbe.yaml")
+# The LDAP outpost's Deployment signs in to authentik with this token, which authentik generates otherwise
+LDAP_OUTPOST = os.environ.get("LDAP_OUTPOST", "bbe LDAP")
+LDAP_OUTPOST_TOKEN = os.environ.get("LDAP_OUTPOST_TOKEN", "")
+# The people bbe creates, from `bbe configure`, with their first passwords as files in USER_PASSWORDS_DIR named in
 # their `secretFields`
 USERS = json.loads(os.environ.get("USERS") or "[]")
 USER_PASSWORDS_DIR = os.environ.get("USER_PASSWORDS_DIR", "/user-passwords")
 READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
 
-# bbe's sign-in page, mounted into Keycloak by the chart, and the name it shows
-LOGIN_THEME = "bbe"
-DISPLAY_NAME = "Brains Beyond Expectations"
-# The groups bbe creates, and decides who is in for the users it manages
+# The groups whose members bbe keeps in line for the people it manages
 GROUPS = ["admins", "users"]
-# Marks the users bbe created, so it only ever changes or removes its own
-BBE_ATTRIBUTE = "bbe"
-BBE_MANAGED = "managed"
-# The client scope that puts a user's groups in their tokens, as `groups`
-GROUPS_SCOPE = "groups"
+# Where bbe keeps the people it creates, which tells them apart from those added in authentik
+PEOPLE_PATH = "bbe/people"
 
 
 class SetupError(Exception):
@@ -48,311 +45,187 @@ def log(message):
     print(message, flush=True)
 
 
-class Keycloak:
-    """Keycloak's admin API, signed in as the setup's service account"""
+class Authentik:
+    """authentik's API, signed in with its bootstrap token"""
 
-    def __init__(self, url):
+    def __init__(self, url, token):
         self.url = url
-        self.token = ""
+        self.token = token
 
-    def request(self, method, path, body=None, form=None, timeout=60):
-        headers = {"Accept": "application/json"}
+    def request(self, method, path, body=None, timeout=60):
+        headers = {"Accept": "application/json", "Authorization": f"Bearer {self.token}"}
         data = None
-        if self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
         if body is not None:
             data = json.dumps(body).encode()
             headers["Content-Type"] = "application/json"
-        elif form is not None:
-            data = urllib.parse.urlencode(form).encode()
-            headers["Content-Type"] = "application/x-www-form-urlencoded"
 
-        request = urllib.request.Request(self.url + path, data=data, method=method, headers=headers)
+        request = urllib.request.Request(self.url + "/api/v3" + path, data=data, method=method, headers=headers)
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                status, content, location = response.status, response.read(), response.headers.get("Location", "")
+                status, content = response.status, response.read()
         except urllib.error.HTTPError as error:
-            status, content, location = error.code, error.read(), ""
+            status, content = error.code, error.read()
         except (urllib.error.URLError, OSError) as error:
-            raise SetupError(f"Keycloak: {method} {path} failed: {error}")
+            raise SetupError(f"authentik: {method} {path} failed: {error}")
 
         if status >= 300:
-            raise SetupError(f"Keycloak: {method} {path} returned {status}: {content[:500].decode(errors='replace')}")
-        if location:
-            # Keycloak answers a creation with the new resource's address, whose last part is its id
-            return location.rstrip("/").rsplit("/", 1)[-1]
+            raise SetupError(f"authentik: {method} {path} returned {status}: {content[:500].decode(errors='replace')}")
         return json.loads(content) if content else None
 
-    def get(self, path):
-        return self.request("GET", path)
+    # `endpoint` rather than `path`, as authentik filters users by a `path` query
+    def get(self, endpoint, **query):
+        if query:
+            endpoint += "?" + urllib.parse.urlencode(query)
+        return self.request("GET", endpoint)
 
-    def post(self, path, body=None, form=None):
-        return self.request("POST", path, body=body, form=form)
+    def results(self, endpoint, **query):
+        """Every result of a list, across its pages"""
+        page, results = 1, []
+        while True:
+            response = self.get(endpoint, page=page, page_size=100, **query)
+            results += response["results"]
+            if not response["pagination"]["next"]:
+                return results
+            page += 1
 
-    def put(self, path, body):
-        return self.request("PUT", path, body=body)
+    def post(self, path, body=None):
+        return self.request("POST", path, body if body is not None else {})
 
-    def delete(self, path, body=None):
-        return self.request("DELETE", path, body=body)
+    def patch(self, path, body):
+        return self.request("PATCH", path, body)
+
+    def delete(self, path):
+        return self.request("DELETE", path)
 
     def wait_until_ready(self, deadline):
-        """Waits until Keycloak answers, as it takes a while to start, then signs in"""
+        """Waits until authentik answers with the token, as its first start migrates the database for a while"""
         last_error = "no answer yet"
         while time.monotonic() < deadline:
             try:
-                self.sign_in()
+                self.get("/core/users/me/")
                 return
             except SetupError as error:
                 last_error = str(error)
             time.sleep(5)
 
-        raise SetupError(f"Keycloak wasn't ready after {READY_TIMEOUT} seconds: {last_error}")
-
-    def sign_in(self):
-        self.token = ""
-        response = self.post("/realms/master/protocol/openid-connect/token", form={
-            "grant_type": "client_credentials",
-            "client_id": SETUP_CLIENT_ID,
-            "client_secret": SETUP_CLIENT_SECRET,
-        })
-        self.token = response["access_token"]
+        raise SetupError(f"authentik wasn't ready after {READY_TIMEOUT} seconds: {last_error}")
 
 
 def read_file(directory, name):
     if not name:
         return ""
-    path = os.path.join(directory, name)
     try:
-        with open(path) as file:
+        with open(os.path.join(directory, name)) as file:
             return file.read().strip()
     except FileNotFoundError:
         return ""
 
 
-def configure_realm(keycloak):
-    """Creates the realm once. Its settings are left to Keycloak's console after that"""
-    if any(realm["realm"] == REALM for realm in keycloak.get("/admin/realms")):
-        return
+def apply_blueprint(authentik, deadline):
+    """Has the worker apply bbe's blueprint as it is in the chart, rather than whenever it gets to it. The worker finds
+    the blueprint on start, applies it in the background, and can only do so once authentik's default flows are there,
+    so this waits until authentik says it applied this very content"""
+    with open(BLUEPRINT_FILE, encoding="utf-8") as file:
+        wanted_hash = sha512(file.read().encode()).hexdigest()
 
-    keycloak.post("/admin/realms", {
-        "realm": REALM,
-        "enabled": True,
-        # People are added by an admin, and there's no mail server to reset a password with
-        "registrationAllowed": False,
-        "resetPasswordAllowed": False,
-        "loginWithEmailAllowed": True,
-        "duplicateEmailsAllowed": False,
-        "rememberMe": True,
-        "bruteForceProtected": True,
-        # Behind Traefik every request arrives over HTTPS, and Keycloak only allows plain HTTP from private addresses
-        "sslRequired": "external",
-    })
-    log(f"Keycloak: created the {REALM} realm")
+    last_state = "not found yet"
+    while time.monotonic() < deadline:
+        instances = authentik.results("/managed/blueprints/", name=BLUEPRINT)
+        if instances:
+            instance = instances[0]
+            if instance["last_applied_hash"] == wanted_hash and instance["status"] == "successful":
+                log(f"authentik: applied the `{BLUEPRINT}` blueprint")
+                return
+            if instance["status"] == "error" and instance["last_applied_hash"] == wanted_hash:
+                raise SetupError(f"authentik: the `{BLUEPRINT}` blueprint failed to apply. The worker's log says why")
+            last_state = f"{instance['status']}, applied as {instance['last_applied_hash'][:12] or 'nothing'}"
+            # Applying only queues it for the worker
+            authentik.post(f"/managed/blueprints/{instance['pk']}/apply/")
+        time.sleep(10)
 
-
-def configure_login_theme(keycloak):
-    """Gives the realm bbe's sign-in page, and a name to show on it, unless an admin picked others in the console"""
-    realm = keycloak.get(f"/admin/realms/{REALM}")
-    changes = {}
-    if not realm.get("loginTheme"):
-        changes["loginTheme"] = LOGIN_THEME
-    # The page shows the HTML name, which Keycloak's console calls "HTML Display name"
-    for field in ("displayName", "displayNameHtml"):
-        if not realm.get(field):
-            changes[field] = DISPLAY_NAME
-    if changes:
-        keycloak.put(f"/admin/realms/{REALM}", {**realm, **changes})
-        log(f"Keycloak: the {REALM} realm signs people in on bbe's page")
+    raise SetupError(f"authentik: the `{BLUEPRINT}` blueprint wasn't applied, it's {last_state}. The worker's log says why")
 
 
-def configure_user_profile(keycloak):
-    """Lets admins see the attribute marking bbe's users, which Keycloak drops unless the user profile allows it"""
-    profile = keycloak.get(f"/admin/realms/{REALM}/users/profile")
-    if any(attribute["name"] == BBE_ATTRIBUTE for attribute in profile.get("attributes", [])):
-        return
+def configure_ldap_outpost(authentik):
+    """Gives the LDAP outpost the token its Deployment signs in with"""
+    outposts = authentik.results("/outposts/instances/", name__iexact=LDAP_OUTPOST)
+    if not outposts:
+        raise SetupError(f"authentik: there's no `{LDAP_OUTPOST}` outpost, which the blueprint creates")
 
-    profile.setdefault("attributes", []).append({
-        "name": BBE_ATTRIBUTE,
-        "displayName": "Managed by bbe",
-        "permissions": {"view": ["admin"], "edit": ["admin"]},
-        "multivalued": False,
-    })
-    keycloak.put(f"/admin/realms/{REALM}/users/profile", profile)
-    log(f"Keycloak: added the `{BBE_ATTRIBUTE}` attribute to the user profile")
+    identifier = f"ak-outpost-{outposts[0]['pk']}-api"
+    if authentik.get(f"/core/tokens/{identifier}/view_key/")["key"] != LDAP_OUTPOST_TOKEN:
+        authentik.post(f"/core/tokens/{identifier}/set_key/", {"key": LDAP_OUTPOST_TOKEN})
+        log("authentik: the LDAP outpost signs in with bbe's token")
 
 
-def configure_groups(keycloak):
-    """Creates the groups, and lets admins manage the realm, its users included, in Keycloak's console"""
-    existing = {group["name"]: group["id"] for group in keycloak.get(f"/admin/realms/{REALM}/groups?briefRepresentation=true&max=1000")}
+def configure_users(authentik):
+    """Creates the listed people with their first password, keeps them in the groups the values give them, and removes
+    the people bbe created that are no longer listed"""
+    groups = {}
     for name in GROUPS:
-        if name not in existing:
-            existing[name] = keycloak.post(f"/admin/realms/{REALM}/groups", {"name": name})
-            log(f"Keycloak: created the {name} group")
+        found = authentik.results("/core/groups/", name=name)
+        if not found:
+            raise SetupError(f"authentik: there's no `{name}` group, which the blueprint creates")
+        groups[name] = found[0]["pk"]
 
-    management = keycloak.get(f"/admin/realms/{REALM}/clients?clientId=realm-management")[0]
-    mappings = keycloak.get(f"/admin/realms/{REALM}/groups/{existing['admins']}/role-mappings/clients/{management['id']}")
-    if not any(role["name"] == "realm-admin" for role in mappings):
-        role = keycloak.get(f"/admin/realms/{REALM}/clients/{management['id']}/roles/realm-admin")
-        keycloak.post(f"/admin/realms/{REALM}/groups/{existing['admins']}/role-mappings/clients/{management['id']}", [role])
-        log("Keycloak: admins can manage the realm")
-
-    return existing
-
-
-def configure_groups_scope(keycloak):
-    """A client scope putting a user's groups in their tokens and user info, by name, as `groups`"""
-    scopes = keycloak.get(f"/admin/realms/{REALM}/client-scopes")
-    scope = next((scope for scope in scopes if scope["name"] == GROUPS_SCOPE), None)
-    if scope is not None:
-        return scope["id"]
-
-    scope_id = keycloak.post(f"/admin/realms/{REALM}/client-scopes", {
-        "name": GROUPS_SCOPE,
-        "description": "The user's groups, such as admins",
-        "protocol": "openid-connect",
-        "attributes": {"include.in.token.scope": "true", "display.on.consent.screen": "false"},
-        "protocolMappers": [{
-            "name": "groups",
-            "protocol": "openid-connect",
-            "protocolMapper": "oidc-group-membership-mapper",
-            "config": {
-                "claim.name": "groups",
-                "full.path": "false",
-                "id.token.claim": "true",
-                "access.token.claim": "true",
-                "userinfo.token.claim": "true",
-            },
-        }],
-    })
-    log(f"Keycloak: created the {GROUPS_SCOPE} client scope")
-    return scope_id
-
-
-def client_representation(client, secret):
-    """What bbe sets on one of its clients, from the chart's values"""
-    representation = {
-        "clientId": client["clientId"],
-        "name": client.get("name", client["clientId"]),
-        "enabled": True,
-        "protocol": "openid-connect",
-        "publicClient": False,
-        "secret": secret,
-        "standardFlowEnabled": True,
-        "directAccessGrantsEnabled": False,
-        "implicitFlowEnabled": False,
-        "serviceAccountsEnabled": False,
-        "rootUrl": client.get("rootUrl", ""),
-        "baseUrl": client.get("baseUrl", ""),
-        "redirectUris": client["redirectUris"],
-        "attributes": {"post.logout.redirect.uris": "+", "pkce.code.challenge.method": "S256"},
-    }
-    if client.get("audience"):
-        # oauth2-proxy checks a token was made for it, which Keycloak only says in `aud` with a mapper
-        representation["protocolMappers"] = [{
-            "name": "audience",
-            "protocol": "openid-connect",
-            "protocolMapper": "oidc-audience-mapper",
-            "config": {
-                "included.client.audience": client["clientId"],
-                "id.token.claim": "true",
-                "access.token.claim": "true",
-            },
-        }]
-    return representation
-
-
-def configure_clients(keycloak, groups_scope):
-    existing = {client["clientId"]: client for client in keycloak.get(f"/admin/realms/{REALM}/clients?max=1000")}
-    for client in CLIENTS:
-        secret = read_file(CLIENT_SECRETS_DIR, client["clientId"])
-        if not secret:
-            raise SetupError(f"Keycloak: the secret of client {client['clientId']} is missing")
-
-        representation = client_representation(client, secret)
-        current = existing.get(client["clientId"])
-        if current is None:
-            client_id = keycloak.post(f"/admin/realms/{REALM}/clients", representation)
-            log(f"Keycloak: created the {client['clientId']} client")
-        else:
-            client_id = current["id"]
-            # The mappers are kept as they are once the client exists, as the API replaces them separately
-            representation.pop("protocolMappers", None)
-            keycloak.put(f"/admin/realms/{REALM}/clients/{client_id}", {**current, **representation, "attributes": {**current.get("attributes", {}), **representation["attributes"]}})
-            if client.get("audience") and not any(mapper["protocolMapper"] == "oidc-audience-mapper" for mapper in current.get("protocolMappers", [])):
-                keycloak.post(f"/admin/realms/{REALM}/clients/{client_id}/protocol-mappers/models", client_representation(client, secret)["protocolMappers"][0])
-
-        scopes = keycloak.get(f"/admin/realms/{REALM}/clients/{client_id}/default-client-scopes")
-        if not any(scope["id"] == groups_scope for scope in scopes):
-            keycloak.put(f"/admin/realms/{REALM}/clients/{client_id}/default-client-scopes/{groups_scope}", {})
-            log(f"Keycloak: {client['clientId']} gets the user's groups")
-
-
-def configure_users(keycloak, groups):
-    """Creates the listed users with a first password they change when they first sign in, keeps them in the groups
-    the values give them, and removes the users bbe created that are no longer listed"""
-    managed = keycloak.get(f"/admin/realms/{REALM}/users?q={BBE_ATTRIBUTE}:{BBE_MANAGED}&max=10000")
-    managed_by_name = {user["username"]: user for user in managed}
+    managed = {user["username"]: user for user in authentik.results("/core/users/", path=PEOPLE_PATH)}
     listed = set()
 
-    for user in USERS:
-        username = user["username"].lower()
+    for person in USERS:
+        username = person["username"].lower()
         listed.add(username)
-        current = managed_by_name.get(username)
+        current = managed.get(username)
         if current is None:
-            if keycloak.get(f"/admin/realms/{REALM}/users?username={urllib.parse.quote(username)}&exact=true"):
-                log(f"WARNING Keycloak: there's already a user {username} bbe didn't create, which it leaves alone")
+            if authentik.results("/core/users/", username=username):
+                log(f"WARNING authentik: there's already a user {username} bbe didn't create, which it leaves alone")
                 continue
 
-            password = read_file(USER_PASSWORDS_DIR, user.get("secretFields", {}).get("password", ""))
+            password = read_file(USER_PASSWORDS_DIR, person.get("secretFields", {}).get("password", ""))
             if not password:
-                raise SetupError(f"Keycloak: the first password of {username} is missing")
-            user_id = keycloak.post(f"/admin/realms/{REALM}/users", {
+                raise SetupError(f"authentik: the first password of {username} is missing")
+            name = " ".join(part for part in (person.get("firstName"), person.get("lastName")) if part) or username
+            current = authentik.post("/core/users/", {
                 "username": username,
-                "email": user.get("email", ""),
-                "emailVerified": bool(user.get("email")),
-                "firstName": user.get("firstName", ""),
-                "lastName": user.get("lastName", ""),
-                "enabled": True,
-                "attributes": {BBE_ATTRIBUTE: [BBE_MANAGED]},
-                "credentials": [{"type": "password", "value": password, "temporary": True}],
+                "name": name,
+                "email": person.get("email", ""),
+                "type": "internal",
+                "path": PEOPLE_PATH,
+                "is_active": True,
             })
-            log(f"Keycloak: created the user {username}, who sets a new password when signing in first")
-        else:
-            user_id = current["id"]
+            authentik.post(f"/core/users/{current['pk']}/set_password/", {"password": password})
+            current = authentik.get(f"/core/users/{current['pk']}/")
+            log(f"authentik: created {username}")
 
-        # Only bbe's own groups are kept in line, others someone added in the console stay
-        wanted = set(user.get("groups", ["users"]))
-        member_of = {group["name"] for group in keycloak.get(f"/admin/realms/{REALM}/users/{user_id}/groups?briefRepresentation=true")}
+        # Only bbe's own groups are kept in line, others someone added in authentik stay
+        wanted = set(person.get("groups", ["users"]))
+        member_of = {group["name"] for group in current.get("groups_obj", [])}
         for name in GROUPS:
             if name in wanted and name not in member_of:
-                keycloak.put(f"/admin/realms/{REALM}/users/{user_id}/groups/{groups[name]}", {})
-                log(f"Keycloak: added {username} to {name}")
+                authentik.post(f"/core/groups/{groups[name]}/add_user/", {"pk": current["pk"]})
+                log(f"authentik: added {username} to {name}")
             elif name not in wanted and name in member_of:
-                keycloak.delete(f"/admin/realms/{REALM}/users/{user_id}/groups/{groups[name]}")
-                log(f"Keycloak: removed {username} from {name}")
+                authentik.post(f"/core/groups/{groups[name]}/remove_user/", {"pk": current["pk"]})
+                log(f"authentik: removed {username} from {name}")
 
-    for username, user in managed_by_name.items():
+    for username, user in managed.items():
         if username not in listed:
-            keycloak.delete(f"/admin/realms/{REALM}/users/{user['id']}")
-            log(f"Keycloak: removed the user {username}, who is no longer listed")
+            authentik.delete(f"/core/users/{user['pk']}/")
+            log(f"authentik: removed {username}, who is no longer listed")
 
 
 def main():
-    if not KEYCLOAK_URL or not SETUP_CLIENT_ID or not SETUP_CLIENT_SECRET:
-        raise SetupError("KEYCLOAK_URL, SETUP_CLIENT_ID and SETUP_CLIENT_SECRET are required")
+    if not AUTHENTIK_URL or not AUTHENTIK_TOKEN or not LDAP_OUTPOST_TOKEN:
+        raise SetupError("AUTHENTIK_URL, AUTHENTIK_TOKEN and LDAP_OUTPOST_TOKEN are required")
 
-    keycloak = Keycloak(KEYCLOAK_URL)
-    keycloak.wait_until_ready(time.monotonic() + READY_TIMEOUT)
-    log("Keycloak: ready")
+    deadline = time.monotonic() + READY_TIMEOUT
+    authentik = Authentik(AUTHENTIK_URL, AUTHENTIK_TOKEN)
+    authentik.wait_until_ready(deadline)
+    log("authentik: ready")
 
-    configure_realm(keycloak)
-    configure_login_theme(keycloak)
-    configure_user_profile(keycloak)
-    groups = configure_groups(keycloak)
-    groups_scope = configure_groups_scope(keycloak)
-    configure_clients(keycloak, groups_scope)
-    configure_users(keycloak, groups)
-    log("Keycloak is set up")
+    apply_blueprint(authentik, deadline)
+    configure_ldap_outpost(authentik)
+    configure_users(authentik)
+    log("authentik is set up")
 
 
 if __name__ == "__main__":

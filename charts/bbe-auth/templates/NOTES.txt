@@ -1,16 +1,15 @@
-Keycloak signs people in at https://auth.{{ .Values.global.bbe.domain }}, in the `bbe` realm.
+authentik signs people in at https://auth.{{ .Values.global.bbe.domain }}.
 
-The first admin is `{{ .Values.bbe.auth.admin.username }}`, who chooses a new password when first signing in with:
+The first admin is `{{ .Values.bbe.auth.admin.username }}`, whose first password is:
   kubectl get secret bbe-auth-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
 
-Admins manage people at https://auth.{{ .Values.global.bbe.domain }}/admin/bbe/console/, and `bbe configure {{ .Release.Name }}`
-adds and removes them too. People in `admins` get into the apps behind oauth2-proxy, which manage the media, and
-manage people in Keycloak. Those in `users` have an account, for apps that let everyone signed in through. Jellyfin and
-Seerr keep their own logins.
+Admins manage people at https://auth.{{ .Values.global.bbe.domain }}/if/admin/, and `bbe configure {{ .Release.Name }}` adds
+and removes them too. Everyone changes their password at https://auth.{{ .Values.global.bbe.domain }}/if/user/.
+People in `admins` get into every app. Those in `users` get into Jellyfin, with the same password in its TV and phone
+apps, and Seerr through it.
 
-Keycloak's own admin, for when nobody in the realm can sign in, is `bbe-admin` at
-https://auth.{{ .Values.global.bbe.domain }}/admin/, with the password:
-  kubectl get secret bbe-auth-keycloak -n {{ .Release.Namespace }} -o jsonpath='{.data.admin-password}' | base64 -d
+authentik's own admin, for when nobody else can sign in, is `akadmin`, with the password:
+  kubectl get secret bbe-auth-authentik -n {{ .Release.Namespace }} -o jsonpath='{.data.AUTHENTIK_BOOTSTRAP_PASSWORD}' | base64 -d
 
-Keycloak is being set up in the background, which takes a few minutes on a first install. To follow along:
+authentik is being set up in the background, which takes a few minutes on a first install. To follow along:
   kubectl logs -n {{ .Release.Namespace }} -f job/bbe-auth-setup-{{ .Release.Revision }}

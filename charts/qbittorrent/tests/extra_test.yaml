@@ -51,3 +51,19 @@ tests:
       - lengthEqual:
           path: spec.template.spec.containers
           count: 1
+
+  - it: should add the extra volumes, rendered as a template
+    template: deployment.yaml
+    set:
+      global.name: proxy-config
+      extraVolumes: |
+        - name: proxy
+          configMap:
+            name: {{ .Values.global.name }}
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: proxy
+            configMap:
+              name: proxy-config

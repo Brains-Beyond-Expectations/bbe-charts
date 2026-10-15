@@ -26,6 +26,7 @@ spec:
         app.kubernetes.io/component: setup
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
@@ -39,25 +40,21 @@ spec:
             - python3
             - /scripts/setup.py
           env:
-            # Keycloak's service, as the setup's requests stay in the cluster
-            - name: KEYCLOAK_URL
-              value: http://bbe-auth-keycloak-http
-            - name: SETUP_CLIENT_ID
+            # authentik's server, as the setup's requests stay in the cluster
+            - name: AUTHENTIK_URL
+              value: http://bbe-auth-server
+            - name: AUTHENTIK_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: bbe-auth-keycloak
-                  key: setup-client-id
-            - name: SETUP_CLIENT_SECRET
+                  name: bbe-auth-authentik
+                  key: AUTHENTIK_BOOTSTRAP_TOKEN
+            - name: LDAP_OUTPOST_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: bbe-auth-keycloak
-                  key: setup-client-secret
-            - name: REALM
-              value: bbe
-            - name: CLIENTS
-              value: {{ include "bbe-auth.clients" . | quote }}
-            - name: CLIENT_SECRETS_DIR
-              value: /client-secrets
+                  name: bbe-auth-authentik
+                  key: BBE_LDAP_OUTPOST_TOKEN
+            - name: BLUEPRINT_FILE
+              value: /blueprints/bbe.yaml
             - name: USERS
               value: {{ include "bbe-auth.users" . | quote }}
             - name: USER_PASSWORDS_DIR
@@ -77,8 +74,8 @@ spec:
           volumeMounts:
             - name: scripts
               mountPath: /scripts
-            - name: client-secrets
-              mountPath: /client-secrets
+            - name: blueprints
+              mountPath: /blueprints
               readOnly: true
             - name: user-passwords
               mountPath: /user-passwords
@@ -87,9 +84,10 @@ spec:
         - name: scripts
           configMap:
             name: bbe-auth-setup
-        - name: client-secrets
-          secret:
-            secretName: bbe-auth-clients
+        # The same blueprint the worker applies, whose hash tells the setup when it's applied
+        - name: blueprints
+          configMap:
+            name: bbe-auth-blueprints
         - name: user-passwords
           projected:
             sources:

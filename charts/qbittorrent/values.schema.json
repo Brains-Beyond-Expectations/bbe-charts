@@ -383,6 +383,10 @@
       "type": "string",
       "description": "More containers for the qBittorrent pod, as a YAML string rendered as a template"
     },
+    "extraVolumes": {
+      "type": "string",
+      "description": "More volumes for the qBittorrent pod, as a YAML string rendered as a template"
+    },
     "ingress": {
       "type": "object",
       "properties": {

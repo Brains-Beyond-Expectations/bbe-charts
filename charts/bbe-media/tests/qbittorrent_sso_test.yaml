@@ -5,26 +5,27 @@ release:
   name: bbe-media
   namespace: bbe-media
 tests:
-  - it: should run oauth2-proxy in qBittorrent's pod, reading bbe-auth's cookie under the domain
+  - it: should run nginx in qBittorrent's pod, with its configuration
     template: charts/qbittorrent/templates/deployment.yaml
-    set:
-      global.bbe.domain: lab.home.arpa
     asserts:
       - equal:
           path: spec.template.spec.containers[1].name
           value: sso
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: nginxinc/nginx-unprivileged:1.29-alpine
       - contains:
-          path: spec.template.spec.containers[1].args
-          content: --upstream=http://127.0.0.1:8080
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: sso
+            mountPath: /etc/nginx/conf.d
+            readOnly: true
       - contains:
-          path: spec.template.spec.containers[1].args
-          content: --cookie-name=_bbe_sso
-      - contains:
-          path: spec.template.spec.containers[1].args
-          content: --cookie-domain=.lab.home.arpa
-      - contains:
-          path: spec.template.spec.containers[1].args
-          content: --allowed-group=admins
+          path: spec.template.spec.volumes
+          content:
+            name: sso
+            configMap:
+              name: bbe-media-qbittorrent-sso
 
   - it: should let only qBittorrent's own pod skip its login, and give it the API key
     template: charts/qbittorrent/templates/deployment.yaml
@@ -43,7 +44,7 @@ tests:
                 name: bbe-media-api-keys
                 key: qbittorrent
 
-  - it: should open oauth2-proxy's port on qBittorrent's service
+  - it: should open nginx's port on qBittorrent's service
     template: charts/qbittorrent/templates/service.yaml
     asserts:
       - contains:
@@ -53,7 +54,7 @@ tests:
             port: 4180
             protocol: TCP
 
-  - it: should run qBittorrent without oauth2-proxy when single sign-on is off
+  - it: should run qBittorrent without nginx when single sign-on is off
     set:
       global.bbe.sso.enabled: false
     asserts:
@@ -69,7 +70,7 @@ tests:
             protocol: TCP
         template: charts/qbittorrent/templates/service.yaml
 
-  - it: should copy bbe-auth's oauth2-proxy secret for the one in qBittorrent's pod
+  - it: should copy the password Jellyfin binds to bbe-auth's LDAP with
     template: templates/secrets.yaml
     kubernetesProvider:
       scheme:
@@ -82,22 +83,19 @@ tests:
         - apiVersion: v1
           kind: Secret
           metadata:
-            name: bbe-auth-oauth2-proxy
+            name: bbe-auth-authentik
             namespace: bbe-auth
           data:
-            client-id: b2F1dGgyLXByb3h5
-            client-secret: Y2xpZW50LXNlY3JldA==
-            cookie-secret: Y29va2llLXNlY3JldA==
+            BBE_JELLYFIN_LDAP_PASSWORD: bGRhcC1wYXNzd29yZA==
+            AUTHENTIK_SECRET_KEY: c2VjcmV0
     documentSelector:
       path: metadata.name
-      value: bbe-media-sso
+      value: bbe-media-ldap
     asserts:
       - equal:
           path: data
           value:
-            client-id: b2F1dGgyLXByb3h5
-            client-secret: Y2xpZW50LXNlY3JldA==
-            cookie-secret: Y29va2llLXNlY3JldA==
+            password: bGRhcC1wYXNzd29yZA==
 
   - it: should generate an API key qBittorrent accepts
     template: templates/secrets.yaml
@@ -129,3 +127,25 @@ tests:
               secretKeyRef:
                 name: bbe-media-api-keys
                 key: qbittorrent
+
+  - it: should have Jellyfin sign people in against bbe-auth's LDAP outpost
+    template: templates/setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JELLYFIN_LDAP
+            value: '{"baseDn":"dc=ldap,dc=goauthentik,dc=io","bindUser":"cn=jellyfin-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io","passwordResetUrl":"https://auth.lab.home.arpa/if/user/#/settings","port":389,"server":"bbe-auth-ldap.bbe-auth.svc.cluster.local"}'
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JELLYFIN_LDAP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: bbe-media-ldap
+                key: password

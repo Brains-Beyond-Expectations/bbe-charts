@@ -1,0 +1,82 @@
+{{- /*
+authentik's LDAP outpost, which Jellyfin signs people in against, so its TV and phone apps use the same people and
+passwords. It signs in to authentik with the token the setup gives the `bbe LDAP` outpost, so it waits until then
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: bbe-auth-ldap
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ldap
+spec:
+  type: ClusterIP
+  ports:
+    - name: ldap
+      port: 389
+      targetPort: ldap
+  selector:
+    app.kubernetes.io/name: bbe-auth
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: ldap
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bbe-auth-ldap
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ldap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bbe-auth
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: ldap
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-auth.labels" . | nindent 8 }}
+        app.kubernetes.io/component: ldap
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ldap
+          image: "{{ .Values.bbe.ldap.image.repository }}:{{ .Values.bbe.ldap.image.tag }}"
+          env:
+            # authentik's server in the cluster, rather than through Traefik
+            - name: AUTHENTIK_HOST
+              value: http://bbe-auth-server
+            - name: AUTHENTIK_INSECURE
+              value: "true"
+            - name: AUTHENTIK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-auth-authentik
+                  key: BBE_LDAP_OUTPOST_TOKEN
+          ports:
+            - name: ldap
+              containerPort: 3389
+          readinessProbe:
+            tcpSocket:
+              port: ldap
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          {{- with .Values.bbe.ldap.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

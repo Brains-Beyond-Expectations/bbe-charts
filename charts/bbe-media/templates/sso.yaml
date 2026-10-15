@@ -1,6 +1,6 @@
 {{- if .Values.global.bbe.sso.enabled }}
-# Traefik asks bbe-auth's oauth2-proxy whether a request may go through. It answers 202 for an admin signed in with
-# Keycloak, and sends whoever isn't signed in to Keycloak, back to where they were going after
+# Traefik asks bbe-auth's authentik whether a request may go through. It lets admins signed in with authentik through,
+# and sends whoever isn't signed in to authentik, back to where they were going after
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -10,12 +10,55 @@ metadata:
     {{- include "bbe-media.labels" . | nindent 4 }}
 spec:
   forwardAuth:
-    address: http://bbe-auth-oauth2-proxy.bbe-auth.svc.cluster.local/
-    # oauth2-proxy sends people back to where they were going from the X-Forwarded-* headers. It only redirects to
-    # addresses under the domain
+    address: http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+    # authentik sends people back to where they were going from the X-Forwarded-* headers, only under the domain
     trustForwardHeader: true
     authResponseHeaders:
-      - X-Auth-Request-User
-      - X-Auth-Request-Email
-      - X-Auth-Request-Groups
+      - X-authentik-username
+      - X-authentik-groups
+      - X-authentik-email
+      - X-authentik-name
+      - X-authentik-uid
+---
+# nginx in front of qBittorrent, in its pod. qBittorrent only skips its login for 127.0.0.1, so everything reaching it
+# through here is checked with authentik first, with the same sign-in as the other apps
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-qbittorrent-sso
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+data:
+  default.conf: |
+    server {
+        listen 4180;
+
+        location / {
+            auth_request /outpost.goauthentik.io/auth/nginx;
+            error_page 401 = @signin;
+            # authentik refreshes its cookie on the way
+            auth_request_set $auth_cookie $upstream_http_set_cookie;
+            add_header Set-Cookie $auth_cookie;
+
+            proxy_pass http://127.0.0.1:8080;
+            proxy_set_header Host $host;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+
+        location /outpost.goauthentik.io {
+            internal;
+            proxy_pass http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io;
+            proxy_set_header Host $host;
+            proxy_set_header X-Original-URL https://$http_host$request_uri;
+            proxy_pass_request_body off;
+            proxy_set_header Content-Length "";
+        }
+
+        location @signin {
+            return 302 https://auth.{{ .Values.global.bbe.domain }}/outpost.goauthentik.io/start?rd=https://$http_host$request_uri;
+        }
+    }
 {{- end }}

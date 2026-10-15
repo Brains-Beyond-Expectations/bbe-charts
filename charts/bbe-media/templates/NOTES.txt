@@ -2,9 +2,11 @@
 The apps are at https://<app>.{{ .Values.global.bbe.domain }}: sonarr, radarr, prowlarr, bazarr, qbittorrent, jellyfin and seerr.
 {{- end }}
 {{- if .Values.global.bbe.sso.enabled }}
-Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent sign people in with Keycloak, and let in its admins.
+People sign in with their authentik account. Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent let in its admins.
+Jellyfin lets in everyone in `users` and `admins`, with the same password in its TV and phone apps, and makes admins
+its administrators. Seerr signs people in through Jellyfin.
 
-Jellyfin and Seerr use their own login, which every app also has behind single sign-on:
+bbe's own login stays, for when authentik can't sign anyone in. Jellyfin and Seerr accept it, and every app has it:
 {{- else }}
 
 Every app's web UI uses the same login:

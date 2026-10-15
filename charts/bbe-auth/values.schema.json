@@ -101,33 +101,6 @@
                   }
                 }
               }
-            },
-            "clients": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": [
-                  "clientId",
-                  "host",
-                  "redirectPath"
-                ],
-                "properties": {
-                  "clientId": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9-]+$"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "host": {
-                    "type": "string"
-                  },
-                  "redirectPath": {
-                    "type": "string",
-                    "pattern": "^/"
-                  }
-                }
-              }
             }
           }
         }

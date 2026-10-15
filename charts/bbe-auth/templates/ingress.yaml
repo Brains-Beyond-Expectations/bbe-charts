@@ -1,6 +1,6 @@
 {{- /*
-Keycloak signs people in at auth.<domain>, where oauth2-proxy takes their sign-in back under /oauth2. Traefik serves it
-with the domain's certificate
+authentik signs people in at auth.<domain>, which forward auth sends them to as well. Traefik serves it with the
+domain's certificate
 */ -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -9,15 +9,15 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "bbe-auth.labels" . | nindent 4 }}
-  # bbe-networking's dashboard links to where admins manage people
+  # bbe-networking's dashboard links to where people manage their account, and admins everyone
   annotations:
     gethomepage.dev/enabled: "true"
-    gethomepage.dev/name: Keycloak
+    gethomepage.dev/name: authentik
     gethomepage.dev/description: People, and how they sign in
     gethomepage.dev/group: Cluster
-    gethomepage.dev/icon: keycloak.png
-    gethomepage.dev/href: https://auth.{{ .Values.global.bbe.domain }}/admin/bbe/console/
-    gethomepage.dev/pod-selector: app.kubernetes.io/name=keycloakx,app.kubernetes.io/instance={{ .Release.Name }}
+    gethomepage.dev/icon: authentik.png
+    gethomepage.dev/href: https://auth.{{ .Values.global.bbe.domain }}/if/user/
+    gethomepage.dev/pod-selector: app.kubernetes.io/name=authentik,app.kubernetes.io/component=server
 spec:
   tls:
     - hosts:
@@ -26,17 +26,10 @@ spec:
     - host: auth.{{ .Values.global.bbe.domain }}
       http:
         paths:
-          - path: /oauth2
-            pathType: Prefix
-            backend:
-              service:
-                name: bbe-auth-oauth2-proxy
-                port:
-                  name: http
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: bbe-auth-keycloak-http
+                name: bbe-auth-server
                 port:
                   name: http

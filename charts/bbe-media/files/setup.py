@@ -43,10 +43,20 @@ BAZARR_PROVIDERS = [entry["name"] for entry in json.loads(os.environ.get("BAZARR
 BAZARR_LANGUAGES = json.loads(os.environ.get("BAZARR_LANGUAGES") or "[]")
 # The name of that profile, which finds it again
 BAZARR_PROFILE = "bbe"
-# Whether bbe-auth's oauth2-proxy signs people in to the apps managing the media, so they skip their own logins
+# Whether bbe-auth's authentik signs people in to the apps managing the media, so they skip their own logins
 SSO = os.environ.get("SSO", "").lower() == "true"
 # The API key Sonarr and Radarr sign in to qBittorrent with, or empty for its login
 QBITTORRENT_API_KEY = os.environ.get("QBITTORRENT_API_KEY", "")
+
+# Jellyfin signs people in against bbe-auth's LDAP, so its apps use the same people and passwords as authentik. Empty
+# without single sign-on
+JELLYFIN_LDAP = json.loads(os.environ.get("JELLYFIN_LDAP") or "{}")
+JELLYFIN_LDAP_PASSWORD = os.environ.get("JELLYFIN_LDAP_PASSWORD", "")
+# Jellyfin's official LDAP Authentication plugin, from its default plugin repository
+LDAP_PLUGIN_ID = "958aad66-3784-4d2a-b89a-a7b6fab6e25c"
+LDAP_PLUGIN_NAME = "LDAP Authentication"
+# The LDAP plugin installs and Jellyfin restarts within this, in seconds
+JELLYFIN_RESTART_TIMEOUT = 300
 
 JELLYFIN_CLIENT = 'MediaBrowser Client="bbe-media-setup", Device="bbe", DeviceId="bbe-media-setup", Version="1.0.0"'
 
@@ -149,7 +159,7 @@ def servarr(name, variable, api_version):
 
 def configure_servarr_login(app):
     """Replaces the 'create a login' prompt the app shows on its first visit with the bbe admin account. With single
-    sign-on, the app trusts oauth2-proxy instead (`external`), and the login stays for going back to it"""
+    sign-on, the app trusts authentik's forward auth instead (`external`), and the login stays for going back to it"""
     host = app.get(f"{app.api}/config/host")
     host.update({
         "authenticationMethod": "external" if SSO else "forms",
@@ -398,7 +408,7 @@ def save_indexer(prowlarr, wanted_indexer, existing, definitions, profile_id, ta
 
 
 def configure_bazarr(bazarr, apps):
-    # With single sign-on, Bazarr asks for no login, as only oauth2-proxy lets anyone through. Bazarr reads "None" as
+    # With single sign-on, Bazarr asks for no login, as only authentik lets anyone through. Bazarr reads "None" as
     # no authentication
     form = {"settings-auth-type": "None"} if SSO else {
         "settings-auth-type": "form",
@@ -508,6 +518,60 @@ def configure_jellyfin(jellyfin):
             encoding["TranscodingTempPath"] = TRANSCODE_DIR
             jellyfin.post("/System/Configuration/encoding", encoding)
             log(f"Jellyfin: transcoding in {TRANSCODE_DIR}")
+
+
+def jellyfin_ldap_plugin(jellyfin):
+    plain_id = LDAP_PLUGIN_ID.replace("-", "")
+    return next((plugin for plugin in jellyfin.get("/Plugins") if plugin["Id"].replace("-", "") == plain_id), None)
+
+
+def configure_jellyfin_ldap(jellyfin):
+    """Signs people in to Jellyfin against bbe-auth's LDAP, with the official LDAP Authentication plugin. Jellyfin
+    creates a person's account when they first sign in, and makes `admins` its administrators. Its own administrator,
+    bbe's login, keeps signing in with its password"""
+    plugin = jellyfin_ldap_plugin(jellyfin)
+    if plugin is None:
+        query = urllib.parse.urlencode({"assemblyGuid": LDAP_PLUGIN_ID})
+        jellyfin.post(f"/Packages/Installed/{urllib.parse.quote(LDAP_PLUGIN_NAME)}?{query}")
+        log(f"Jellyfin: installing the {LDAP_PLUGIN_NAME} plugin")
+        deadline = time.monotonic() + JELLYFIN_RESTART_TIMEOUT
+        while jellyfin_ldap_plugin(jellyfin) is None:
+            if time.monotonic() > deadline:
+                raise SetupError(f"Jellyfin didn't install the {LDAP_PLUGIN_NAME} plugin within {JELLYFIN_RESTART_TIMEOUT} seconds")
+            time.sleep(5)
+        # Plugins load when Jellyfin starts
+        jellyfin.post("/System/Restart")
+        log("Jellyfin: restarting to load the plugin")
+        time.sleep(10)
+        jellyfin.wait_until_ready("/System/Info/Public", time.monotonic() + JELLYFIN_RESTART_TIMEOUT)
+        plugin = jellyfin_ldap_plugin(jellyfin)
+
+    base_dn = JELLYFIN_LDAP["baseDn"]
+    group = lambda name: f"(memberOf=cn={name},ou=groups,{base_dn})"
+    wanted = {
+        "LdapServer": JELLYFIN_LDAP["server"],
+        "LdapPort": JELLYFIN_LDAP["port"],
+        "UseSsl": False,
+        "UseStartTls": False,
+        "LdapBindUser": JELLYFIN_LDAP["bindUser"],
+        "LdapBindPassword": JELLYFIN_LDAP_PASSWORD,
+        "LdapBaseDn": base_dn,
+        "LdapSearchFilter": f"(|{group('users')}{group('admins')})",
+        "LdapAdminBaseDn": base_dn,
+        "LdapAdminFilter": group("admins"),
+        "LdapSearchAttributes": "uid, cn, mail, displayName",
+        "LdapUidAttribute": "uid",
+        "LdapUsernameAttribute": "cn",
+        "CreateUsersFromLdap": True,
+        "EnableAllFolders": True,
+        # authentik's LDAP can't change passwords, which people change in authentik
+        "AllowPassChange": False,
+        "PasswordResetUrl": JELLYFIN_LDAP["passwordResetUrl"],
+    }
+    configuration = jellyfin.get(f"/Plugins/{plugin['Id']}/Configuration")
+    if any(configuration.get(key) != value for key, value in wanted.items()):
+        jellyfin.post(f"/Plugins/{plugin['Id']}/Configuration", {**configuration, **wanted})
+        log("Jellyfin: signs people in with bbe-auth's LDAP")
 
 
 def configure_seerr(seerr, jellyfin, sonarr, radarr):
@@ -621,6 +685,8 @@ def main():
         steps.append(("Bazarr subtitles", configure_bazarr_subtitles, bazarr))
     if jellyfin:
         steps.append(("Jellyfin", configure_jellyfin, jellyfin))
+        if JELLYFIN_LDAP:
+            steps.append(("Jellyfin LDAP", configure_jellyfin_ldap, jellyfin))
     if seerr and jellyfin:
         steps.append(("Seerr", configure_seerr, seerr, jellyfin, sonarr, radarr))
 

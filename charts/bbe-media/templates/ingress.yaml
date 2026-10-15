@@ -1,8 +1,8 @@
 {{- /*
 Every app is served at <app>.<domain> with the domain's certificate, which bbe-networking makes Traefik's default. The
-apps managing the media are behind oauth2-proxy, while Jellyfin and Seerr keep their own logins: their apps and
-sign-in can't go through single sign-on. bbe-networking's dashboard lists them from their `gethomepage.dev/*`
-annotations
+apps managing the media are behind authentik's forward auth. Jellyfin signs people in against authentik's LDAP
+itself, so its TV and phone apps keep working, and Seerr signs in through Jellyfin. bbe-networking's dashboard lists
+them from their `gethomepage.dev/*` annotations
 */ -}}
 {{- if .Values.bbe.media.ingress.enabled }}
 {{- $domain := .Values.global.bbe.domain }}
@@ -33,7 +33,7 @@ metadata:
     gethomepage.dev/icon: {{ .app }}.png
     gethomepage.dev/pod-selector: app.kubernetes.io/name={{ .label }},app.kubernetes.io/instance={{ $.Release.Name }}
     {{- if $sso }}
-    # Traefik asks oauth2-proxy first, which sends whoever isn't signed in to Keycloak
+    # Traefik asks authentik first, which sends whoever isn't signed in to its sign-in
     traefik.ingress.kubernetes.io/router.middlewares: {{ $.Release.Namespace }}-sso@kubernetescrd
     {{- end }}
 spec:
@@ -50,7 +50,7 @@ spec:
               service:
                 name: {{ $.Release.Name }}-{{ .service }}
                 port:
-                  # qBittorrent is reached through the oauth2-proxy in its pod
+                  # qBittorrent is reached through the nginx in its pod, which checks with authentik
                   number: {{ ternary 4180 .port (and $sso (eq .app "qbittorrent")) }}
 {{- end }}
 {{- end }}

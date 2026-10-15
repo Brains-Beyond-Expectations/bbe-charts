@@ -22,6 +22,7 @@ qBittorrent is a BitTorrent client programmed in C++ / Qt that uses libtorrent
 | config.size | string | `"1Gi"` | The amount of storage to request for the qBittorrent config |
 | config.storageClass | string | `""` | Storage class to use for the qBittorrent config persistent volume claim |
 | extraContainers | string | `""` | More containers for the qBittorrent pod, such as a proxy in front of it, as a YAML string rendered as a template |
+| extraVolumes | string | `""` | More volumes for the qBittorrent pod, such as the configuration of a container in `extraContainers`, as a YAML string rendered as a template |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
 | incomplete.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the persistent volume claim for downloads in progress |
 | incomplete.annotations | object | `{}` | Annotations to apply to the persistent volume claim for downloads in progress |
@@ -63,7 +64,7 @@ qBittorrent is a BitTorrent client programmed in C++ / Qt that uses libtorrent
 | qbittorrent.webui.apiKeyKey | string | `"api-key"` | The key in apiKeySecret holding the API key |
 | qbittorrent.webui.apiKeySecret | string | `""` | Name of an existing secret holding a WebUI API key, which clients such as Sonarr send instead of signing in (qBittorrent 5.2 and later). It's `qbt_` and 28 letters or digits. Needs `existingSecret` |
 | qbittorrent.webui.existingSecret | string | `""` | Name of an existing secret holding the WebUI login. When set, qBittorrent starts with that login instead of printing a temporary password to its log. Needs `config.enabled` |
-| qbittorrent.webui.localHostAuth | bool | `true` | Whether qBittorrent asks requests from its own pod (127.0.0.1) to sign in too. Turn it off when a proxy in the pod, such as oauth2-proxy in `extraContainers`, signs people in in front of it. Needs `existingSecret` |
+| qbittorrent.webui.localHostAuth | bool | `true` | Whether qBittorrent asks requests from its own pod (127.0.0.1) to sign in too. Turn it off when a proxy in the pod, such as a proxy in `extraContainers`, checks who's signed in before it. Needs `existingSecret` |
 | qbittorrent.webui.passwordKey | string | `"password"` | The key in the secret holding the WebUI password |
 | qbittorrent.webui.usernameKey | string | `"username"` | The key in the secret holding the WebUI username |
 | service.annotations | object | `{}` | Annotations to apply to the qBittorrent service |

@@ -5,62 +5,46 @@ release:
   name: bbe-auth
   namespace: bbe-auth
 tests:
-  - it: should name Keycloak after its address under the domain, and serve it from /
-    template: charts/keycloakx/templates/statefulset.yaml
-    set:
-      global.bbe.domain: lab.home.arpa
+  - it: should give authentik's server and worker bbe's settings after the chart's own
+    template: charts/authentik/templates/worker/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom[1]
+          value:
+            secretRef:
+              name: bbe-auth-authentik
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: blueprints-cm-bbe-auth-blueprints
+            mountPath: /blueprints/mounted/cm-bbe-auth-blueprints
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: should serve bbe's logo and background from authentik's media folder
+    template: charts/authentik/templates/server/deployment.yaml
     asserts:
       - contains:
-          path: spec.template.spec.containers[0].env
+          path: spec.template.spec.containers[0].volumeMounts
           content:
-            name: KC_HOSTNAME
-            value: https://auth.lab.home.arpa
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
-            value: "true"
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: KC_HTTP_RELATIVE_PATH
-            value: /
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: KC_PROXY_HEADERS
-            value: xforwarded
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: KC_DB_URL_HOST
-            value: bbe-auth-postgres
+            name: branding
+            mountPath: /media/public/branding
+            readOnly: true
 
-  - it: should have oauth2-proxy sign in at the domain and fetch tokens from Keycloak's service
-    template: charts/oauth2-proxy/templates/deployment.yaml
-    set:
-      global.bbe.domain: lab.home.arpa
+  - it: should use bbe-auth's PostgreSQL, not the chart's
+    template: charts/authentik/templates/secret.yaml
     asserts:
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --oidc-issuer-url=https://auth.lab.home.arpa/realms/bbe
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --login-url=https://auth.lab.home.arpa/realms/bbe/protocol/openid-connect/auth
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --redeem-url=http://bbe-auth-keycloak-http.bbe-auth.svc/realms/bbe/protocol/openid-connect/token
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --cookie-domain=.lab.home.arpa
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --allowed-group=admins
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --cookie-name=_bbe_sso
+      - equal:
+          path: data.AUTHENTIK_POSTGRESQL__HOST
+          value: bbe-auth-postgres
+          decodeBase64: true
+      - equal:
+          path: data.AUTHENTIK_POSTGRESQL__USER
+          value: authentik
+          decodeBase64: true
 
-  - it: should serve Keycloak at auth.<domain>, with oauth2-proxy under /oauth2
+  - it: should serve authentik at auth.<domain>, and list it on the dashboard
     template: templates/ingress.yaml
     set:
       global.bbe.domain: lab.home.arpa
@@ -69,32 +53,58 @@ tests:
           path: spec.rules[0].host
           value: auth.lab.home.arpa
       - equal:
-          path: spec.rules[0].http.paths[0]
+          path: spec.rules[0].http.paths[0].backend.service
           value:
-            path: /oauth2
-            pathType: Prefix
-            backend:
-              service:
-                name: bbe-auth-oauth2-proxy
-                port:
-                  name: http
-      - equal:
-          path: spec.rules[0].http.paths[1].backend.service.name
-          value: bbe-auth-keycloak-http
-
-  - it: should link to Keycloak's console from bbe-networking's dashboard
-    template: templates/ingress.yaml
-    set:
-      global.bbe.domain: lab.home.arpa
-    asserts:
+            name: bbe-auth-server
+            port:
+              name: http
       - equal:
           path: metadata.annotations["gethomepage.dev/href"]
-          value: https://auth.lab.home.arpa/admin/bbe/console/
-      - equal:
-          path: metadata.annotations["gethomepage.dev/pod-selector"]
-          value: app.kubernetes.io/name=keycloakx,app.kubernetes.io/instance=bbe-auth
+          value: https://auth.lab.home.arpa/if/user/
 
-  - it: should run PostgreSQL as its own user with a read-only root
+  - it: should run the LDAP outpost with the token the setup gives authentik
+    template: templates/ldap.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTHENTIK_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: bbe-auth-authentik
+                key: BBE_LDAP_OUTPOST_TOKEN
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/goauthentik/ldap:2026.8.4
+
+  - it: should serve LDAP on its usual port
+    template: templates/ldap.yaml
+    documentSelector:
+      path: kind
+      value: Service
+    asserts:
+      - equal:
+          path: spec.ports[0]
+          value:
+            name: ldap
+            port: 389
+            targetPort: ldap
+
+  - it: should ship bbe's blueprint and images
+    template: templates/blueprints.yaml
+    asserts:
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "mode: forward_domain"
+        documentIndex: 0
+      - exists:
+          path: binaryData["background.webp"]
+        documentIndex: 1
+
+  - it: should run PostgreSQL as its own user with a read-only root, for authentik
     template: templates/postgres.yaml
     documentSelector:
       path: kind
@@ -103,14 +113,13 @@ tests:
       - equal:
           path: spec.template.spec.securityContext.runAsUser
           value: 999
-      - equal:
-          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
-          value: true
-      - equal:
-          path: spec.template.spec.containers[0].image
-          value: postgres:18.6
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_DB
+            value: authentik
 
-  - it: should refuse a first admin's name in upper case, as Keycloak would change it
+  - it: should refuse a first admin's name in upper case
     set:
       bbe.auth.admin.username: Umbo
     asserts:
@@ -121,39 +130,3 @@ tests:
       bbe.auth.admin.email: null
     asserts:
       - failedTemplate: {}
-
-  - it: should mount bbe's sign-in page into Keycloak's themes
-    template: charts/keycloakx/templates/statefulset.yaml
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].volumeMounts
-          content:
-            name: theme
-            mountPath: /opt/keycloak/themes/bbe
-            readOnly: true
-      - contains:
-          path: spec.template.spec.volumes
-          content:
-            name: theme
-            configMap:
-              name: bbe-auth-theme
-              items:
-                - key: theme.properties
-                  path: login/theme.properties
-                - key: bbe.css
-                  path: login/resources/css/bbe.css
-                - key: brain.webp
-                  path: login/resources/img/brain.webp
-                - key: background.webp
-                  path: login/resources/img/background.webp
-
-  - it: should ship the theme's files and images
-    template: templates/theme.yaml
-    asserts:
-      - matchRegex:
-          path: data["theme.properties"]
-          pattern: parent=keycloak.v2
-      - exists:
-          path: binaryData["brain.webp"]
-      - exists:
-          path: binaryData["background.webp"]

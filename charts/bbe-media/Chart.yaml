@@ -25,7 +25,7 @@ annotations:
       description: Traefik and the domain's certificate, which the apps are served with
       package: bbe-networking
     - name: sso
-      description: Keycloak and oauth2-proxy, which the apps managing the media sign people in with
+      description: authentik, which people sign in to the apps with
       package: bbe-auth
   # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
   bbe/uninstall: |

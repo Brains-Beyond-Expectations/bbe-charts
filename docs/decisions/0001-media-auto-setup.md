@@ -74,7 +74,7 @@ The app charts' env schemas now allow `valueFrom`, which is what lets `bbe-media
 
 `bbe-media-admin` holds a username (`bbe.admin.username`, default `admin`) and a 24-character password generated on the first install and kept on upgrades. The Job sets it as the login of Sonarr, Radarr, Prowlarr and Bazarr, and creates it as Jellyfin's first administrator. Seerr's admin is the same account, as it signs in through Jellyfin. qBittorrent's chart writes it into `qBittorrent.conf` before qBittorrent starts (`qbittorrent.webui.existingSecret`), hashed with PBKDF2-SHA512 like qBittorrent itself.
 
-With single sign-on ([0002](0002-single-sign-on.md)), Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent let people in through Keycloak instead, and this login is what the Job and the apps' connections use, and what Jellyfin and Seerr sign in with. Sonarr and Radarr reach qBittorrent with its API key, which the chart generates into `bbe-media-api-keys` and writes into `qBittorrent.conf` too.
+With single sign-on ([0002](0002-single-sign-on.md)), people sign in with authentik instead: Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent through its forward auth, Jellyfin against its LDAP, and Seerr through Jellyfin. This login stays for the Job and the apps' connections to each other, and as the way into Jellyfin and Seerr when authentik can't sign anyone in. Sonarr and Radarr reach qBittorrent with its API key, which the chart generates into `bbe-media-api-keys` and writes into `qBittorrent.conf` too.
 
 The chart's notes print the command to read the password. Nothing secret ends up in `bbe.yaml`, which bbe syncs to S3 when AWS storage is on.
 

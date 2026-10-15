@@ -8,7 +8,7 @@ release:
   namespace: bbe-auth
   revision: 3
 tests:
-  - it: should run the setup as a new Job for every revision
+  - it: should run the setup as a new Job for every revision, signing in to authentik with its bootstrap token
     documentSelector:
       path: kind
       value: Job
@@ -16,11 +16,19 @@ tests:
       - equal:
           path: metadata.name
           value: bbe-auth-setup-3
-      - equal:
-          path: spec.template.spec.containers[0].env[0]
-          value:
-            name: KEYCLOAK_URL
-            value: http://bbe-auth-keycloak-http
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTHENTIK_URL
+            value: http://bbe-auth-server
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTHENTIK_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: bbe-auth-authentik
+                key: AUTHENTIK_BOOTSTRAP_TOKEN
 
   - it: should create the first admin before the users bbe configure added
     documentSelector:
@@ -40,29 +48,22 @@ tests:
             name: USERS
             value: '[{"email":"umbo@example.com","groups":["admins"],"secretFields":{"password":"first-admin"},"username":"umbo"},{"email":"alice@example.com","groups":["users"],"secretFields":{"password":"alice.password"},"username":"alice"}]'
 
-  - it: should give the setup oauth2-proxy's client and every app's, with their addresses under the domain
+  - it: should give the setup the blueprint the worker applies, and the people's first passwords
     documentSelector:
       path: kind
       value: Job
-    set:
-      global.bbe.domain: lab.home.arpa
-      bbe.auth.clients:
-        - clientId: wiki
-          name: Wiki
-          host: wiki
-          redirectPath: /oidc/callback
     asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: blueprints
+            configMap:
+              name: bbe-auth-blueprints
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: CLIENTS
-            value: '[{"audience":true,"clientId":"oauth2-proxy","name":"bbe apps","redirectUris":["https://auth.lab.home.arpa/oauth2/callback"],"rootUrl":"https://auth.lab.home.arpa"},{"baseUrl":"/","clientId":"wiki","name":"Wiki","redirectUris":["https://wiki.lab.home.arpa/oidc/callback"],"rootUrl":"https://wiki.lab.home.arpa"}]'
-
-  - it: should give the setup the first admin's password and those bbe configure wrote
-    documentSelector:
-      path: kind
-      value: Job
-    asserts:
+            name: BLUEPRINT_FILE
+            value: /blueprints/bbe.yaml
       - contains:
           path: spec.template.spec.volumes
           content:
@@ -77,17 +78,6 @@ tests:
                 - secret:
                     name: bbe-auth-users
                     optional: true
-
-  - it: should only give the setup oauth2-proxy's client by default
-    documentSelector:
-      path: kind
-      value: Job
-    asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: CLIENTS
-            value: '[{"audience":true,"clientId":"oauth2-proxy","name":"bbe apps","redirectUris":["https://auth.bbe.home.arpa/oauth2/callback"],"rootUrl":"https://auth.bbe.home.arpa"}]'
 
   - it: should ship the setup script
     documentSelector:

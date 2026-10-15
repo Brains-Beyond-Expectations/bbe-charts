@@ -1,5 +1,5 @@
 {{- /*
-Keycloak's database, from the official image. It runs as the image's postgres user (999), on a volume of the cluster's
+authentik's database, from the official image. It runs as the image's postgres user (999), on a volume of the cluster's
 default storage class
 */ -}}
 apiVersion: v1
@@ -55,9 +55,9 @@ spec:
           image: "{{ .Values.bbe.postgres.image.repository }}:{{ .Values.bbe.postgres.image.tag }}"
           env:
             - name: POSTGRES_USER
-              value: keycloak
+              value: authentik
             - name: POSTGRES_DB
-              value: keycloak
+              value: authentik
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -68,11 +68,11 @@ spec:
               containerPort: 5432
           readinessProbe:
             exec:
-              command: ["pg_isready", "--username", "keycloak", "--dbname", "keycloak"]
+              command: ["pg_isready", "--username", "authentik", "--dbname", "authentik"]
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "--username", "keycloak", "--dbname", "keycloak"]
+              command: ["pg_isready", "--username", "authentik", "--dbname", "authentik"]
             initialDelaySeconds: 30
             periodSeconds: 30
           securityContext:

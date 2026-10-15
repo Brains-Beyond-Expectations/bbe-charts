@@ -1,94 +1,105 @@
-# 0002: Single sign-on with Keycloak
+# 0002: Single sign-on with authentik
 
-**Status:** proposed, 2026-10-14
+**Status:** proposed, 2026-10-15
 
 ## Context
 
 Every bbe-media app has its own login, all set to the one generated admin account ([0001](0001-media-auto-setup.md), decision 4). That's one person with one password. Letting someone else in means sharing that password, and taking it back means changing it in every app.
 
-The goal: people are managed in one place, Keycloak, through its console or `bbe configure`, and the apps are reached at HTTPS addresses that ask for a Keycloak sign-in.
+The goal is one place to manage people, with one password each for every app, Jellyfin's TV and phone apps included. People are managed in authentik's admin interface or with `bbe configure`, and the apps are reached at HTTPS addresses.
 
-Three things shaped what follows:
+Four things shaped what follows:
 
 - **ingress-nginx was retired in March 2026.** It gets no more releases or security fixes, and single sign-on hangs off the ingress controller.
 - **The apps had no addresses.** Nothing in the cluster had a name or a certificate yet.
-- **Most of the apps can't sign anyone in with OpenID Connect.** Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent only have their own logins. Jellyfin needs a plugin, and Seerr 3.5.0 has no OpenID Connect at all (decision 8).
+- **Most of the apps can't sign anyone in themselves.** Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent only have their own logins.
+- **Jellyfin's apps only sign in with a username and password.** Its TV and phone apps can't sign in through a browser, and the SSO-Auth plugin was archived in May 2026. Jellyfin's official LDAP plugin works everywhere.
+
+The first version of this used Keycloak and oauth2-proxy (decision 1). It moved to authentik before any release, so that one product covers forward auth for the apps and LDAP for Jellyfin.
 
 ## Decision tree
 
 ```mermaid
 flowchart TD
-    Q1{How is Keycloak run?}
-    Q1 -->|chosen| A1[codecentric's keycloakx chart]
-    Q1 -.->|rejected| B1[The Keycloak operator]
-    Q1 -.->|rejected| C1[Bitnami's chart]
+    Q1{What signs people in?}
+    Q1 -->|chosen| A1[authentik: forward auth,<br/>LDAP and OpenID Connect]
+    Q1 -.->|replaced| B1[Keycloak + oauth2-proxy,<br/>+ lldap for Jellyfin]
 
-    A1 --> Q2{How is the realm set up?}
-    Q2 -->|chosen| A2[A Job calling the admin API]
-    Q2 -.->|rejected| B2[Realm import]
-    Q2 -.->|rejected| C2[keycloak-config-cli]
+    A1 --> Q2{How is authentik run?}
+    Q2 -->|chosen| A2[Its official chart as a subchart,<br/>bundled PostgreSQL off]
+    Q2 -.->|rejected| B2[Own templates]
 
-    A1 --> Q3{Where is its database?}
-    Q3 -->|chosen| A3[Official postgres image,<br/>a StatefulSet on Longhorn]
-    Q3 -.->|rejected| B3[CloudNativePG]
+    A1 --> Q3{How is it set up?}
+    Q3 -->|chosen| A3[A blueprint, and a Job<br/>for people and tokens]
 
-    Q4{Which ingress?} -->|chosen| A4[Traefik]
-    Q4 -.->|rejected| B4[ingress-nginx, retired]
+    A1 --> Q4{Where is its database?}
+    Q4 -->|chosen| A4[Official postgres image,<br/>a StatefulSet on Longhorn]
+    Q4 -.->|rejected| B4[CloudNativePG]
 
-    A4 --> Q5{How do apps without<br/>OpenID Connect sign in?}
-    Q5 -->|chosen| A5[oauth2-proxy through<br/>Traefik's ForwardAuth]
+    Q5{Which ingress?} -->|chosen| A5[Traefik]
+    Q5 -.->|rejected| B5[ingress-nginx, retired]
 
     Q6{Which addresses?} -->|chosen| A6[One domain under home.arpa,<br/>with bbe's own CA]
     Q6 -.->|later| B6[A public domain<br/>with Let's Encrypt]
-    A6 --> Q7{Which issuer?}
-    Q7 -->|chosen| A7[One, auth.domain, with the<br/>backchannel on the cluster]
 ```
 
 ## Decisions
 
-### 1. Keycloak runs from codecentric's keycloakx chart
+### 1. authentik signs people in
 
-`bbe-auth` depends on [keycloakx](https://github.com/codecentric/helm-charts/tree/master/charts/keycloakx) 7.3.2, a StatefulSet over the official `quay.io/keycloak/keycloak` image, which it pins to 26.7.5 itself. The chart trails Keycloak's releases by weeks: a critical CVE fix took 8 days to reach it (keycloakx#920).
+[authentik](https://goauthentik.io) 2026.8.4 covers everything bbe needs in one product:
+- **Forward auth for the apps that can't sign people in.** Traefik asks it about every request.
+- **LDAP for Jellyfin**, through its LDAP outpost.
+- **OpenID Connect** for apps added later.
 
-Its defaults need three changes:
-- `http.relativePath` is `/` instead of `/auth`.
-- `proxy.mode` is `xforwarded`, as Traefik sends `X-Forwarded-*` headers.
-- Keycloak is started with `start`, which the chart leaves to its values.
+It needs PostgreSQL only, as it dropped Redis in 2025.10.
 
-Rejected:
-- **The Keycloak operator.**
-  - Its CRDs, ClusterRoles and ClusterRoleBinding are cluster-wide, so it doesn't fit in one namespaced package.
-  - Its Helm chart is new in 26.8.0 and experimental. It watches every namespace by default and deletes its CRDs, with every Keycloak in them, on `helm uninstall`.
-  - One operator version supports one Keycloak version.
-  - Its `KeycloakRealmImport` only creates realms and never updates them, and its client CRDs are a preview.
-  - It asks for 1.7–2Gi of memory by default.
-- **Bitnami's chart.** Bitnami's charts and images changed licensing and moved to `bitnamilegacy` in 2025.
+Rejected: **Keycloak with oauth2-proxy**, which this was first built with. Keycloak can't serve LDAP, so Jellyfin would have needed lldap as well. That's three products to run for what authentik does alone, with people managed in lldap rather than in one place.
 
-### 2. A Job sets Keycloak up through its admin API
+### 2. authentik runs from its official chart
 
-Like bbe-media's setup (0001, decisions 1 and 2), `bbe-auth-setup-<revision>` runs after every install and upgrade. It reads before it writes, so a second run changes nothing. It signs in as a service account that Keycloak creates in its master realm on its first start (`KC_BOOTSTRAP_ADMIN_CLIENT_*`), and sets up:
+`bbe-auth` depends on [goauthentik/helm](https://github.com/goauthentik/helm) `authentik` 2026.8.4, with:
+- `fullnameOverride: bbe-auth`, so its services are `bbe-auth-server` and `bbe-auth-worker`.
+- Its bundled PostgreSQL off: bbe-auth runs its own (decision 4). The chart still lists Bitnami's PostgreSQL chart as a dependency, which is only downloaded when packaging, never installed.
+- `serviceAccount.create: false`, and no ServiceAccount token on the worker. authentik doesn't deploy outposts itself (`AUTHENTIK_OUTPOSTS__DISCOVER=false`), so it needs no access to the Kubernetes API.
+- bbe-auth's own secret, `bbe-auth-authentik`, through `global.envFrom`. It comes after the chart's own secret, so it wins. It holds:
+  - the secret key, which never changes after the first install;
+  - the database password;
+  - the bootstrap admin and token;
+  - `AUTHENTIK_WEB__BASE_URL`;
+  - the values the blueprint reads.
+- Non-root, no capabilities and the `RuntimeDefault` seccomp profile on its pods, which the `restricted` pod security level allows.
+
+Rejected: **writing the server and worker Deployments ourselves.** The chart is maintained by authentik, and only two Deployments to configure.
+
+### 3. A blueprint sets authentik up, and a Job the rest
+
+authentik applies blueprints, YAML files describing what to create, on start and whenever they change. bbe's, `files/blueprints/bbe.yaml`, is mounted on the worker from a ConfigMap. It reads the domain and the LDAP account's password from the environment (`!Env`), and holds:
 
 | What | How |
 |---|---|
-| The `bbe` realm | Created once. Registration and password resets are off, as people are added by an admin and there's no mail server. Brute force protection is on. Its settings are left to the console after that |
-| `admins` and `users` | Groups. `admins` gets the realm's `realm-admin` role, so admins manage people in the console |
-| A `groups` claim | A client scope putting a user's group names in their tokens and user info |
-| Clients | `oauth2-proxy`, with an audience mapper, as oauth2-proxy checks a token was made for it. Plus any app in `bbe.auth.clients` that signs people in itself, none yet. Their secrets are generated into `bbe-auth-clients` |
-| Users | The first admin, then the users in `bbe.auth.users` (decision 9) |
+| `admins` and `users` | Groups. `admins` get into every app, `users` into Jellyfin, and Seerr through it |
+| Forward auth | A proxy provider in `forward_domain` mode for `.<domain>`, on authentik's embedded outpost, and an application only `admins` may use |
+| LDAP | A provider with `direct` bind and search, and without a code after the password (`mfa_support: false`). An application for `users`, `admins` and Jellyfin's account, and an outpost bbe-auth runs (decision 7) |
+| Jellyfin's LDAP account | A `jellyfin-ldap` service account, whose app password is generated into `bbe-auth-authentik`, allowed to search the whole directory |
+| bbe's looks | Decision 10 |
 
-Rejected:
-- **Realm import.** It's skipped when the realm exists, so nothing changes after the first install.
-- **keycloak-config-cli.** It's tested up to Keycloak 26.5.5. It also deletes whatever of a type isn't in its config, which would fight with people managed in the console.
+The setup Job, `bbe-auth-setup-<revision>`, does what a blueprint can't:
+- **Applies the blueprint now.** The worker only queues an apply, so the Job waits until authentik reports the exact version the chart ships (its sha512) as applied, as it does for authentik's own default flows.
+- **Gives the LDAP outpost its token.** The outpost's token is created with it, so the Job sets it to the one in `bbe-auth-authentik`, which the outpost's Deployment signs in with.
+- **Keeps the people bbe manages in line** (decision 9).
 
-### 3. PostgreSQL runs from the official image
+The Job signs in with authentik's bootstrap token, which belongs to `akadmin`. It reads before it writes, so a second run changes nothing.
 
-Keycloak's database is a StatefulSet with `postgres:18.6`, on a 2Gi volume of the default storage class. `bbe-auth` needs Longhorn from `bbe-storage`, as bbe-media does (0001, decision 6). It runs as the image's `postgres` user (999), with a read-only root filesystem and no capabilities, which the `restricted` pod security level allows. PostgreSQL 18 keeps its data in `/var/lib/postgresql/18/docker`, so the volume is mounted at `/var/lib/postgresql`.
+### 4. PostgreSQL runs from the official image
+
+authentik's database is a StatefulSet with `postgres:18.6`, on a 2Gi volume of the default storage class. `bbe-auth` needs Longhorn from `bbe-storage`, as bbe-media does (0001, decision 6). It runs as the image's `postgres` user (999), with a read-only root filesystem and no capabilities. PostgreSQL 18 keeps its data in `/var/lib/postgresql/18/docker`, so the volume is mounted at `/var/lib/postgresql`.
 
 Rejected: **CloudNativePG**, which would handle backups and upgrades. Its operator is cluster-wide with its own CRDs and webhooks, so it would be a package of its own, for one small database on one node.
 
-### 4. Traefik replaces ingress-nginx
+### 5. Traefik replaces ingress-nginx
 
-`bbe-networking` runs Traefik 3.7 (chart 41.7.1) on the ingress's IP. Apps behind oauth2-proxy use its `ForwardAuth` middleware.
+`bbe-networking` runs Traefik 3.7 (chart 41.7.1) on the ingress's IP. The apps behind authentik use its `ForwardAuth` middleware.
 
 Traefik ships its CRDs in its chart's `crds/` folder, which Helm only installs on a first install. bbe applies them before every install and upgrade (bbe-quest#55).
 
@@ -98,109 +109,95 @@ They're marked `helm.sh/resource-policy: keep`. Earlier releases created MetalLB
 
 Rejected: **ingress-nginx**, which was retired in March 2026. bbe-networking also allowed its snippet annotations at risk level `Critical`, with which any Ingress could get around the login.
 
-### 5. The apps are named under one domain, with bbe's own certificate authority
+### 6. The apps are named under one domain, with bbe's own certificate authority
 
-Apps are reached at `<app>.bbe.home.arpa` (`global.bbe.domain`):
+Apps are reached at `<app>.bbe.home.arpa` (`global.bbe.domain`), and authentik at `auth.bbe.home.arpa`:
 - Blocky answers for the domain and everything under it with the ingress's IP.
 - cert-manager creates bbe's own certificate authority (`bbe-ca`) and a certificate for the domain and `*.` under it. Traefik serves that for every app, so an Ingress only lists its host under `tls`.
 
-The domain sits below `home.arpa` (RFC 8375) because `home.arpa` is on the Public Suffix List. Browsers refuse a `*.home.arpa` certificate, and won't share a cookie across it, which oauth2-proxy's one sign-in for every app relies on.
+The domain sits below `home.arpa` (RFC 8375) because `home.arpa` is on the Public Suffix List. Browsers refuse a `*.home.arpa` certificate, and won't share a cookie across it. authentik's one sign-in for every app relies on that cookie.
 
 Devices only trust the apps once they trust bbe's CA, which the notes explain how to save. Phones, TVs and their apps are where that's hardest.
 
 Left for later: **a public domain with Let's Encrypt**, through a DNS-01 challenge. It would make every device trust the certificate. There's no domain to test it with yet, and it fits in as a second certificate in Traefik's TLS store.
 
-### 6. Keycloak has one issuer, and apps reach it over the cluster
+### 7. Which app signs people in how
 
-Keycloak is named `https://auth.<domain>` (`KC_HOSTNAME`), with `KC_HOSTNAME_BACKCHANNEL_DYNAMIC`. In Keycloak 26.7.5, run with PostgreSQL in Docker:
-- The issuer and the sign-in page always use the public address.
-- The token and key endpoints follow the address they're asked on.
-- Tokens fetched through the internal address still carry the public issuer.
+| App | How | Who gets in |
+|---|---|---|
+| Sonarr, Radarr, Prowlarr, Bazarr | Traefik's `ForwardAuth` asks authentik's embedded outpost about every request. One cookie for `.<domain>` covers every app | `admins` |
+| qBittorrent | The same, and nginx in its pod asks authentik again (below) | `admins` |
+| Jellyfin, and its TV and phone apps | Jellyfin's official LDAP Authentication plugin (24, for Jellyfin 12), against authentik's LDAP outpost. Jellyfin creates someone's account when they first sign in, and makes `admins` its administrators | `users` and `admins` |
+| Seerr | Through Jellyfin, as before. Seerr creates an account for a new Jellyfin user (`newPlexLogin`, on by default) | Jellyfin's users |
 
-So oauth2-proxy signs people in at `https://auth.<domain>`, but fetches tokens and keys from `http://bbe-auth-keycloak-http.bbe-auth.svc`. Pods never resolve `*.bbe.home.arpa` or trust bbe's CA, as nodes don't ask Blocky.
+**The apps behind forward auth stop asking for their own login.** Their own logins and API keys stay for bbe-media's setup Job, and for the apps talking to each other:
+- Sonarr, Radarr and Prowlarr use `AuthenticationMethod` `External`.
+- Bazarr uses `auth.type` `None`.
+- qBittorrent only skips its login for `127.0.0.1`. nginx in its pod checks with authentik (`auth_request` to `/outpost.goauthentik.io/auth/nginx`) before passing a request on, so only someone authentik let through gets there. Sonarr, Radarr and the setup Job use its API key (qBittorrent 5.2).
 
-Rejected: letting the issuer follow the request's address. A login through one address then makes tokens another client rejects, and a refresh through the other address fails.
+**The LDAP outpost runs as bbe-auth's own Deployment** (`bbe-auth-ldap`, port 389). authentik's embedded outpost only does forward auth. It signs in with the token the Job gives it. Jellyfin reaches it over plain LDAP inside the cluster, like the other connections between pods.
 
-### 7. oauth2-proxy lets admins into the apps without OpenID Connect
-
-One oauth2-proxy runs in `bbe-auth`, with oauth2-proxy itself served at `auth.<domain>/oauth2`:
-- Its cookie is for `.<domain>`, so one sign-in covers every app.
-- An app's Ingress uses a Traefik `ForwardAuth` middleware in its own namespace, pointing at oauth2-proxy's service. oauth2-proxy answers 202 (`static://202`) when someone is signed in, and sends them to Keycloak otherwise.
-- Only `admins` get through. These apps manage the media and the downloads, rather than play anything.
-
-Behind it, each app stops asking for its own login. Its own login and API key stay for bbe-media's setup Job, and for the apps talking to each other:
-
-| App | How it trusts the proxy |
-|---|---|
-| Sonarr, Radarr, Prowlarr | `AuthenticationMethod` `External`. Their API keys still work |
-| Bazarr | `auth.type` `None`. Its API key still works |
-| qBittorrent | An oauth2-proxy sidecar in front of it. qBittorrent only skips its login for `127.0.0.1`, which is the sidecar. Sonarr, Radarr and the setup Job use its API key (qBittorrent 5.2) |
+Jellyfin can't change passwords, as authentik's LDAP is read-only. Its password reset link points at authentik's user settings.
 
 Rejected for qBittorrent: skipping its login for the cluster's own addresses. Traffic through the ingress arrives from Traefik's pod, which is one of those addresses, so every browser would skip it too. Talos' flannel doesn't enforce NetworkPolicy, so the port can't be fenced off either.
 
-The same gap applies to the Servarr apps on `External`: their pods can be reached directly from inside the cluster, where `/initialize.json` hands out the API key. Only traffic through the ingress is protected.
+The Servarr apps on `External` share a similar gap: their pods can be reached directly from inside the cluster, where `/initialize.json` hands out the API key. Only traffic through the ingress is protected.
 
-### 8. Jellyfin and Seerr keep their own logins
+### 8. Jellyfin's own administrator stays
 
-They're reached at `<app>.<domain>` like the other apps, but not behind oauth2-proxy, and not signed in through Keycloak:
+bbe-media's generated admin login (0001, decision 4) stays Jellyfin's first administrator, signing in with its local password. People signing in through LDAP get their own Jellyfin accounts next to it.
 
-- **Jellyfin.**
-  - Its SSO-Auth plugin was archived in May 2026.
-  - On Jellyfin 10.11 it creates users without a password, so anyone knowing a name signs in with an empty one. The fork's fix needs Jellyfin 12.
-  - Jellyfin's TV and phone apps can't sign in through a browser either, only with Quick Connect.
-  - And oauth2-proxy in front of Jellyfin would lock those apps out.
-- **Seerr.**
-  - 3.5.0 has no OpenID Connect; its support is planned for 3.6.0 (seerr#2715).
-  - It signs people in through Jellyfin. With Jellyfin on its own logins, that stays as it is.
+### 9. People are managed in authentik and with `bbe configure`
 
-When Seerr 3.6.0 ships, it can become a client in `bbe.auth.clients`.
+On install, bbe asks for the first admin's username and email (`bbe.auth.admin`). Their first password is generated into `bbe-auth-admin`, and they can change it in authentik. authentik has no switch to force that, and building one would mean a custom flow that TV-only users couldn't get through. Admins then manage people at `auth.<domain>/if/admin/`.
 
-### 9. People are managed in Keycloak's console and with `bbe configure`
-
-On install, bbe asks for the first admin's username and email (`bbe.auth.admin`). Their first password is generated into `bbe-auth-admin`, and they choose a new one when they first sign in. Admins then manage people in the console at `auth.<domain>/admin/bbe/console/`.
-
-`bbe configure bbe-auth` adds and removes users too:
+`bbe configure bbe-auth` adds and removes people too:
 - The chart's `bbe/settings` lists a user's fields: username, email, first and last name, group, and a first password bbe generates and shows once (bbe-quest#55).
 - The password goes to the `bbe-auth-users` secret, not `bbe.yaml`.
 
-The Job creates each listed user with that password, marked temporary, and an attribute `bbe: managed`. For those users only, it keeps `admins` and `users` as the values say, and deletes the ones no longer listed. Like indexers (0001, decision 9), people added in the console are left alone. A listed name that already belongs to someone the console added is skipped, with a warning.
+The Job creates each listed person with that password, under the `bbe/people` path, which tells them apart from people added in authentik.
+- **Groups:** for bbe's people only, it keeps `admins` and `users` as the values say, and leaves other groups alone.
+- **Removal:** it deletes bbe's people who are no longer listed.
+- **People added in authentik:** left alone, like indexers added in Prowlarr (0001, decision 9). A listed name that already belongs to one of them is skipped, with a warning.
 
-### 10. Two ways in when Keycloak can't help
+### 10. The sign-in pages look like bbe
 
-- **bbe-media's generated admin login stays.** It's still what the setup Job signs in with, and it's the way into Jellyfin and Seerr, which keep their own logins.
-- **Keycloak's own admin**, `bbe-admin` in the master realm, is created on Keycloak's first start, with its password in `bbe-auth-keycloak`. It's for when nobody in the `bbe` realm can sign in. Keycloak marks it as a temporary admin in its console.
+The blueprint gives authentik's default brand bbe's looks:
+- **Logo and favicon:** the Brains Beyond Expectations brain, from the GitHub organisation's avatar, at 256px.
+- **Background:** the Big Brain Quest banner from bbe-quest, at 1600px. authentik 2026.8 shows a flow's own background rather than the brand's, so the blueprint also sets it on the flows people see.
+- **Colours:** the banner's magenta, violet and cyan, through the PatternFly variables authentik's custom CSS builds on.
+- **Title:** "Brains Beyond Expectations", on the sign-in flow too.
 
-### 11. The sign-in page looks like bbe
+The images are WebP files in `files/branding/`. A ConfigMap mounts them into authentik's media folder, where it serves them with signed URLs.
 
-The `bbe` realm signs people in on a `bbe` theme, which builds on Keycloak's own `keycloak.v2` login theme and only adds its looks. It uses the Brains Beyond Expectations brain from the GitHub organisation's avatar as the logo, the Big Brain Quest banner from bbe-quest as the background, and the banner's magenta, violet and cyan.
-- **Where it lives:** the files are in `charts/bbe-auth/files/theme/`. A ConfigMap mounts them into Keycloak at `/opt/keycloak/themes/bbe`, with both images as WebP: the banner at 1600px, and the brain at 256px.
-- **How it's chosen:** the setup picks it, and names the realm "Brains Beyond Expectations", unless an admin chose otherwise in the console.
-- **When it changes:** Keycloak reads themes when it starts, so a change to them shows once Keycloak restarts.
+### 11. Two ways in when authentik can't help
+
+- **bbe-media's generated admin login stays.** It's what the setup Job signs in with, and it signs in to Jellyfin and Seerr with its local password.
+- **authentik's own admin**, `akadmin`, is created on authentik's first start, with its password in `bbe-auth-authentik`. It's for when nobody else can sign in.
 
 ## Consequences
 
 - **Devices have to trust bbe's CA**, or they warn about every app. Until there's a public domain with Let's Encrypt, that includes phones and TVs.
 - **Everyone needs the domain to resolve**, so devices have to use Blocky for DNS, which is easiest to set in the router's DHCP.
-- **`users` gets no app yet.** oauth2-proxy only lets `admins` through, and Jellyfin and Seerr have their own logins. The group is there for apps that let everyone signed in through.
-- **Removing someone from the list in `bbe.yaml` deletes them in Keycloak**, if bbe created them. Changing the group of a user bbe created in the console is undone by the next upgrade. Their name and email are only set when they're created.
-- **Uninstalling `bbe-auth` deletes everyone**, with the namespace and Keycloak's database.
+- **A new forward auth application takes up to 5 minutes to work.** The embedded outpost picks up providers when it refreshes. On a first install, the apps behind it answer 404 until then.
+- **Removing someone from the list in `bbe.yaml` deletes them in authentik**, if bbe created them. Changing the group of someone bbe created is undone by the next upgrade. Their name and email are only set when they're created.
+- **Uninstalling `bbe-auth` deletes everyone**, with the namespace and authentik's database.
 - **A new PostgreSQL major version needs a dump and restore.** Changing `bbe.postgres.image.tag` to one doesn't migrate the data.
-- **Keycloak takes up to 1Gi of memory**, which its JVM sizes its heap from, and up to a minute to start.
-- **bbe-networking needs helm 3.10 and bbe 1.6.1, and bbe-auth bbe 1.7.0.**
+- **authentik takes about 1Gi of memory for its server and worker**, and a few minutes on its first start, as it migrates the database and applies its default blueprints.
+- **bbe-networking, bbe-auth and bbe-media need helm 3.10 and bbe 1.7.0.**
   - Traefik's templates use `break`, which helm 3.9 can't parse.
-  - bbe 1.6.1 applies a chart's CRDs before installing or upgrading it.
-  - bbe 1.7.0 reads settings that list fields, and prerequisites that only name a package.
+  - bbe 1.7.0 applies a chart's CRDs before installing or upgrading it, reads settings that list fields, and reads prerequisites that only name a package.
 - **What's verified, and what isn't:**
-  - bbe-networking ran on `present-sprite`: Traefik, the certificates, Blocky's answers, and HTTPS against bbe's CA.
-  - Keycloak 26.7.5 and PostgreSQL 18.6 ran in Docker. The setup script ran against them, and a second run changed nothing. They also showed group changes, removals, a user the console added being left alone, the issuer staying public while tokens came through the service, and PostgreSQL running as 999 on a read-only root.
-  - bbe-media's side was checked against the apps' source, not the running apps, as Docker was no longer available:
-    - Sonarr 4.0.20, Radarr 6.4.4 and Prowlarr 2.6.5 accept `authenticationMethod: external` and still check API keys.
+  - **On `present-sprite`, before it was torn down:** bbe-networking ran there: Traefik, the certificates, Blocky's answers, and HTTPS against bbe's CA.
+  - **In Docker,** authentik 2026.8.4, its LDAP outpost, PostgreSQL 18.6 and Jellyfin 12.2 ran together:
+    - **Blueprint and setup Job:** the blueprint applied. The setup Job ran twice, the second time changing nothing, and waited for a changed blueprint to apply.
+    - **People:** the Job created people, kept their groups in line, removed one who was no longer listed, and left one added in authentik alone.
+    - **Forward auth:** an admin's sign-in through it was let through, both by Traefik's check and by the nginx in front of a stand-in qBittorrent. A member of `users` was sent back to sign in.
+    - **LDAP:** Jellyfin's account found `users` and `admins`.
+    - **Jellyfin:** bbe-media's setup installed and configured the LDAP plugin, then Jellyfin signed in a user with their authentik password and an admin as an administrator. It refused a wrong password, and still signed in its local admin.
+    - **Branding:** the logo, background and title showed on the sign-in flow.
+  - **Against the apps' source only:**
+    - Sonarr 4.0.20, Radarr 6.4.4 and Prowlarr 2.6.5 accept `authenticationMethod: external`.
     - Bazarr 1.6.2 reads `settings-auth-type=None` as no authentication.
-    - qBittorrent 5.2.4 accepts a `WebUI\APIKey` written before it starts, and `WebUI\LocalHostAuth=false` only lets in the TCP peer `127.0.0.1` while reverse proxy support is off.
-    - Sonarr and Radarr send its API key as a Bearer token, and want no username or password with it.
-  - The setup's requests were checked against stubbed apps, with and without single sign-on. qBittorrent's `webui-auth.py` ran against sample config files.
-  - Nothing of `bbe-auth`, or bbe-media's single sign-on, has run on a cluster yet, as the test cluster was torn down. Not tested end to end:
-    - the charts as a whole;
-    - oauth2-proxy behind Traefik's ForwardAuth, and the one in qBittorrent's pod reading its cookie;
-    - signing in from a browser;
-    - `bbe configure bbe-auth` against a real install.
+    - qBittorrent 5.2.4 accepts a pre-written API key, and only skips its login for the TCP peer `127.0.0.1`.
+  - **Not run on a cluster yet:** the charts as a whole, Traefik in front of authentik, a browser sign-in, and `bbe configure bbe-auth` against a real install.

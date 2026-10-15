@@ -1,33 +1,28 @@
 global:
   bbe:
-    # -- The domain the cluster's apps are named under, which bbe-networking answers for. Keycloak signs people in at
+    # -- The domain the cluster's apps are named under, which bbe-networking answers for. authentik signs people in at
     # auth.<domain>
     domain: bbe.home.arpa
 
 bbe:
   auth:
     admin:
-      # -- The username of the first admin, who can manage everyone else in Keycloak's console. Their first password is
+      # -- The username of the first admin, who can manage everyone else in authentik. Their first password is
       # generated into the `bbe-auth-admin` secret
       username:
       # -- The first admin's email address
       email:
-    # -- The users bbe adds to Keycloak, with `bbe configure bbe-auth`. Each has a `username`, an `email`, an optional
+    # -- The users bbe adds to authentik, with `bbe configure bbe-auth`. Each has a `username`, an `email`, an optional
     # `firstName` and `lastName`, `groups` (`users` or `admins`), and `secretFields.password`, the key of their first
-    # password in the `bbe-auth-users` secret. People added in Keycloak's console aren't listed here
+    # password in the `bbe-auth-users` secret. People added in authentik's admin interface aren't listed here
     users: []
-    # -- Apps signing people in with Keycloak themselves, rather than behind oauth2-proxy. Each is a client in the realm,
-    # with a secret generated into the `bbe-auth-clients` secret. `clientId` names it, `host` is the app's name under the
-    # domain, and `redirectPath` where Keycloak sends people back to. None of bbe's apps do yet: Jellyfin's SSO plugin and
-    # Seerr's sign-in can't, so they keep their own logins
-    clients: []
   postgres:
     image:
       # -- The PostgreSQL image, the official one
       repository: postgres
       # -- The PostgreSQL version. A new major version needs the database dumped and restored, which an upgrade doesn't
       tag: "18.6"
-    # -- The size of Keycloak's database
+    # -- The size of authentik's database
     size: 2Gi
     resources:
       requests:
@@ -38,15 +33,30 @@ bbe:
       limits:
         # -- The memory to limit PostgreSQL to
         memory: 512Mi
+  ldap:
+    image:
+      # -- authentik's LDAP outpost, which Jellyfin signs people in with. Its version is authentik's
+      repository: ghcr.io/goauthentik/ldap
+      # -- The LDAP outpost's version, the same as authentik's
+      tag: "2026.8.4"
+    resources:
+      requests:
+        # -- The memory to request for the LDAP outpost
+        memory: 64Mi
+        # -- The CPU to request for the LDAP outpost
+        cpu: 10m
+      limits:
+        # -- The memory to limit the LDAP outpost to
+        memory: 128Mi
   setup:
     image:
       # -- The image to run the setup with, which only needs Python
       repository: python
       # -- The tag of the setup image
       tag: "3.13-alpine"
-    # -- How long the setup waits for Keycloak to start, in seconds
+    # -- How long the setup waits for authentik to start and apply bbe's blueprint, in seconds
     readyTimeout: 900
-    # -- How many times the setup is retried when Keycloak couldn't be set up
+    # -- How many times the setup is retried when authentik couldn't be set up
     backoffLimit: 5
     resources:
       requests:
@@ -58,139 +68,65 @@ bbe:
         # -- The amount of memory to limit the setup pod to
         memory: "128Mi"
 
-keycloakx:
-  fullnameOverride: bbe-auth-keycloak
-  image:
-    # The chart's own default trails Keycloak's patch releases
-    tag: "26.7.5"
-  command:
-    - /opt/keycloak/bin/kc.sh
-  args:
-    - start
-  http:
-    # Keycloak serves from / since version 17. The chart keeps /auth for older setups
-    relativePath: /
-  proxy:
-    # Traefik sends X-Forwarded-* headers
-    mode: xforwarded
-  database:
-    vendor: postgres
-    hostname: bbe-auth-postgres
-    port: 5432
-    database: keycloak
-    username: keycloak
-    existingSecret: bbe-auth-postgres
-    existingSecretKey: password
-  dbchecker:
-    enabled: true
-  # Keycloak names itself after one address, so a token's issuer is the same whichever address it was asked for. Apps in
-  # the cluster still reach it by its service, as the backchannel follows the address it was asked on
-  extraEnv: |
-    - name: KC_HOSTNAME
-      value: https://auth.{{ .Values.global.bbe.domain }}
-    - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
-      value: "true"
-    - name: KC_BOOTSTRAP_ADMIN_CLIENT_ID
-      valueFrom:
-        secretKeyRef:
-          name: bbe-auth-keycloak
-          key: setup-client-id
-    - name: KC_BOOTSTRAP_ADMIN_CLIENT_SECRET
-      valueFrom:
-        secretKeyRef:
-          name: bbe-auth-keycloak
-          key: setup-client-secret
-    - name: KC_BOOTSTRAP_ADMIN_USERNAME
-      valueFrom:
-        secretKeyRef:
-          name: bbe-auth-keycloak
-          key: admin-username
-    - name: KC_BOOTSTRAP_ADMIN_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: bbe-auth-keycloak
-          key: admin-password
-  securityContext:
-    runAsUser: 1000
-    runAsNonRoot: true
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    seccompProfile:
-      type: RuntimeDefault
-  resources:
-    requests:
-      memory: 512Mi
-      cpu: 100m
-    limits:
-      # Keycloak's JVM sizes its heap from this
-      memory: 1Gi
-  # bbe's sign-in page, from the bbe-auth-theme ConfigMap. Keycloak reads themes when it starts
-  extraVolumes: |
-    - name: theme
-      configMap:
-        name: bbe-auth-theme
-        items:
-          - key: theme.properties
-            path: login/theme.properties
-          - key: bbe.css
-            path: login/resources/css/bbe.css
-          - key: brain.webp
-            path: login/resources/img/brain.webp
-          - key: background.webp
-            path: login/resources/img/background.webp
-  extraVolumeMounts: |
-    - name: theme
-      mountPath: /opt/keycloak/themes/bbe
-      readOnly: true
-
-oauth2-proxy:
-  fullnameOverride: bbe-auth-oauth2-proxy
-  config:
-    existingSecret: bbe-auth-oauth2-proxy
-    # Named so the oauth2-proxy in front of qBittorrent, in bbe-media, reads the same cookie
-    cookieName: _bbe_sso
-    emailDomains:
-      - "*"
-    # Traefik asks oauth2-proxy whether a request may go through, and sends it on itself
-    upstreams:
-      - static://202
-  # Keycloak is reached by its service for tokens and keys, and by its address for signing in, as browsers do
-  extraArgs:
-    provider: keycloak-oidc
-    oidc-issuer-url: https://auth.{{ .Values.global.bbe.domain }}/realms/bbe
-    skip-oidc-discovery: true
-    login-url: https://auth.{{ .Values.global.bbe.domain }}/realms/bbe/protocol/openid-connect/auth
-    redeem-url: http://bbe-auth-keycloak-http.{{ .Release.Namespace }}.svc/realms/bbe/protocol/openid-connect/token
-    oidc-jwks-url: http://bbe-auth-keycloak-http.{{ .Release.Namespace }}.svc/realms/bbe/protocol/openid-connect/certs
-    redirect-url: https://auth.{{ .Values.global.bbe.domain }}/oauth2/callback
-    # One sign-in for every app under the domain
-    cookie-domain: .{{ .Values.global.bbe.domain }}
-    whitelist-domain: .{{ .Values.global.bbe.domain }}
-    cookie-secure: "true"
-    reverse-proxy: "true"
-    set-xauthrequest: "true"
-    skip-provider-button: "true"
-    code-challenge-method: S256
-    scope: openid email profile groups
-    # The apps behind oauth2-proxy manage the media rather than play it, so only admins get in
-    allowed-group: admins
-  securityContext:
-    enabled: true
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 2000
-    runAsGroup: 2000
-    seccompProfile:
-      type: RuntimeDefault
-  resources:
-    requests:
-      memory: 32Mi
-      cpu: 10m
-    limits:
-      memory: 128Mi
+authentik:
+  # Its services are bbe-auth-server and bbe-auth-worker
+  fullnameOverride: bbe-auth
+  global:
+    # Its secret key, database password, bootstrap admin and token, and the values bbe's blueprint reads, generated by
+    # bbe-auth. They come after the chart's own, so they win
+    envFrom:
+      - secretRef:
+          name: bbe-auth-authentik
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+  authentik:
+    postgresql:
+      host: bbe-auth-postgres
+      name: authentik
+      user: authentik
+  # bbe-auth runs PostgreSQL itself, from the official image
+  postgresql:
+    enabled: false
+  # authentik doesn't deploy outposts itself, so it needs no access to the Kubernetes API. bbe-auth runs its LDAP
+  # outpost
+  serviceAccount:
+    create: false
+  blueprints:
+    configMaps:
+      - bbe-auth-blueprints
+  server:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 100m
+      limits:
+        memory: 1Gi
+    # bbe's logo and sign-in background, which authentik serves from its media folder
+    volumes:
+      - name: branding
+        configMap:
+          name: bbe-auth-branding
+    volumeMounts:
+      - name: branding
+        mountPath: /media/public/branding
+        readOnly: true
+  worker:
+    automountServiceAccountToken: false
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        memory: 384Mi
+        cpu: 100m
+      limits:
+        memory: 1Gi
