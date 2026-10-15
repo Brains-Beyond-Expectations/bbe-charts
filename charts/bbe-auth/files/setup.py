@@ -28,6 +28,9 @@ USERS = json.loads(os.environ.get("USERS") or "[]")
 USER_PASSWORDS_DIR = os.environ.get("USER_PASSWORDS_DIR", "/user-passwords")
 READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
 
+# bbe's sign-in page, mounted into Keycloak by the chart, and the name it shows
+LOGIN_THEME = "bbe"
+DISPLAY_NAME = "Brains Beyond Expectations"
 # The groups bbe creates, and decides who is in for the users it manages
 GROUPS = ["admins", "users"]
 # Marks the users bbe created, so it only ever changes or removes its own
@@ -145,6 +148,21 @@ def configure_realm(keycloak):
         "sslRequired": "external",
     })
     log(f"Keycloak: created the {REALM} realm")
+
+
+def configure_login_theme(keycloak):
+    """Gives the realm bbe's sign-in page, and a name to show on it, unless an admin picked others in the console"""
+    realm = keycloak.get(f"/admin/realms/{REALM}")
+    changes = {}
+    if not realm.get("loginTheme"):
+        changes["loginTheme"] = LOGIN_THEME
+    # The page shows the HTML name, which Keycloak's console calls "HTML Display name"
+    for field in ("displayName", "displayNameHtml"):
+        if not realm.get(field):
+            changes[field] = DISPLAY_NAME
+    if changes:
+        keycloak.put(f"/admin/realms/{REALM}", {**realm, **changes})
+        log(f"Keycloak: the {REALM} realm signs people in on bbe's page")
 
 
 def configure_user_profile(keycloak):
@@ -328,6 +346,7 @@ def main():
     log("Keycloak: ready")
 
     configure_realm(keycloak)
+    configure_login_theme(keycloak)
     configure_user_profile(keycloak)
     groups = configure_groups(keycloak)
     groups_scope = configure_groups_scope(keycloak)

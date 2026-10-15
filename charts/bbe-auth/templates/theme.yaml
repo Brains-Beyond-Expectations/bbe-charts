@@ -1,0 +1,19 @@
+{{- /*
+bbe's sign-in page, a Keycloak theme mounted into Keycloak at /opt/keycloak/themes/bbe. The setup picks it for the
+bbe realm, unless an admin picked another
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-auth-theme
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+data:
+  theme.properties: |
+    {{- .Files.Get "files/theme/theme.properties" | nindent 4 }}
+  bbe.css: |
+    {{- .Files.Get "files/theme/bbe.css" | nindent 4 }}
+binaryData:
+  brain.webp: {{ .Files.Get "files/theme/brain.webp" | b64enc }}
+  background.webp: {{ .Files.Get "files/theme/background.webp" | b64enc }}

@@ -126,6 +126,24 @@ keycloakx:
     limits:
       # Keycloak's JVM sizes its heap from this
       memory: 1Gi
+  # bbe's sign-in page, from the bbe-auth-theme ConfigMap. Keycloak reads themes when it starts
+  extraVolumes: |
+    - name: theme
+      configMap:
+        name: bbe-auth-theme
+        items:
+          - key: theme.properties
+            path: login/theme.properties
+          - key: bbe.css
+            path: login/resources/css/bbe.css
+          - key: brain.webp
+            path: login/resources/img/brain.webp
+          - key: background.webp
+            path: login/resources/img/background.webp
+  extraVolumeMounts: |
+    - name: theme
+      mountPath: /opt/keycloak/themes/bbe
+      readOnly: true
 
 oauth2-proxy:
   fullnameOverride: bbe-auth-oauth2-proxy

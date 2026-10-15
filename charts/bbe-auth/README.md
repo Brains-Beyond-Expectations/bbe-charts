@@ -46,6 +46,8 @@ Single sign-on for the BBE cluster's apps, with Keycloak, its PostgreSQL databas
 | keycloakx.database.vendor | string | `"postgres"` |  |
 | keycloakx.dbchecker.enabled | bool | `true` |  |
 | keycloakx.extraEnv | string | `"- name: KC_HOSTNAME\n  value: https://auth.{{ .Values.global.bbe.domain }}\n- name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC\n  value: \"true\"\n- name: KC_BOOTSTRAP_ADMIN_CLIENT_ID\n  valueFrom:\n    secretKeyRef:\n      name: bbe-auth-keycloak\n      key: setup-client-id\n- name: KC_BOOTSTRAP_ADMIN_CLIENT_SECRET\n  valueFrom:\n    secretKeyRef:\n      name: bbe-auth-keycloak\n      key: setup-client-secret\n- name: KC_BOOTSTRAP_ADMIN_USERNAME\n  valueFrom:\n    secretKeyRef:\n      name: bbe-auth-keycloak\n      key: admin-username\n- name: KC_BOOTSTRAP_ADMIN_PASSWORD\n  valueFrom:\n    secretKeyRef:\n      name: bbe-auth-keycloak\n      key: admin-password\n"` |  |
+| keycloakx.extraVolumeMounts | string | `"- name: theme\n  mountPath: /opt/keycloak/themes/bbe\n  readOnly: true\n"` |  |
+| keycloakx.extraVolumes | string | `"- name: theme\n  configMap:\n    name: bbe-auth-theme\n    items:\n      - key: theme.properties\n        path: login/theme.properties\n      - key: bbe.css\n        path: login/resources/css/bbe.css\n      - key: brain.webp\n        path: login/resources/img/brain.webp\n      - key: background.webp\n        path: login/resources/img/background.webp\n"` |  |
 | keycloakx.fullnameOverride | string | `"bbe-auth-keycloak"` |  |
 | keycloakx.http.relativePath | string | `"/"` |  |
 | keycloakx.image.tag | string | `"26.7.5"` |  |

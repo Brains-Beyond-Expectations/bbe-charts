@@ -170,6 +170,13 @@ The Job creates each listed user with that password, marked temporary, and an at
 - **bbe-media's generated admin login stays.** It's still what the setup Job signs in with, and it's the way into Jellyfin and Seerr, which keep their own logins.
 - **Keycloak's own admin**, `bbe-admin` in the master realm, is created on Keycloak's first start, with its password in `bbe-auth-keycloak`. It's for when nobody in the `bbe` realm can sign in. Keycloak marks it as a temporary admin in its console.
 
+### 11. The sign-in page looks like bbe
+
+The `bbe` realm signs people in on a `bbe` theme, which builds on Keycloak's own `keycloak.v2` login theme and only adds its looks. It uses the Brains Beyond Expectations brain from the GitHub organisation's avatar as the logo, the Big Brain Quest banner from bbe-quest as the background, and the banner's magenta, violet and cyan.
+- **Where it lives:** the files are in `charts/bbe-auth/files/theme/`. A ConfigMap mounts them into Keycloak at `/opt/keycloak/themes/bbe`, with both images as WebP: the banner at 1600px, and the brain at 256px.
+- **How it's chosen:** the setup picks it, and names the realm "Brains Beyond Expectations", unless an admin chose otherwise in the console.
+- **When it changes:** Keycloak reads themes when it starts, so a change to them shows once Keycloak restarts.
+
 ## Consequences
 
 - **Devices have to trust bbe's CA**, or they warn about every app. Until there's a public domain with Let's Encrypt, that includes phones and TVs.
