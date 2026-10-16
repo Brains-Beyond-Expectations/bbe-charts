@@ -1,45 +1,57 @@
+{{- /*
+The books' share, and its `books/` and `books-ingest/` folders as volumes of their own. The share's own folder may let
+nobody but its owner in, and root is mapped away, so the kubelet couldn't reach folders in it to mount them. The
+folders Job creates them in the share as the NAS user, and the apps' volumes mount them directly
+*/ -}}
+{{- $nfs := .Values.bbe.library.nfs }}
+{{- $volumes := list
+    (dict "claim" "bbe-library-share" "path" $nfs.path)
+    (dict "claim" "bbe-library-calibre-books" "path" (printf "%s/books" (trimSuffix "/" $nfs.path)))
+    (dict "claim" "bbe-library-calibre-ingest" "path" (printf "%s/books-ingest" (trimSuffix "/" $nfs.path)))
+}}
+{{- range $volumes }}
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ include "bbe-library.booksVolumeName" . }}
+  name: {{ printf "%s-%s" $.Release.Namespace .claim | trunc 63 | trimSuffix "-" }}
   labels:
-    {{- include "bbe-library.labels" . | nindent 4 }}
+    {{- include "bbe-library.labels" $ | nindent 4 }}
 spec:
   capacity:
-    storage: {{ .Values.bbe.library.size }}
+    storage: {{ $.Values.bbe.library.size }}
   accessModes:
     - ReadWriteMany
   # Removing the volume never removes the books on the NFS server
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
-  {{- with .Values.bbe.library.nfs.mountOptions }}
+  {{- with $nfs.mountOptions }}
   mountOptions:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   claimRef:
-    namespace: {{ .Release.Namespace }}
-    name: bbe-library-books
+    namespace: {{ $.Release.Namespace }}
+    name: {{ .claim }}
   nfs:
-    server: {{ .Values.bbe.library.nfs.server }}
-    path: {{ .Values.bbe.library.nfs.path }}
+    server: {{ $nfs.server }}
+    path: {{ .path }}
 ---
-# The books are in `books/` on the share, and what's waiting to be added in `books-ingest/`, which Calibre-Web-Automated
-# empties as it adds them
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: bbe-library-books
-  namespace: {{ .Release.Namespace }}
+  name: {{ .claim }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    {{- include "bbe-library.labels" . | nindent 4 }}
+    {{- include "bbe-library.labels" $ | nindent 4 }}
 spec:
   accessModes:
     - ReadWriteMany
   storageClassName: ""
-  volumeName: {{ include "bbe-library.booksVolumeName" . }}
+  volumeName: {{ printf "%s-%s" $.Release.Namespace .claim | trunc 63 | trimSuffix "-" }}
   resources:
     requests:
-      storage: {{ .Values.bbe.library.size }}
+      storage: {{ $.Values.bbe.library.size }}
+{{- end }}
 {{- $media := include "bbe-library.mediaVolume" . | fromJson }}
 {{- with $media.spec }}
 ---

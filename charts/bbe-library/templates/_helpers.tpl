@@ -7,10 +7,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Volumes aren't namespaced, so the namespace keeps the volumes' names unique in the cluster
 */}}
-{{- define "bbe-library.booksVolumeName" -}}
-{{- printf "%s-bbe-library-books" .Release.Namespace | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
 {{- define "bbe-library.downloadsVolumeName" -}}
 {{- printf "%s-bbe-library-downloads" .Release.Namespace | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

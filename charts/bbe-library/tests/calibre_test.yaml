@@ -3,29 +3,35 @@ values:
   - ./values/required-values.yaml
 templates:
   - calibre.yaml
+  - folders.yaml
   - user.yaml
 release:
   name: bbe-library
   namespace: bbe-library
 tests:
   - it: should create the library's folders and an empty library as the NAS user
-    template: calibre.yaml
-    documentSelector:
-      path: kind
-      value: Deployment
+    template: folders.yaml
+    release:
+      revision: 2
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[0].securityContext.runAsUser
+          path: metadata.name
+          value: bbe-library-folders-2
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
           value: 1031
       - equal:
-          path: spec.template.spec.initContainers[0].securityContext.runAsGroup
+          path: spec.template.spec.securityContext.runAsGroup
           value: 100
       - matchRegex:
-          path: spec.template.spec.initContainers[0].command[2]
+          path: spec.template.spec.containers[0].command[2]
           pattern: mkdir -p /share/books /share/books-ingest
       - matchRegex:
-          path: spec.template.spec.initContainers[0].command[2]
+          path: spec.template.spec.containers[0].command[2]
           pattern: cp /app/calibre-web-automated/empty_library/metadata.db /share/books/metadata.db
+      - equal:
+          path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
+          value: bbe-library-share
 
   - it: should keep the library and ingest folders on the share, and its databases off NFS
     template: calibre.yaml
@@ -38,13 +44,17 @@ tests:
           content:
             name: books
             mountPath: /calibre-library
-            subPath: books
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
-            name: books
+            name: ingest
             mountPath: /cwa-book-ingest
-            subPath: books-ingest
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: ingest
+            persistentVolumeClaim:
+              claimName: bbe-library-calibre-ingest
       - contains:
           path: spec.template.spec.volumes
           content:

@@ -92,23 +92,6 @@ spec:
             - name: bbe-ca
               mountPath: /bbe-ca
               readOnly: true
-        - name: folders
-          image: "{{ $shelfmark.image.repository }}:{{ $shelfmark.image.tag }}"
-          command:
-            - mkdir
-            - -p
-            - /share/books-ingest
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - ALL
-          resources:
-            {{- include "bbe-library.initResources" . | nindent 12 }}
-          volumeMounts:
-            - name: books
-              mountPath: /share
       containers:
         - name: shelfmark
           image: "{{ $shelfmark.image.repository }}:{{ $shelfmark.image.tag }}"
@@ -282,9 +265,8 @@ spec:
             - name: certificates
               mountPath: /certificates
               readOnly: true
-            - name: books
+            - name: ingest
               mountPath: /books
-              subPath: books-ingest
             {{- if $media.spec }}
             # Where qBittorrent puts what it downloaded, as bbe-media mounts it
             - name: downloads
@@ -302,9 +284,9 @@ spec:
           configMap:
             name: bbe-library-ca
             optional: true
-        - name: books
+        - name: ingest
           persistentVolumeClaim:
-            claimName: bbe-library-books
+            claimName: bbe-library-calibre-ingest
         {{- if $media.spec }}
         - name: downloads
           persistentVolumeClaim:

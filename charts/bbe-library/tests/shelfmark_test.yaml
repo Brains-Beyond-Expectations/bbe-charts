@@ -58,9 +58,14 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
-            name: books
+            name: ingest
             mountPath: /books
-            subPath: books-ingest
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: ingest
+            persistentVolumeClaim:
+              claimName: bbe-library-calibre-ingest
       - contains:
           path: spec.template.spec.containers[0].env
           content:

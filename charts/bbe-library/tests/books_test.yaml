@@ -7,19 +7,12 @@ release:
   name: bbe-library
   namespace: bbe-library
 tests:
-  - it: should link the books' NFS share, keeping it when the volume goes
+  - it: should link the books' share, and mount its folders directly, keeping them when the volumes go
     documentSelector:
       path: kind
       value: PersistentVolume
+      matchMany: true
     asserts:
-      - equal:
-          path: metadata.name
-          value: bbe-library-bbe-library-books
-      - equal:
-          path: spec.nfs
-          value:
-            server: 192.168.1.10
-            path: /volume1/media
       - equal:
           path: spec.persistentVolumeReclaimPolicy
           value: Retain
@@ -27,16 +20,48 @@ tests:
           path: spec.mountOptions
           value:
             - nfsvers=4
+
+  - it: should mount the library and ingest folders without going through the share's own folder
+    asserts:
+      - hasDocuments:
+          count: 6
+      - equal:
+          path: spec.nfs
+          value:
+            server: 192.168.1.10
+            path: /volume1/media
+        documentIndex: 0
+      - equal:
+          path: spec.nfs
+          value:
+            server: 192.168.1.10
+            path: /volume1/media/books
+        documentIndex: 2
       - equal:
           path: spec.claimRef
           value:
             namespace: bbe-library
-            name: bbe-library-books
+            name: bbe-library-calibre-books
+        documentIndex: 2
+      - equal:
+          path: spec.nfs
+          value:
+            server: 192.168.1.10
+            path: /volume1/media/books-ingest
+        documentIndex: 4
+      - equal:
+          path: metadata.name
+          value: bbe-library-bbe-library-calibre-ingest
+        documentIndex: 4
 
-  - it: should leave out bbe-media's downloads when bbe-media isn't installed
+  - it: should take the share's path with a trailing slash
+    set:
+      bbe.library.nfs.path: /volume1/media/
     asserts:
-      - hasDocuments:
-          count: 2
+      - equal:
+          path: spec.nfs.path
+          value: /volume1/media/books
+        documentIndex: 2
 
   - it: should link bbe-media's share read-only, for qBittorrent's downloads
     kubernetesProvider:
@@ -61,20 +86,20 @@ tests:
               path: /volume1/bbe-media
     asserts:
       - hasDocuments:
-          count: 4
+          count: 8
       - equal:
           path: spec.nfs
           value:
             server: 192.168.1.219
             path: /volume1/bbe-media
             readOnly: true
-        documentIndex: 2
+        documentIndex: 6
       - equal:
           path: spec.accessModes
           value:
             - ReadOnlyMany
-        documentIndex: 2
+        documentIndex: 6
       - equal:
           path: spec.volumeName
           value: bbe-library-bbe-library-downloads
-        documentIndex: 3
+        documentIndex: 7
