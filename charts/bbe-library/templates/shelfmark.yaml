@@ -265,6 +265,11 @@ spec:
             - name: certificates
               mountPath: /certificates
               readOnly: true
+            # Its downloads in progress and logs, which the image's own user owns otherwise
+            - name: tmp
+              mountPath: /tmp
+            - name: logs
+              mountPath: /var/log/shelfmark
             - name: share
               mountPath: /share
             {{- if $media.spec }}
@@ -280,6 +285,12 @@ spec:
         - name: certificates
           emptyDir:
             sizeLimit: 2Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 4Gi
+        - name: logs
+          emptyDir:
+            sizeLimit: 256Mi
         - name: bbe-ca
           configMap:
             name: bbe-library-ca

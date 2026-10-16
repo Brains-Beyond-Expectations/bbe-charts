@@ -63,6 +63,8 @@ class Forms(html.parser.HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.forms = []
+        # Every field each form has, sent or not, as unticked checkboxes aren't
+        self.names = []
         self.fields = None
         self.select = None
         self.option = None
@@ -73,9 +75,14 @@ class Forms(html.parser.HTMLParser):
         if tag == "form":
             self.fields = []
             self.forms.append(self.fields)
-        if self.fields is None or "disabled" in attrs:
+            self.names.append(set())
+        if self.fields is None:
             return
         name = attrs.get("name")
+        if name and tag in ("input", "select", "textarea"):
+            self.names[-1].add(name)
+        if "disabled" in attrs:
+            return
         if tag == "input" and name:
             kind = attrs.get("type", "text").lower()
             if kind in ("checkbox", "radio"):
@@ -115,8 +122,8 @@ def form_with(page, field):
     """The form on a page that has a field, as a dict of what a browser would post"""
     parser = Forms()
     parser.feed(page)
-    for fields in parser.forms:
-        if any(name == field for name, _ in fields):
+    for fields, names in zip(parser.forms, parser.names):
+        if field in names:
             values = {}
             for name, value in fields:
                 values.setdefault(name, value)
@@ -124,12 +131,21 @@ def form_with(page, field):
     raise SetupError(f"Calibre-Web: there's no form with `{field}`")
 
 
+class InsideTheCluster(http.cookiejar.DefaultCookiePolicy):
+    """Sends Calibre-Web's session cookie over plain HTTP too. It's marked secure for people, who reach it over HTTPS,
+    and this only talks to its Service inside the cluster"""
+
+    def return_ok_secure(self, cookie, request):
+        return True
+
+
 class CalibreWeb:
     """Calibre-Web's pages, signed in with a session cookie like a browser"""
 
     def __init__(self, url):
         self.url = url
-        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        cookies = http.cookiejar.CookieJar(policy=InsideTheCluster())
+        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
         self.csrf_token = ""
 
     def request(self, method, path, form=None, ajax=False, timeout=120):
@@ -166,7 +182,10 @@ class CalibreWeb:
         return self.request("POST", path, dict(form, csrf_token=self.csrf_token))
 
     def post_ajax(self, path, form):
+        """Its answer, which some endpoints leave empty when they've saved it, and answer errors with 400 otherwise"""
         content = self.request("POST", path, form, ajax=True)[1]
+        if not content.strip():
+            return {}
         try:
             return json.loads(content)
         except ValueError:
@@ -214,13 +233,18 @@ def check_result(result, what):
             raise SetupError(f"Calibre-Web: {what} wasn't saved: {message.get('message')}")
 
 
-def configure_admin(calibre):
-    """Signs in as the library's own admin, which the first run makes of Calibre-Web's default one"""
+def sign_in_admin(calibre):
+    """Signs in as the library's own admin, or as Calibre-Web's default one before the first run made it bbe's. Says
+    whether it's the default one"""
     if calibre.sign_in(ADMIN_USERNAME, ADMIN_PASSWORD):
-        return
-    if not calibre.sign_in(*DEFAULT_ADMIN):
-        raise SetupError(f"Calibre-Web: neither {ADMIN_USERNAME} nor its default admin could sign in")
+        return False
+    if calibre.sign_in(*DEFAULT_ADMIN):
+        return True
+    raise SetupError(f"Calibre-Web: neither {ADMIN_USERNAME} nor its default admin could sign in")
 
+
+def configure_admin(calibre):
+    """Makes Calibre-Web's default admin the library's own, with bbe's name and password"""
     users = json.loads(calibre.users())["rows"]
     admin = next((user for user in users if user["name"] == DEFAULT_ADMIN[0]), None)
     if admin is None:
@@ -265,8 +289,9 @@ def basic_settings():
         "config_ldap_serv_username": LDAP_BIND_DN,
         "config_ldap_dn": LDAP_BASE_DN,
         "config_ldap_user_object": f"(&(cn=%s)(|{members}))",
-        # authentik's groups list their members' DNs in `member`
-        "config_ldap_openldap": None,
+        # Binding takes a user's DN from the search, as authentik's entries have no Active Directory
+        # `distinguishedName`. Its groups list their members' DNs in `member`
+        "config_ldap_openldap": "on",
         "config_ldap_group_object_filter": "(&(objectClass=group)(cn=%s))",
         "config_ldap_group_members_field": "member",
         "config_ldap_group_name": ADMIN_GROUP,
@@ -341,7 +366,8 @@ def configure_admins(calibre):
     """Creates authentik's admins in Calibre-Web, and keeps admin rights for exactly them among the people in LDAP.
     Calibre-Web has no admin group of its own, so this follows `admins` on every install and upgrade"""
     members = ldap_members()
-    if members[ADMIN_GROUP]:
+    known = {user["name"].lower() for user in json.loads(calibre.users())["rows"]}
+    if members[ADMIN_GROUP] - known:
         result = calibre.post_ajax("/import_ldap_users", {})
         log(f"Calibre-Web: importing authentik's admins: {result.get('text', result)}")
 
@@ -369,8 +395,11 @@ def main():
     calibre.wait_until_ready(deadline)
     log("Calibre-Web: ready")
 
-    configure_admin(calibre)
+    default_admin = sign_in_admin(calibre)
+    # Until it has a library, Calibre-Web sends every admin page to its database settings
     configure_library(calibre)
+    if default_admin:
+        configure_admin(calibre)
     configure_basics(calibre, deadline)
     configure_default_roles(calibre)
     configure_admins(calibre)

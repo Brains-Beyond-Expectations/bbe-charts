@@ -71,7 +71,7 @@ Rejected: **Longhorn**, safer for metadata.db, but the books would only be on th
 
 CWA's login uses LDAP, through bbe-auth's LDAP outpost, as Jellyfin's does:
 - People in `users` or `admins` sign in with their authentik password, in the browser and on e-readers. CWA's OPDS feed checks passwords against LDAP too. Kobo devices use a token each person makes in their profile.
-- The library binds with its own account, `books-ldap`, which bbe-auth's blueprint creates with Jellyfin's.
+- The library binds with its own account, `books-ldap`, which bbe-auth's blueprint creates with Jellyfin's. CWA's "OpenLDAP" setting is on, so it binds with the DN its search finds, as authentik's entries have no Active Directory `distinguishedName`.
 - CWA creates people on their first sign-in. New people may download, read and keep shelves.
 - **CWA has no admin group of its own**, so the setup Job asks LDAP who is in `admins` and keeps admin rights for exactly them, among the people in LDAP. It runs on every install and upgrade, so a new admin gets their rights on the next upgrade.
 - **The library's own admin** (`bbe.admin.username`) isn't in LDAP, so it signs in with its own password, generated into `bbe-library-admin`. It's what the setup signs in with, and the way in when authentik can't help. CWA's default `admin` is renamed to it, with that password.
