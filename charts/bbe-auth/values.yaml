@@ -77,6 +77,10 @@ authentik:
     envFrom:
       - secretRef:
           name: bbe-auth-authentik
+    # Restarts authentik when bbe-auth-authentik gets a new key, which its pods only read when they start and bbe's
+    # blueprint fails without. Raise it with every key added
+    podAnnotations:
+      bbe.home.arpa/authentik-secret-keys: "2"
     securityContext:
       runAsNonRoot: true
       seccompProfile:

@@ -22,6 +22,15 @@ tests:
           path: spec.template.spec.automountServiceAccountToken
           value: false
 
+  - it: should restart authentik when its secret gets a new key, which it reads on start
+    templates:
+      - charts/authentik/templates/server/deployment.yaml
+      - charts/authentik/templates/worker/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["bbe.home.arpa/authentik-secret-keys"]
+          value: "2"
+
   - it: should serve bbe's logo and background from authentik's media folder
     template: charts/authentik/templates/server/deployment.yaml
     asserts:

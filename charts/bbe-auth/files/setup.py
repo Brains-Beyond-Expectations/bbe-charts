@@ -22,6 +22,10 @@ AUTHENTIK_TOKEN = os.environ.get("AUTHENTIK_TOKEN", "")
 BLUEPRINT = os.environ.get("BLUEPRINT", "bbe")
 # The blueprint as the chart mounts it, whose hash tells when authentik applied this version
 BLUEPRINT_FILE = os.environ.get("BLUEPRINT_FILE", "/blueprints/bbe.yaml")
+# Where the worker reads it, for the command that shows why it didn't apply
+WORKER_BLUEPRINT_FILE = "/blueprints/mounted/cm-bbe-auth-blueprints/bbe.yaml"
+# How long an apply may take before it's asked again, or its error counts
+APPLY_WAIT = 300
 # The LDAP outpost's Deployment signs in to authentik with this token, which authentik generates otherwise
 LDAP_OUTPOST = os.environ.get("LDAP_OUTPOST", "bbe LDAP")
 LDAP_OUTPOST_TOKEN = os.environ.get("LDAP_OUTPOST_TOKEN", "")
@@ -122,12 +126,14 @@ def read_file(directory, name):
 
 
 def apply_blueprint(authentik, deadline):
-    """Has the worker apply bbe's blueprint as it is in the chart, rather than whenever it gets to it. The worker finds
-    the blueprint on start, applies it in the background, and can only do so once authentik's default flows are there,
-    so this waits until authentik says it applied this very content"""
+    """Has the worker apply bbe's blueprint as it is in the chart, rather than whenever it gets to it, and waits until
+    authentik says it applied this very content. The worker can only apply it once authentik's default flows are
+    there, and an apply takes minutes, as it applies the default blueprints it builds on first. Each request queues
+    another apply, so it's only asked again when one seems lost"""
     with open(BLUEPRINT_FILE, encoding="utf-8") as file:
         wanted_hash = sha512(file.read().encode()).hexdigest()
 
+    requested = None
     last_state = "not found yet"
     while time.monotonic() < deadline:
         instances = authentik.results("/managed/blueprints/", name=BLUEPRINT)
@@ -136,11 +142,16 @@ def apply_blueprint(authentik, deadline):
             if instance["last_applied_hash"] == wanted_hash and instance["status"] == "successful":
                 log(f"authentik: applied the `{BLUEPRINT}` blueprint")
                 return
-            if instance["status"] == "error" and instance["last_applied_hash"] == wanted_hash:
-                raise SetupError(f"authentik: the `{BLUEPRINT}` blueprint failed to apply. The worker's log says why")
             last_state = f"{instance['status']}, applied as {instance['last_applied_hash'][:12] or 'nothing'}"
-            # Applying only queues it for the worker
-            authentik.post(f"/managed/blueprints/{instance['pk']}/apply/")
+            waited = time.monotonic() - requested if requested is not None else None
+            # An error from before the request stands until the apply it queued has run
+            if instance["status"] == "error" and waited is not None and waited > APPLY_WAIT:
+                raise SetupError(
+                    f"authentik: the `{BLUEPRINT}` blueprint didn't apply. To see why: kubectl exec -n bbe-auth "
+                    f"deploy/bbe-auth-worker -- ak apply_blueprint --dry-run {WORKER_BLUEPRINT_FILE}")
+            if waited is None or waited > APPLY_WAIT:
+                authentik.post(f"/managed/blueprints/{instance['pk']}/apply/")
+                requested = time.monotonic()
         time.sleep(10)
 
     raise SetupError(f"authentik: the `{BLUEPRINT}` blueprint wasn't applied, it's {last_state}. The worker's log says why")

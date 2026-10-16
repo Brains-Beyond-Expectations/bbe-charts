@@ -22,6 +22,7 @@ Single sign-on for the BBE cluster's apps with authentik, its PostgreSQL databas
 | authentik.blueprints.configMaps[0] | string | `"bbe-auth-blueprints"` |  |
 | authentik.fullnameOverride | string | `"bbe-auth"` |  |
 | authentik.global.envFrom[0].secretRef.name | string | `"bbe-auth-authentik"` |  |
+| authentik.global.podAnnotations."bbe.home.arpa/authentik-secret-keys" | string | `"2"` |  |
 | authentik.global.securityContext.runAsNonRoot | bool | `true` |  |
 | authentik.global.securityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
 | authentik.postgresql.enabled | bool | `false` |  |
