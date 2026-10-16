@@ -1,0 +1,103 @@
+suite: test calibre
+values:
+  - ./values/required-values.yaml
+templates:
+  - calibre.yaml
+  - user.yaml
+release:
+  name: bbe-library
+  namespace: bbe-library
+tests:
+  - it: should create the library's folders and an empty library as the NAS user
+    template: calibre.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.runAsUser
+          value: 1031
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.runAsGroup
+          value: 100
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: mkdir -p /share/books /share/books-ingest
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: cp /app/calibre-web-automated/empty_library/metadata.db /share/books/metadata.db
+
+  - it: should keep the library and ingest folders on the share, and its databases off NFS
+    template: calibre.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: books
+            mountPath: /calibre-library
+            subPath: books
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: books
+            mountPath: /cwa-book-ingest
+            subPath: books-ingest
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: config
+            persistentVolumeClaim:
+              claimName: bbe-library-calibre-config
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+
+  - it: should run for NFS, without looking for a library as root
+    template: calibre.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: NETWORK_SHARE_MODE
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DISABLE_LIBRARY_AUTOMOUNT
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: bbe-library-user
+
+  - it: should run the apps as the NAS user
+    template: user.yaml
+    asserts:
+      - equal:
+          path: data
+          value:
+            PUID: "1031"
+            PGID: "100"
+
+  - it: should keep its config on Longhorn
+    template: calibre.yaml
+    documentSelector:
+      path: kind
+      value: PersistentVolumeClaim
+    asserts:
+      - equal:
+          path: spec.storageClassName
+          value: longhorn
+
+  - it: should require the books' NFS share and NAS user
+    set:
+      bbe.library.nfs.server: ""
+    asserts:
+      - failedTemplate: {}

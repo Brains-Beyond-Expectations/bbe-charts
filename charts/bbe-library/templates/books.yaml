@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "bbe-library.booksVolumeName" . }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .Values.bbe.library.size }}
+  accessModes:
+    - ReadWriteMany
+  # Removing the volume never removes the books on the NFS server
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  {{- with .Values.bbe.library.nfs.mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  claimRef:
+    namespace: {{ .Release.Namespace }}
+    name: bbe-library-books
+  nfs:
+    server: {{ .Values.bbe.library.nfs.server }}
+    path: {{ .Values.bbe.library.nfs.path }}
+---
+# The books are in `books/` on the share, and what's waiting to be added in `books-ingest/`, which Calibre-Web-Automated
+# empties as it adds them
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-library-books
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: {{ include "bbe-library.booksVolumeName" . }}
+  resources:
+    requests:
+      storage: {{ .Values.bbe.library.size }}
+{{- $media := include "bbe-library.mediaVolume" . | fromJson }}
+{{- with $media.spec }}
+---
+# bbe-media's share, read-only, so Shelfmark finds qBittorrent's finished downloads at the same /media path
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "bbe-library.downloadsVolumeName" $ }}
+  labels:
+    {{- include "bbe-library.labels" $ | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .capacity.storage }}
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  {{- with .mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  claimRef:
+    namespace: {{ $.Release.Namespace }}
+    name: bbe-library-downloads
+  nfs:
+    server: {{ .nfs.server }}
+    path: {{ .nfs.path }}
+    readOnly: true
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-library-downloads
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: ""
+  volumeName: {{ include "bbe-library.downloadsVolumeName" $ }}
+  resources:
+    requests:
+      storage: {{ .capacity.storage }}
+{{- end }}

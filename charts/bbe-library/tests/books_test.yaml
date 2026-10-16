@@ -1,0 +1,80 @@
+suite: test books
+values:
+  - ./values/required-values.yaml
+templates:
+  - books.yaml
+release:
+  name: bbe-library
+  namespace: bbe-library
+tests:
+  - it: should link the books' NFS share, keeping it when the volume goes
+    documentSelector:
+      path: kind
+      value: PersistentVolume
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-library-bbe-library-books
+      - equal:
+          path: spec.nfs
+          value:
+            server: 192.168.1.10
+            path: /volume1/media
+      - equal:
+          path: spec.persistentVolumeReclaimPolicy
+          value: Retain
+      - equal:
+          path: spec.mountOptions
+          value:
+            - nfsvers=4
+      - equal:
+          path: spec.claimRef
+          value:
+            namespace: bbe-library
+            name: bbe-library-books
+
+  - it: should leave out bbe-media's downloads when bbe-media isn't installed
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  - it: should link bbe-media's share read-only, for qBittorrent's downloads
+    kubernetesProvider:
+      scheme:
+        "v1/PersistentVolume":
+          gvr:
+            version: "v1"
+            resource: "persistentvolumes"
+          namespaced: false
+      objects:
+        - apiVersion: v1
+          kind: PersistentVolume
+          metadata:
+            name: bbe-media-bbe-media-library
+          spec:
+            capacity:
+              storage: 1Ti
+            mountOptions:
+              - nfsvers=4
+            nfs:
+              server: 192.168.1.219
+              path: /volume1/bbe-media
+    asserts:
+      - hasDocuments:
+          count: 4
+      - equal:
+          path: spec.nfs
+          value:
+            server: 192.168.1.219
+            path: /volume1/bbe-media
+            readOnly: true
+        documentIndex: 2
+      - equal:
+          path: spec.accessModes
+          value:
+            - ReadOnlyMany
+        documentIndex: 2
+      - equal:
+          path: spec.volumeName
+          value: bbe-library-bbe-library-downloads
+        documentIndex: 3

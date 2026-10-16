@@ -1,0 +1,275 @@
+suite: test shelfmark
+values:
+  - ./values/required-values.yaml
+templates:
+  - shelfmark.yaml
+  - shelfmark-keys.yaml
+release:
+  name: bbe-library
+  namespace: bbe-library
+tests:
+  - it: should sign people in with authentik only, with admins from its admins group
+    template: shelfmark.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTH_METHOD
+            value: oidc
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DISABLE_LOCAL_AUTH
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_DISCOVERY_URL
+            value: https://auth.bbe.home.arpa/application/o/shelfmark/.well-known/openid-configuration
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_ADMIN_GROUP
+            value: admins
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OIDC_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: bbe-library-auth
+                key: shelfmark-client-secret
+
+  - it: should run as the NAS user, writing books to the ingest folder
+    template: shelfmark.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1031
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 100
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: books
+            mountPath: /books
+            subPath: books-ingest
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HARDLINK_TORRENTS
+            value: "false"
+
+  - it: should reach authentik at its own address through Traefik, trusting bbe's certificate authority
+    template: shelfmark.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    kubernetesProvider:
+      scheme:
+        "v1/Service":
+          gvr:
+            version: "v1"
+            resource: "services"
+          namespaced: true
+      objects:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: bbe-networking-traefik
+            namespace: bbe-networking
+          spec:
+            clusterIP: 10.96.194.25
+          status:
+            loadBalancer:
+              ingress:
+                - ip: 192.168.1.241
+    asserts:
+      - equal:
+          path: spec.template.spec.hostAliases
+          value:
+            - ip: 192.168.1.241
+              hostnames:
+                - auth.bbe.home.arpa
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REQUESTS_CA_BUNDLE
+            value: /certificates/ca-bundle.crt
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: cat /bbe-ca/ca.crt >> /certificates/ca-bundle.crt
+
+  - it: should search bbe-media's Prowlarr and download with its qBittorrent when bbe-media is installed
+    template: shelfmark.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    kubernetesProvider:
+      scheme:
+        "v1/PersistentVolume":
+          gvr:
+            version: "v1"
+            resource: "persistentvolumes"
+          namespaced: false
+      objects:
+        - apiVersion: v1
+          kind: PersistentVolume
+          metadata:
+            name: bbe-media-bbe-media-library
+          spec:
+            capacity:
+              storage: 1Ti
+            nfs:
+              server: 192.168.1.219
+              path: /volume1/bbe-media
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PROWLARR_URL
+            value: http://bbe-media-prowlarr.bbe-media.svc.cluster.local:9696
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PROWLARR_TORRENT_CLIENT
+            value: qbittorrent
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QBITTORRENT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: bbe-library-media
+                key: qbittorrent-password
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: downloads
+            mountPath: /media
+            readOnly: true
+
+  - it: should leave out torrents and direct downloads when there's nothing to use
+    template: shelfmark.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PROWLARR_ENABLED
+            value: "true"
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DIRECT_DOWNLOAD_ENABLED
+            value: "true"
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content:
+            name: IRC_SERVER
+
+  - it: should download directly from the mirrors given, through bbe-media's FlareSolverr
+    template: shelfmark.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    set:
+      bbe.library.shelfmark.directDownload.annasArchive:
+        - https://aa.example
+        - https://aa2.example
+      bbe.library.shelfmark.directDownload.libgen:
+        - https://libgen.example
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DIRECT_DOWNLOAD_ENABLED
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AA_MIRROR_URLS
+            value: https://aa.example,https://aa2.example
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LIBGEN_MIRROR_URLS
+            value: https://libgen.example
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: EXT_BYPASSER_URL
+            value: http://bbe-media-flaresolverr.bbe-media.svc.cluster.local:8191
+
+  - it: should ask a search bot on IRC when a server is given
+    template: shelfmark.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    set:
+      bbe.library.shelfmark.irc:
+        server: irc.example.net
+        channel: "#ebooks"
+        nick: bbe-reader
+        searchBot: search
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: IRC_SERVER
+            value: irc.example.net
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: IRC_CHANNEL
+            value: "#ebooks"
+
+  - it: should keep the keys it's given in a secret
+    set:
+      bbe.library.shelfmark.hardcoverApiKey: hardcover-key
+    asserts:
+      - equal:
+          path: data.hardcover-api-key
+          value: hardcover-key
+          decodeBase64: true
+        template: shelfmark-keys.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: METADATA_PROVIDER
+            value: hardcover
+        template: shelfmark.yaml
+        documentSelector:
+          path: kind
+          value: Deployment
+
+  - it: should create no secret without keys
+    template: shelfmark-keys.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should pass on more settings
+    template: shelfmark.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    set:
+      bbe.library.shelfmark.env:
+        BOOK_LANGUAGE: en
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BOOK_LANGUAGE
+            value: en

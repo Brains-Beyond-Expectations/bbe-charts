@@ -1,0 +1,88 @@
+{{- if .Values.bbe.setup.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-library-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+data:
+  setup.py: |
+    {{- .Files.Get "files/setup.py" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job can't be changed once it exists, so each revision gets its own, which also runs it again
+  name: bbe-library-setup-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.bbe.setup.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-library.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- include "bbe-library.runAsUser" . | nindent 8 }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        # Calibre-Web-Automated's own image, for the python-ldap in its Python
+        - name: setup
+          image: "{{ .Values.bbe.library.calibre.image.repository }}:{{ .Values.bbe.library.calibre.image.tag }}"
+          command:
+            - /lsiopy/bin/python3
+            - /scripts/setup.py
+          env:
+            - name: CALIBRE_URL
+              value: http://{{ .Release.Name }}-calibre:8083
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-library-admin
+                  key: username
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-library-admin
+                  key: password
+            # bbe-auth's LDAP outpost, which the library binds to with its own account
+            - name: LDAP_SERVER
+              value: bbe-auth-ldap.bbe-auth.svc.cluster.local
+            - name: LDAP_PORT
+              value: "389"
+            - name: LDAP_BASE_DN
+              value: {{ include "bbe-library.ldapBaseDn" . }}
+            - name: LDAP_BIND_DN
+              value: cn=books-ldap,ou=users,{{ include "bbe-library.ldapBaseDn" . }}
+            - name: LDAP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-library-auth
+                  key: ldap-password
+            - name: READY_TIMEOUT
+              value: {{ .Values.bbe.setup.readyTimeout | quote }}
+          {{- with .Values.bbe.setup.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: bbe-library-setup
+{{- end }}

@@ -1,0 +1,63 @@
+suite: test setup
+values:
+  - ./values/required-values.yaml
+templates:
+  - setup.yaml
+release:
+  name: bbe-library
+  namespace: bbe-library
+  revision: 3
+tests:
+  - it: should run the setup on Calibre-Web-Automated's Python, with its python-ldap
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-library-setup-3
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: crocodilestick/calibre-web-automated:v4.0.8
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value:
+            - /lsiopy/bin/python3
+            - /scripts/setup.py
+
+  - it: should bind to bbe-auth's LDAP with the library's own account
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LDAP_BIND_DN
+            value: cn=books-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LDAP_SERVER
+            value: bbe-auth-ldap.bbe-auth.svc.cluster.local
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CALIBRE_URL
+            value: http://bbe-library-calibre:8083
+
+  - it: should ship the setup script
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - matchRegex:
+          path: data["setup.py"]
+          pattern: def configure_admins
+
+  - it: should skip the setup when it's off
+    set:
+      bbe.setup.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

@@ -1,0 +1,117 @@
+global:
+  bbe:
+    # -- The domain the cluster's apps are named under, which bbe-networking answers for. The library is at
+    # calibre.<domain>, and Shelfmark at shelfmark.<domain>
+    domain: bbe.home.arpa
+
+bbe:
+  library:
+    nfs:
+      # -- The NFS server holding the books, as a hostname or IP address. It can be bbe-media's
+      server: ""
+      # -- The exported path holding the books on the NFS server. It can be bbe-media's share, as the books get
+      # folders of their own
+      path: ""
+      # -- Mount options for the NFS share. NFSv4 needs no lock daemon, which Talos nodes don't run, and `nfsvers=4`
+      # uses the newest NFSv4 version the server offers
+      mountOptions:
+        - nfsvers=4
+    # -- The size of the share. NFS doesn't enforce it, but Kubernetes needs one
+    size: 100Gi
+    # The NAS user the apps write the books as, so nothing is written there as root and the share can map root away.
+    # It needs to read bbe-media's downloads too, so it's best bbe-media's user. Its IDs are shown by `id <user>` on
+    # the NAS
+    user:
+      # -- The user ID of the NAS user
+      uid:
+      # -- The group ID of the NAS user
+      gid:
+    calibre:
+      image:
+        # -- The Calibre-Web-Automated image
+        repository: crocodilestick/calibre-web-automated
+        # -- The Calibre-Web-Automated version
+        tag: v4.0.8
+      # -- The size of its config volume, with its users, settings and the books it's converting
+      configSize: 2Gi
+      resources:
+        requests:
+          # -- The memory to request for Calibre-Web-Automated
+          memory: 512Mi
+          # -- The CPU to request for Calibre-Web-Automated
+          cpu: 100m
+        limits:
+          # -- The memory to limit Calibre-Web-Automated to. Converting a book runs Calibre next to it
+          memory: 2Gi
+    shelfmark:
+      image:
+        # -- The Shelfmark image. The lite one has no browser of its own, and gets past Cloudflare with bbe-media's
+        # FlareSolverr
+        repository: ghcr.io/calibrain/shelfmark-lite
+        # -- The Shelfmark version. It's maintenance-only since May 2026
+        tag: v1.3.0
+      # -- The size of its config volume, with its settings, users and cover cache
+      configSize: 1Gi
+      # -- Whether people ask for books for an admin to approve, rather than downloading them. Admins always download
+      requests: false
+      # -- A Hardcover API key, for Hardcover's book details rather than Open Library's. Open Library needs no key
+      hardcoverApiKey: ""
+      # Shelfmark's direct download sources, which it ships without addresses for. A source is used once it has a
+      # mirror, and bbe-media's FlareSolverr gets it past Cloudflare
+      directDownload:
+        # -- Anna's Archive mirrors, such as `https://<mirror>`
+        annasArchive: []
+        # -- Anna's Archive donator key, for its fast downloads
+        annasArchiveDonatorKey: ""
+        # -- Library Genesis mirrors
+        libgen: []
+        # -- Z-Library mirrors
+        zlibrary: []
+        # -- Welib mirrors
+        welib: []
+      # IRC, where Shelfmark asks a search bot in a channel. It's used once a server is set
+      irc:
+        # -- The IRC server, such as `irc.example.net`
+        server: ""
+        # -- The IRC server's TLS port
+        port: 6697
+        # -- The channel, such as `#ebooks`
+        channel: ""
+        # -- The nickname to use
+        nick: ""
+        # -- The search bot to ask, such as `search`
+        searchBot: ""
+      # -- More of Shelfmark's settings, as environment variables. See its docs/environment-variables.md
+      env: {}
+      resources:
+        requests:
+          # -- The memory to request for Shelfmark
+          memory: 128Mi
+          # -- The CPU to request for Shelfmark
+          cpu: 20m
+        limits:
+          # -- The memory to limit Shelfmark to
+          memory: 512Mi
+  # The library's own admin, who signs in without authentik when it can't help. bbe's setup signs in with it too
+  admin:
+    # -- The library's own admin username. It must not be someone's username in authentik, whose password would win
+    username: library-admin
+  ingress:
+    # -- Whether to serve the apps at calibre.<domain> and shelfmark.<domain> through bbe-networking's Traefik
+    enabled: true
+  setup:
+    # -- Whether to run the Job connecting the library to authentik after every install and upgrade
+    enabled: true
+    # -- How long the setup waits for the library to start, in seconds
+    readyTimeout: 900
+    # -- How many times the setup is retried when the library couldn't be set up
+    backoffLimit: 5
+    resources:
+      requests:
+        # -- The amount of memory to request for the setup pod
+        memory: "64Mi"
+        # -- The amount of CPU to request for the setup pod
+        cpu: "50m"
+      limits:
+        # -- The amount of memory to limit the setup pod to
+        memory: "256Mi"

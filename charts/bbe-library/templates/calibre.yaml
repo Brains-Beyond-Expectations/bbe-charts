@@ -1,0 +1,145 @@
+# Calibre-Web-Automated: the library people read, download and send books from, which adds what lands in its ingest
+# folder by itself. Its config volume holds its users and settings, and SQLite, so it stays off NFS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-library-calibre-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: {{ .Values.bbe.library.calibre.configSize }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-calibre
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+    app.kubernetes.io/component: calibre
+spec:
+  replicas: 1
+  # Two copies would write the same SQLite databases
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: calibre
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-library.labels" . | nindent 8 }}
+        app.kubernetes.io/component: calibre
+    spec:
+      initContainers:
+        # Creates the folders and an empty library as the NAS user, as the share maps root away. The image would
+        # otherwise create the library as root
+        - name: folders
+          image: "{{ .Values.bbe.library.calibre.image.repository }}:{{ .Values.bbe.library.calibre.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              mkdir -p /share/books /share/books-ingest
+              if [ ! -e /share/books/metadata.db ]; then
+                cp /app/calibre-web-automated/empty_library/metadata.db /share/books/metadata.db
+                echo "Created an empty library"
+              fi
+          securityContext:
+            {{- include "bbe-library.runAsUser" . | nindent 12 }}
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            {{- include "bbe-library.initResources" . | nindent 12 }}
+          volumeMounts:
+            - name: books
+              mountPath: /share
+      containers:
+        # It starts as root, like the linuxserver images it's built on, and runs Calibre-Web and the ingest as the NAS
+        # user from PUID and PGID
+        - name: calibre
+          image: "{{ .Values.bbe.library.calibre.image.repository }}:{{ .Values.bbe.library.calibre.image.tag }}"
+          envFrom:
+            - configMapRef:
+                name: bbe-library-user
+          env:
+            # The books are on NFS: no SQLite WAL, no chown of the share, and polling for new books, as inotify
+            # doesn't see what other pods write
+            - name: NETWORK_SHARE_MODE
+              value: "true"
+            # bbe's setup points it at the library the init container created, rather than it looking for one as root
+            - name: DISABLE_LIBRARY_AUTOMOUNT
+              value: "true"
+            # Traefik is the one proxy in front of it
+            - name: TRUSTED_PROXY_COUNT
+              value: "1"
+            - name: SESSION_COOKIE_SECURE
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 8083
+          startupProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          {{- with .Values.bbe.library.calibre.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: books
+              mountPath: /calibre-library
+              subPath: books
+            - name: books
+              mountPath: /cwa-book-ingest
+              subPath: books-ingest
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: bbe-library-calibre-config
+        - name: books
+          persistentVolumeClaim:
+            claimName: bbe-library-books
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-calibre
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+    app.kubernetes.io/component: calibre
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: calibre
+  ports:
+    - name: http
+      port: 8083
+      targetPort: http

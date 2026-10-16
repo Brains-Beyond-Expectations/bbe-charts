@@ -37,7 +37,7 @@ The dashboard answers at `https://<domain>`, which Blocky already resolves and t
 |---|---|
 | `gethomepage.dev/enabled: "true"` | Lists the app |
 | `gethomepage.dev/name`, `description`, `icon` | How it's shown. Icons are names from Homepage's icon set |
-| `gethomepage.dev/group` | `Watch` (apps for everyone), `Manage` (apps managing the media) or `Cluster`, ordered by `bbe.dashboard.settings` |
+| `gethomepage.dev/group` | `Watch` (apps for everyone), `Read` (the book library), `Manage` (apps managing the media) or `Cluster`, ordered by `bbe.dashboard.settings` |
 | `gethomepage.dev/pod-selector` | The pods whose status is shown, when their labels don't match the Ingress' name |
 
 Rejected:

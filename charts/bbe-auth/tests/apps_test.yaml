@@ -104,6 +104,23 @@ tests:
           path: binaryData["background.webp"]
         documentIndex: 1
 
+  - it: should give the book library an LDAP account and Shelfmark an OpenID Connect client
+    template: templates/blueprints.yaml
+    documentIndex: 0
+    asserts:
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "username: books-ldap"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "key: !Env BBE_BOOKS_LDAP_PASSWORD"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "client_secret: !Env BBE_SHELFMARK_CLIENT_SECRET"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: 'url: !Format \["https://shelfmark.%s/api/auth/oidc/callback", !Context domain\]'
+
   - it: should run PostgreSQL as its own user with a read-only root, for authentik
     template: templates/postgres.yaml
     documentSelector:

@@ -1,0 +1,330 @@
+{{- /*
+Shelfmark finds books and downloads them into the library's ingest folder. It searches bbe-media's Prowlarr and
+downloads torrents with its qBittorrent, and signs people in with authentik
+*/ -}}
+{{- $domain := .Values.global.bbe.domain }}
+{{- $shelfmark := .Values.bbe.library.shelfmark }}
+{{- $media := include "bbe-library.mediaVolume" . | fromJson }}
+{{- $traefik := lookup "v1" "Service" "bbe-networking" "bbe-networking-traefik" }}
+{{- $traefikIp := "" }}
+{{- with $traefik }}
+{{- $traefikIp = (first (.status.loadBalancer.ingress | default (list dict))).ip | default .spec.clusterIP }}
+{{- end }}
+{{- $direct := dict "AA" $shelfmark.directDownload.annasArchive "LIBGEN" $shelfmark.directDownload.libgen "ZLIB" $shelfmark.directDownload.zlibrary "WELIB" $shelfmark.directDownload.welib }}
+{{- $directEnabled := or $shelfmark.directDownload.annasArchive $shelfmark.directDownload.libgen $shelfmark.directDownload.zlibrary $shelfmark.directDownload.welib }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-library-shelfmark-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: {{ $shelfmark.configSize }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-shelfmark
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shelfmark
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: shelfmark
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-library.labels" . | nindent 8 }}
+        app.kubernetes.io/component: shelfmark
+      annotations:
+        # Restarts Shelfmark when its keys change
+        checksum/keys: {{ include (print $.Template.BasePath "/shelfmark-keys.yaml") . | sha256sum }}
+    spec:
+      # It runs as the NAS user, which writes the ingest folder, and owns its config volume through the group
+      securityContext:
+        {{- include "bbe-library.runAsUser" . | nindent 8 }}
+        fsGroup: {{ .Values.bbe.library.user.gid | int }}
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if $traefikIp }}
+      # It fetches authentik's sign-in settings and tokens at authentik's own address, which pods don't resolve, and
+      # which authentik names in the tokens it gives out
+      hostAliases:
+        - ip: {{ $traefikIp }}
+          hostnames:
+            - auth.{{ $domain }}
+      {{- end }}
+      initContainers:
+        # Python's certificates with bbe's certificate authority added, which authentik's certificate is signed by
+        - name: certificates
+          image: "{{ $shelfmark.image.repository }}:{{ $shelfmark.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              bundle=$(python3 -c 'import certifi; print(certifi.where())' 2>/dev/null || echo /etc/ssl/certs/ca-certificates.crt)
+              cat "$bundle" > /certificates/ca-bundle.crt
+              if [ -f /bbe-ca/ca.crt ]; then cat /bbe-ca/ca.crt >> /certificates/ca-bundle.crt; fi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            {{- include "bbe-library.initResources" . | nindent 12 }}
+          volumeMounts:
+            - name: certificates
+              mountPath: /certificates
+            - name: bbe-ca
+              mountPath: /bbe-ca
+              readOnly: true
+        - name: folders
+          image: "{{ $shelfmark.image.repository }}:{{ $shelfmark.image.tag }}"
+          command:
+            - mkdir
+            - -p
+            - /share/books-ingest
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            {{- include "bbe-library.initResources" . | nindent 12 }}
+          volumeMounts:
+            - name: books
+              mountPath: /share
+      containers:
+        - name: shelfmark
+          image: "{{ $shelfmark.image.repository }}:{{ $shelfmark.image.tag }}"
+          env:
+            - name: REQUESTS_CA_BUNDLE
+              value: /certificates/ca-bundle.crt
+            - name: SSL_CERT_FILE
+              value: /certificates/ca-bundle.crt
+            # The cluster's DNS, rather than public resolvers when it fails
+            - name: CUSTOM_DNS
+              value: system
+            - name: ONBOARDING
+              value: "false"
+            - name: SESSION_COOKIE_SECURE
+              value: "true"
+            - name: CALIBRE_WEB_URL
+              value: https://calibre.{{ $domain }}
+            # Signing in: authentik only, so there's no moment without a login before an admin exists
+            - name: AUTH_METHOD
+              value: oidc
+            - name: DISABLE_LOCAL_AUTH
+              value: "true"
+            - name: OIDC_AUTO_REDIRECT
+              value: "true"
+            - name: OIDC_DISCOVERY_URL
+              value: https://auth.{{ $domain }}/application/o/shelfmark/.well-known/openid-configuration
+            - name: OIDC_CLIENT_ID
+              value: shelfmark
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-library-auth
+                  key: shelfmark-client-secret
+            - name: OIDC_SCOPES
+              value: openid,email,profile
+            - name: OIDC_ADMIN_GROUP
+              value: admins
+            - name: OIDC_BUTTON_LABEL
+              value: Sign in with authentik
+            - name: REQUESTS_ENABLED
+              value: {{ $shelfmark.requests | quote }}
+            {{- if $shelfmark.requests }}
+            - name: REQUEST_POLICY_DEFAULT_EBOOK
+              value: request_release
+            {{- end }}
+            # Where books go, which Calibre-Web-Automated adds and empties. Hardlinks and folders don't suit it
+            - name: INGEST_DIR
+              value: /books
+            - name: FILE_ORGANIZATION
+              value: rename
+            - name: HARDLINK_TORRENTS
+              value: "false"
+            - name: HARDLINK_TORRENTS_AUDIOBOOK
+              value: "false"
+            # Book details from Open Library, which needs no key, or Hardcover with one
+            {{- if $shelfmark.hardcoverApiKey }}
+            - name: METADATA_PROVIDER
+              value: hardcover
+            - name: HARDCOVER_ENABLED
+              value: "true"
+            - name: HARDCOVER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-library-shelfmark
+                  key: hardcover-api-key
+            {{- else }}
+            - name: METADATA_PROVIDER
+              value: openlibrary
+            {{- end }}
+            - name: OPENLIBRARY_ENABLED
+              value: "true"
+            {{- if $media.spec }}
+            # Torrents, from bbe-media's Prowlarr and qBittorrent. Prowlarr's book categories are searched
+            - name: PROWLARR_ENABLED
+              value: "true"
+            - name: PROWLARR_URL
+              value: http://bbe-media-prowlarr.bbe-media.svc.cluster.local:9696
+            - name: PROWLARR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-library-media
+                  key: prowlarr-api-key
+            - name: PROWLARR_TORRENT_CLIENT
+              value: qbittorrent
+            - name: QBITTORRENT_URL
+              value: http://bbe-media-qbittorrent.bbe-media.svc.cluster.local:8080
+            - name: QBITTORRENT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-library-media
+                  key: qbittorrent-username
+            - name: QBITTORRENT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-library-media
+                  key: qbittorrent-password
+            - name: QBITTORRENT_CATEGORY
+              value: books
+            # qBittorrent keeps seeding, and Shelfmark copies the book
+            - name: PROWLARR_TORRENT_ACTION
+              value: keep
+            {{- end }}
+            {{- if $directEnabled }}
+            # Direct downloads, from the mirrors in the values, through bbe-media's FlareSolverr
+            - name: DIRECT_DOWNLOAD_ENABLED
+              value: "true"
+            {{- range $source, $mirrors := $direct }}
+            {{- with $mirrors }}
+            - name: {{ $source }}_MIRROR_URLS
+              value: {{ join "," . | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if $shelfmark.directDownload.annasArchiveDonatorKey }}
+            - name: AA_DONATOR_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-library-shelfmark
+                  key: aa-donator-key
+            {{- end }}
+            - name: USING_EXTERNAL_BYPASSER
+              value: "true"
+            - name: EXT_BYPASSER_URL
+              value: http://bbe-media-flaresolverr.bbe-media.svc.cluster.local:8191
+            {{- end }}
+            {{- with $shelfmark.irc }}
+            {{- if .server }}
+            # IRC, asking a search bot in a channel
+            - name: IRC_SERVER
+              value: {{ .server | quote }}
+            - name: IRC_PORT
+              value: {{ .port | quote }}
+            - name: IRC_USE_TLS
+              value: "true"
+            - name: IRC_CHANNEL
+              value: {{ .channel | quote }}
+            - name: IRC_NICK
+              value: {{ .nick | quote }}
+            - name: IRC_SEARCH_BOT
+              value: {{ .searchBot | quote }}
+            {{- end }}
+            {{- end }}
+            {{- range $name, $value := $shelfmark.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8084
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          {{- with $shelfmark.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: certificates
+              mountPath: /certificates
+              readOnly: true
+            - name: books
+              mountPath: /books
+              subPath: books-ingest
+            {{- if $media.spec }}
+            # Where qBittorrent puts what it downloaded, as bbe-media mounts it
+            - name: downloads
+              mountPath: /media
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: bbe-library-shelfmark-config
+        - name: certificates
+          emptyDir:
+            sizeLimit: 2Mi
+        - name: bbe-ca
+          configMap:
+            name: bbe-library-ca
+            optional: true
+        - name: books
+          persistentVolumeClaim:
+            claimName: bbe-library-books
+        {{- if $media.spec }}
+        - name: downloads
+          persistentVolumeClaim:
+            claimName: bbe-library-downloads
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-shelfmark
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shelfmark
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: shelfmark
+  ports:
+    - name: http
+      port: 8084
+      targetPort: http

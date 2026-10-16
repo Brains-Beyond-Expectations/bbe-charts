@@ -80,8 +80,9 @@ authentik applies blueprints, YAML files describing what to create, on start and
 |---|---|
 | `admins` and `users` | Groups. `admins` get into every app, `users` into Jellyfin, and Seerr through it |
 | Forward auth | A proxy provider in `forward_domain` mode for `.<domain>`, on authentik's embedded outpost, and an application only `admins` may use |
-| LDAP | A provider with `direct` bind and search, and without a code after the password (`mfa_support: false`). An application for `users`, `admins` and Jellyfin's account, and an outpost bbe-auth runs (decision 7) |
-| Jellyfin's LDAP account | A `jellyfin-ldap` service account, whose app password is generated into `bbe-auth-authentik`, allowed to search the whole directory |
+| LDAP | A provider with `direct` bind and search, and without a code after the password (`mfa_support: false`). An application for `users`, `admins` and the accounts Jellyfin and the book library bind with, and an outpost bbe-auth runs (decision 7) |
+| The LDAP accounts | `jellyfin-ldap` and `books-ldap`, service accounts whose app passwords are generated into `bbe-auth-authentik`, allowed to search the whole directory |
+| Shelfmark | An OAuth2 provider for the book library's search, which `users` and `admins` may use ([0004](0004-book-library.md)) |
 | bbe's looks | Decision 10 |
 
 The setup Job, `bbe-auth-setup-<revision>`, does what a blueprint can't:
@@ -129,6 +130,8 @@ Left for later: **a public domain with Let's Encrypt**, through a DNS-01 challen
 | qBittorrent | The same, and nginx in its pod asks authentik again (below) | `admins` |
 | Jellyfin, and its TV and phone apps | Jellyfin's official LDAP Authentication plugin (24, for Jellyfin 12), against authentik's LDAP outpost. Jellyfin creates someone's account when they first sign in, and makes `admins` its administrators | `users` and `admins` |
 | Seerr | Through Jellyfin, as before. Seerr creates an account for a new Jellyfin user (`newPlexLogin`, on by default) | Jellyfin's users |
+| Calibre-Web-Automated, and e-readers | LDAP, like Jellyfin ([0004](0004-book-library.md)) | `users` and `admins` |
+| Shelfmark | OpenID Connect | `users` and `admins` |
 
 **The apps behind forward auth stop asking for their own login.** Their own logins and API keys stay for bbe-media's setup Job, and for the apps talking to each other:
 - Sonarr, Radarr and Prowlarr use `AuthenticationMethod` `External`.
