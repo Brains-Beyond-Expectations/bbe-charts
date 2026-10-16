@@ -195,6 +195,10 @@ entries:
       client_type: confidential
       client_id: shelfmark
       client_secret: !Env BBE_SHELFMARK_CLIENT_SECRET
+      # authentik allows none unless they're listed
+      grant_types:
+        - authorization_code
+        - refresh_token
       redirect_uris:
         - matching_mode: strict
           url: !Format ["https://shelfmark.%s/api/auth/oidc/callback", !Context domain]

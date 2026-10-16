@@ -128,6 +128,9 @@ tests:
           pattern: "client_secret: !Env BBE_SHELFMARK_CLIENT_SECRET"
       - matchRegex:
           path: data["bbe.yaml"]
+          pattern: "grant_types:\\n        - authorization_code"
+      - matchRegex:
+          path: data["bbe.yaml"]
           pattern: 'url: !Format \["https://shelfmark.%s/api/auth/oidc/callback", !Context domain\]'
 
   - it: should run PostgreSQL as its own user with a read-only root, for authentik
