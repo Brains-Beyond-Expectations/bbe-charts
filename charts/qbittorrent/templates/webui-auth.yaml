@@ -1,0 +1,13 @@
+{{- if .Values.qbittorrent.webui.existingSecret }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "qbittorrent.fullname" . }}-webui-auth
+  namespace: {{ include "qbittorrent.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "qbittorrent.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  webui-auth.py: |
+    {{- .Files.Get "files/webui-auth.py" | nindent 4 }}
+{{- end }}

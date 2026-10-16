@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["bbe"],
+  "properties": {
+    "bbe": {
+      "type": "object",
+      "required": ["library"],
+      "properties": {
+        "library": {
+          "type": "object",
+          "required": ["nfs", "user"],
+          "properties": {
+            "nfs": {
+              "type": "object",
+              "required": ["server", "path"],
+              "properties": {
+                "server": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The NFS server holding the books, as a hostname or IP address. It can be bbe-media's"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^/",
+                  "description": "The exported path holding the books on the NFS server, such as /volume1/media. It can be bbe-media's share, as the books get folders of their own"
+                },
+                "mountOptions": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Mount options for the NFS share"
+                }
+              }
+            },
+            "user": {
+              "type": "object",
+              "required": ["uid", "gid"],
+              "description": "The NAS user the apps write the books as, best bbe-media's",
+              "properties": {
+                "uid": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The user ID of the NAS user writing the books, as shown by `id <user>` on the NAS. Best bbe-media's, which can read its downloads"
+                },
+                "gid": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The group ID of the NAS user writing the books, as shown by `id <user>` on the NAS"
+                }
+              }
+            },
+            "shelfmark": {
+              "type": "object",
+              "properties": {
+                "directDownload": {
+                  "type": "object",
+                  "properties": {
+                    "annasArchive": { "type": "array", "items": { "type": "string", "pattern": "^https?://" } },
+                    "libgen": { "type": "array", "items": { "type": "string", "pattern": "^https?://" } },
+                    "zlibrary": { "type": "array", "items": { "type": "string", "pattern": "^https?://" } },
+                    "welib": { "type": "array", "items": { "type": "string", "pattern": "^https?://" } }
+                  }
+                },
+                "env": {
+                  "type": "object",
+                  "additionalProperties": { "type": ["string", "number", "boolean"] }
+                }
+              }
+            }
+          }
+        },
+        "admin": {
+          "type": "object",
+          "properties": {
+            "username": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$",
+              "description": "The library's own admin username, which must not be someone's username in authentik"
+            }
+          }
+        }
+      }
+    }
+  }
+}

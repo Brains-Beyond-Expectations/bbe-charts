@@ -12,4 +12,4 @@ metadata:
   {{- end }}
 data:
   config.yml: |
-    {{- .Values.config.yaml | nindent 4 }}
+    {{- tpl .Values.config.yaml . | nindent 4 }}

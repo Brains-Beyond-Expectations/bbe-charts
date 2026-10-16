@@ -26,8 +26,68 @@ spec:
         {{- toYaml .Values.qbittorrent.annotations | nindent 8 }}
       {{- end }}
     spec:
-      {{- if .Values.wireguard.enabled }}
+      {{- if and .Values.qbittorrent.webui.existingSecret (not .Values.config.enabled) }}
+      {{- fail "qbittorrent.webui.existingSecret needs config.enabled, as the login is written to the config volume" }}
+      {{- end }}
+      {{- if or .Values.qbittorrent.webui.existingSecret .Values.incomplete.enabled .Values.wireguard.enabled }}
       initContainers:
+        {{- if .Values.qbittorrent.webui.existingSecret }}
+        - name: webui-auth
+          image: "{{ .Values.qbittorrent.image.repository }}:{{ include "qbittorrent.image" . }}"
+          command:
+            - python3
+            - /scripts/webui-auth.py
+          env:
+            - name: WEBUI_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.qbittorrent.webui.existingSecret }}
+                  key: {{ .Values.qbittorrent.webui.usernameKey }}
+            - name: WEBUI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.qbittorrent.webui.existingSecret }}
+                  key: {{ .Values.qbittorrent.webui.passwordKey }}
+            {{- with .Values.qbittorrent.webui.apiKeySecret }}
+            - name: WEBUI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.qbittorrent.webui.apiKeyKey }}
+            {{- end }}
+            - name: WEBUI_LOCAL_HOST_AUTH
+              value: {{ .Values.qbittorrent.webui.localHostAuth | quote }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: webui-auth
+              mountPath: /scripts
+          {{- if .Values.qbittorrent.securityContext }}
+          securityContext:
+            {{- toYaml .Values.qbittorrent.securityContext | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.incomplete.enabled }}
+        # A new volume belongs to root, so it's handed to the user qBittorrent runs as, PUID and PGID
+        - name: incomplete-owner
+          image: "{{ .Values.qbittorrent.image.repository }}:{{ include "qbittorrent.image" . }}"
+          command:
+            - sh
+            - -c
+            - chown "$PUID:$PGID" "$INCOMPLETE_DIR"
+          env:
+            - name: INCOMPLETE_DIR
+              value: {{ .Values.incomplete.mountPath | quote }}
+            {{- include "qbittorrent.qbittorrentEnv" . | nindent 12 }}
+          volumeMounts:
+            - name: incomplete
+              mountPath: {{ .Values.incomplete.mountPath }}
+          {{- if .Values.qbittorrent.securityContext }}
+          securityContext:
+            {{- toYaml .Values.qbittorrent.securityContext | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- if .Values.wireguard.enabled }}
         - name: wireguard-network-init
           image: "{{ .Values.wireguard.initContainer.image.repository }}:{{ .Values.wireguard.initContainer.image.tag }}"
           command:
@@ -42,6 +102,7 @@ spec:
             capabilities:
               add:
                 - NET_ADMIN
+        {{- end }}
       {{- end }}
       containers:
         - name: qbittorrent
@@ -76,7 +137,7 @@ spec:
               {{- end }}
             {{- end }}
           {{- end }}
-          {{- if or .Values.config.enabled .Values.media.enabled }}
+          {{- if or .Values.config.enabled .Values.media.enabled .Values.incomplete.enabled }}
           volumeMounts:
             {{- if .Values.config.enabled }}
             - name: config
@@ -85,6 +146,10 @@ spec:
             {{- if .Values.media.enabled }}
             - name: media
               mountPath: /media
+            {{- end }}
+            {{- if .Values.incomplete.enabled }}
+            - name: incomplete
+              mountPath: {{ .Values.incomplete.mountPath }}
             {{- end }}
           {{- end }}
           {{- if .Values.qbittorrent.securityContext }}
@@ -103,6 +168,9 @@ spec:
           startupProbe:
             {{- toYaml .Values.qbittorrent.startupProbe | nindent 12 }}
           {{- end }}
+      {{- with .Values.extraContainers }}
+        {{- tpl . $ | nindent 8 }}
+      {{- end }}
       {{- if .Values.wireguard.enabled }}
         - name: wireguard
           image: "{{ .Values.wireguard.image.repository }}:{{ .Values.wireguard.image.tag }}"
@@ -115,7 +183,7 @@ spec:
             - name: wireguard-config
               mountPath: {{ .Values.wireguard.secret.mountPath }}
       {{- end }}
-      {{- if or .Values.config.enabled .Values.media.enabled .Values.wireguard.enabled }}
+      {{- if or .Values.config.enabled .Values.media.enabled .Values.incomplete.enabled .Values.wireguard.enabled .Values.extraVolumes }}
       volumes:
         {{- if .Values.config.enabled }}
         - name: config
@@ -127,6 +195,16 @@ spec:
           persistentVolumeClaim:
             claimName: {{ include "qbittorrent.mediaClaimName" . }}
         {{- end }}
+        {{- if .Values.incomplete.enabled }}
+        - name: incomplete
+          persistentVolumeClaim:
+            claimName: {{ include "qbittorrent.incompleteClaimName" . }}
+        {{- end }}
+        {{- if .Values.qbittorrent.webui.existingSecret }}
+        - name: webui-auth
+          configMap:
+            name: {{ include "qbittorrent.fullname" . }}-webui-auth
+        {{- end }}
         {{- if .Values.wireguard.enabled }}
         - name: wireguard-config
           secret:
@@ -134,5 +212,8 @@ spec:
             items:
               - key: {{ .Values.wireguard.secret.key }}
                 path: wg0.conf
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- tpl . $ | nindent 8 }}
         {{- end }}
       {{- end }}

@@ -1,0 +1,56 @@
+suite: test environment
+values:
+  - ./values/required-values.yaml
+templates:
+  - deployment.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: should set the default user, group and timezone
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PUID
+            value: "0"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TZ
+            value: UTC
+
+  - it: should let the values set the user and timezone instead of the defaults
+    set:
+      sonarr.env:
+        - name: PUID
+          valueFrom:
+            configMapKeyRef:
+              name: media-user
+              key: PUID
+        - name: TZ
+          value: Europe/Madrid
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PUID
+            valueFrom:
+              configMapKeyRef:
+                name: media-user
+                key: PUID
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PUID
+            value: "0"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PGID
+            value: "0"
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TZ
+            value: UTC
