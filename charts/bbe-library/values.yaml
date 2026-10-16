@@ -106,6 +106,9 @@ bbe:
     readyTimeout: 900
     # -- How many times the setup is retried when the library couldn't be set up
     backoffLimit: 5
+    # -- When the setup gives the people Calibre-Web created on their first sign-in their admin rights and Send to
+    # eReader address, as a cron schedule
+    peopleSchedule: "*/10 * * * *"
     resources:
       requests:
         # -- The amount of memory to request for the setup pod

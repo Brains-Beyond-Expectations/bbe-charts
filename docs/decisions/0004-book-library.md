@@ -49,7 +49,7 @@ Rejected: **Calibre-Web** itself, which needs a Calibre library made and kept wi
 - **Book details** come from Open Library, which needs no key, or Hardcover with one.
 - `bbe-media` is a prerequisite, as that's where Prowlarr and qBittorrent are.
 
-Shelfmark is maintenance-only since May 2026, so the chart pins 1.3.0. Rejected: **LazyLibrarian**, which is maintained and works with Prowlarr, but is built around its own library rather than CWA's ingest. **Bookshelf** and **Chaptarr**, Readarr's successors, are too young.
+Shelfmark is maintenance-only since May 2026, so the chart pins 1.3.0. Whether people request books for admins to approve (`bbe.library.shelfmark.requests`) is recorded in `bbe.yaml`, with the people CronJob's schedule (bbe-quest's `bbe/recorded-values`). Rejected: **LazyLibrarian**, which is maintained and works with Prowlarr, but is built around its own library rather than CWA's ingest. **Bookshelf** and **Chaptarr**, Readarr's successors, are too young.
 
 ### 3. The books are on the NAS
 
@@ -73,7 +73,8 @@ CWA's login uses LDAP, through bbe-auth's LDAP outpost, as Jellyfin's does:
 - People in `users` or `admins` sign in with their authentik password, in the browser and on e-readers. CWA's OPDS feed checks passwords against LDAP too. Kobo devices use a token each person makes in their profile.
 - The library binds with its own account, `books-ldap`, which bbe-auth's blueprint creates with Jellyfin's. CWA's "OpenLDAP" setting is on, so it binds with the DN its search finds, as authentik's entries have no Active Directory `distinguishedName`.
 - CWA creates people on their first sign-in. New people may download, read and keep shelves.
-- **CWA has no admin group of its own**, so the setup Job asks LDAP who is in `admins` and keeps admin rights for exactly them, among the people in LDAP. It runs on every install and upgrade, so a new admin gets their rights on the next upgrade.
+- **CWA has no admin group of its own**, so the setup asks LDAP who is in `admins` and keeps admin rights for exactly them, among the people in LDAP. A CronJob runs that part of the setup every 10 minutes (`bbe.setup.peopleSchedule`), as CWA creates people on their first sign-in.
+- **Books are sent to people's own email.** The same CronJob sets the Send to eReader address of someone from authentik to their email, when they have one and haven't set another. CWA makes up `<username>@email.com` for people without one, which it leaves alone.
 - **The library's own admin** (`bbe.admin.username`) isn't in LDAP, so it signs in with its own password, generated into `bbe-library-admin`. It's what the setup signs in with, and the way in when authentik can't help. CWA's default `admin` is renamed to it, with that password.
 
 Rejected:
@@ -97,7 +98,7 @@ CWA has no API for its settings. The setup Job signs in like a browser and posts
 
 ## Consequences
 
-- **A new admin gets CWA admin rights on the next install or upgrade**, not when they're added to `admins`.
+- **A new admin gets CWA admin rights within 10 minutes** of being added to `admins`, or of their first sign-in.
 - **Books Shelfmark downloads are copies.** qBittorrent keeps seeding its own, in bbe-media's downloads, in its `books` category, until it's removed there.
 - **CWA keeps its databases on Longhorn, and the library on NFS.** Restoring one without the other loses users' reading progress and shelves, not books.
 - **Uninstalling `bbe-library`** deletes its namespace with people's shelves and reading progress. The books on the share stay.

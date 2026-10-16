@@ -26,6 +26,10 @@ annotations:
     - name: media
       description: Prowlarr and qBittorrent, which Shelfmark searches and downloads with
       package: bbe-media
+  # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it behaves alike
+  bbe/recorded-values: |
+    - bbe.library.shelfmark.requests
+    - bbe.setup.peopleSchedule
   # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
   bbe/uninstall: |
     keeps:

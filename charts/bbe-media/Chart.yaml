@@ -27,6 +27,10 @@ annotations:
     - name: sso
       description: authentik, which people sign in to the apps with
       package: bbe-auth
+  # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it seeds and solves challenges alike
+  bbe/recorded-values: |
+    - bbe.media.seeding
+    - bbe.media.flaresolverr.concurrency
   # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
   bbe/uninstall: |
     keeps:

@@ -46,6 +46,39 @@ tests:
             name: CALIBRE_URL
             value: http://bbe-library-calibre:8083
 
+  - it: should keep people in line every 10 minutes, as Calibre-Web creates them on their first sign-in
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.schedule
+          value: "*/10 * * * *"
+      - equal:
+          path: spec.concurrencyPolicy
+          value: Forbid
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].env
+          content:
+            name: MODE
+            value: people
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].env
+          content:
+            name: LDAP_BIND_DN
+            value: cn=books-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io
+
+  - it: should set the library up from the Job
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MODE
+            value: setup
+
   - it: should ship the setup script
     documentSelector:
       path: kind
@@ -53,7 +86,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["setup.py"]
-          pattern: def configure_admins
+          pattern: def configure_ereader_emails
 
   - it: should skip the setup when it's off
     set:

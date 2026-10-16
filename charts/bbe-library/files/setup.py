@@ -1,6 +1,7 @@
 """Sets up Calibre-Web-Automated for bbe after every install and upgrade: its own admin, the library the chart created,
 signing people in against authentik's LDAP, Kobo sync, what new people may do, and admin rights for authentik's
-`admins`.
+`admins`. With MODE=people, as the chart's CronJob runs it, it only keeps people in line: admin rights, and their
+Send to eReader address, for those Calibre-Web created on their first sign-in.
 
 Calibre-Web has no API for its settings, so this signs in like a browser and posts its admin forms back with what it
 changes. A form saves every field it's sent, and an unticked checkbox isn't sent, so each form is read first and sent
@@ -31,6 +32,8 @@ LDAP_BIND_DN = os.environ.get("LDAP_BIND_DN", "")
 LDAP_PASSWORD = os.environ.get("LDAP_PASSWORD", "")
 EXTERNAL_PORT = os.environ.get("EXTERNAL_PORT", "443")
 READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
+# `setup` sets everything up, `people` only keeps people in line
+MODE = os.environ.get("MODE", "setup")
 
 # Calibre-Web's first start creates this admin, which bbe renames and gives its own password
 DEFAULT_ADMIN = ("admin", "admin123")
@@ -362,10 +365,15 @@ def ldap_members():
         connection.unbind_s()
 
 
-def configure_admins(calibre):
-    """Creates authentik's admins in Calibre-Web, and keeps admin rights for exactly them among the people in LDAP.
-    Calibre-Web has no admin group of its own, so this follows `admins` on every install and upgrade"""
+def configure_people(calibre):
     members = ldap_members()
+    configure_admins(calibre, members)
+    configure_ereader_emails(calibre, members)
+
+
+def configure_admins(calibre, members):
+    """Creates authentik's admins in Calibre-Web, and keeps admin rights for exactly them among the people in LDAP.
+    Calibre-Web has no admin group of its own, so this follows `admins`, every few minutes with the chart's CronJob"""
     known = {user["name"].lower() for user in json.loads(calibre.users())["rows"]}
     if members[ADMIN_GROUP] - known:
         result = calibre.post_ajax("/import_ldap_users", {})
@@ -385,6 +393,19 @@ def configure_admins(calibre):
         log(f"Calibre-Web: {name} is {'now' if wanted else 'no longer'} an admin")
 
 
+def configure_ereader_emails(calibre, members):
+    """Sends people's books to their own email address, for those from authentik who have one and haven't set another.
+    Calibre-Web makes up `<username>@email.com` for people without one, which isn't an address to send to"""
+    people = set().union(*members.values())
+    for user in json.loads(calibre.users())["rows"]:
+        name = user["name"].lower()
+        email = (user.get("email") or "").strip()
+        if name not in people or user.get("kindle_mail") or not email or email.lower() == f"{name}@email.com":
+            continue
+        calibre.post_ajax("/ajax/editlistusers/kindle_mail", {"pk": user["id"], "value": email})
+        log(f"Calibre-Web: {name}'s books are sent to their email address")
+
+
 def main():
     if not all((CALIBRE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, LDAP_SERVER, LDAP_BIND_DN, LDAP_PASSWORD)):
         raise SetupError("CALIBRE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, LDAP_SERVER, LDAP_BIND_DN and LDAP_PASSWORD "
@@ -395,6 +416,14 @@ def main():
     calibre.wait_until_ready(deadline)
     log("Calibre-Web: ready")
 
+    if MODE == "people":
+        # The setup Job makes the admin, and a CronJob running before it on a first install has nothing to do yet
+        if not calibre.sign_in(ADMIN_USERNAME, ADMIN_PASSWORD):
+            log(f"Calibre-Web: {ADMIN_USERNAME} can't sign in yet, which the setup Job sets up")
+            return
+        configure_people(calibre)
+        return
+
     default_admin = sign_in_admin(calibre)
     # Until it has a library, Calibre-Web sends every admin page to its database settings
     configure_library(calibre)
@@ -402,7 +431,7 @@ def main():
         configure_admin(calibre)
     configure_basics(calibre, deadline)
     configure_default_roles(calibre)
-    configure_admins(calibre)
+    configure_people(calibre)
     log("The library is set up")
 
 
