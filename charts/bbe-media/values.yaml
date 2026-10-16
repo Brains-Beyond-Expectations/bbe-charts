@@ -56,6 +56,9 @@ bbe:
         tag: v3.5.2
       # -- How long FlareSolverr may take to get past a challenge, in seconds, from 1 to 180
       requestTimeout: 60
+      # -- How many challenges FlareSolverr gets past at once. Each runs its own Chromium, so it's what its memory
+      # grows with, and the rest wait their turn
+      concurrency: 1
       resources:
         requests:
           # -- The memory to request for FlareSolverr, which runs Chromium

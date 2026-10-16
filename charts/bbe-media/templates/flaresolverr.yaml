@@ -30,6 +30,21 @@ spec:
       containers:
         - name: flaresolverr
           image: "{{ .Values.bbe.media.flaresolverr.image.repository }}:{{ .Values.bbe.media.flaresolverr.image.tag }}"
+          # FlareSolverr runs a Chromium for every request it serves at once, four by default with waitress, which it
+          # has no setting for. This starts it as the image does, with waitress serving as many as the values allow,
+          # and the rest waiting their turn
+          command:
+            - /usr/bin/dumb-init
+            - --
+            - /usr/local/bin/python
+            - -u
+            - -c
+            - |
+              import functools, runpy, sys, waitress
+              sys.path.insert(0, "/app")
+              waitress.serve = functools.partial(waitress.serve, threads={{ .Values.bbe.media.flaresolverr.concurrency | int }})
+              runpy.run_path("/app/flaresolverr.py", run_name="__main__")
+          workingDir: /app
           env:
             - name: LOG_LEVEL
               value: info

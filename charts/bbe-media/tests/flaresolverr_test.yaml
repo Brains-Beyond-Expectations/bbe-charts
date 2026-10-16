@@ -31,6 +31,22 @@ tests:
               medium: Memory
               sizeLimit: 256Mi
 
+  - it: should get past one challenge at a time, as each runs its own Chromium
+    template: templates/flaresolverr.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].command[0]
+          value: /usr/bin/dumb-init
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[5]
+          pattern: functools.partial\(waitress.serve, threads=1\)
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[5]
+          pattern: runpy.run_path\("/app/flaresolverr.py", run_name="__main__"\)
+
   - it: should serve FlareSolverr inside the cluster only
     template: templates/flaresolverr.yaml
     documentSelector:

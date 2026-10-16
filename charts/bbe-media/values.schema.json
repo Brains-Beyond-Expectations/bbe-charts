@@ -144,6 +144,12 @@
                   "minimum": 1,
                   "maximum": 180,
                   "description": "How long FlareSolverr may take to get past a challenge, in seconds"
+                },
+                "concurrency": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4,
+                  "description": "How many challenges FlareSolverr gets past at once, each with its own Chromium"
                 }
               }
             },
