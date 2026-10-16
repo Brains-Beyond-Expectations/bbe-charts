@@ -93,6 +93,10 @@ spec:
             - name: JELLYFIN_TRANSCODE_DIR
               value: /transcode
             {{- end }}
+            - name: QBITTORRENT_MAX_RATIO
+              value: {{ .Values.bbe.media.seeding.maxRatio | quote }}
+            - name: QBITTORRENT_REMOVE_WHEN_DONE
+              value: {{ .Values.bbe.media.seeding.removeWhenDone | quote }}
             {{- if .Values.qbittorrent.incomplete.enabled }}
             - name: QBITTORRENT_INCOMPLETE_DIR
               value: {{ .Values.qbittorrent.incomplete.mountPath | default "/incomplete" | quote }}

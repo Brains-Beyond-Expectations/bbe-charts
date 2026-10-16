@@ -48,6 +48,8 @@ A collection of charts for BBE cluster media, connected to each other when insta
 | bbe.media.nfs.path | string | `""` | The exported path of the media library on the NFS server |
 | bbe.media.nfs.server | string | `""` | The NFS server holding the media library, as a hostname or IP address |
 | bbe.media.prowlarr.indexers | list | `[]` | The indexers Prowlarr searches, and shares with Sonarr and Radarr. Add them with `bbe configure bbe-media`. Each has the `name` it gets in Prowlarr, the Prowlarr `definition` it's made from, its `fields`, and in `secretFields` the key in the `bbe-media-indexers` secret of each field that's a credential |
+| bbe.media.seeding.maxRatio | int | `2` | The ratio qBittorrent seeds every torrent to, or 0 to seed without a limit |
+| bbe.media.seeding.removeWhenDone | bool | `true` | Whether qBittorrent removes a torrent with its files once it reaches the ratio, rather than only stopping it |
 | bbe.media.size | string | `"1Ti"` | The size of the media library. NFS doesn't enforce it, but Kubernetes needs one |
 | bbe.media.user.gid | string | `nil` | The group ID of the NAS user owning the media library share |
 | bbe.media.user.uid | string | `nil` | The user ID of the NAS user owning the media library share |

@@ -85,6 +85,43 @@ tests:
             name: QBITTORRENT_INCOMPLETE_DIR
             value: /incomplete
 
+  - it: should have qBittorrent seed to a ratio of 2, then remove what's done with its files
+    template: templates/setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QBITTORRENT_MAX_RATIO
+            value: "2"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QBITTORRENT_REMOVE_WHEN_DONE
+            value: "true"
+
+  - it: should seed to the ratio given, and only stop when asked
+    template: templates/setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      bbe.media.seeding.maxRatio: 1.5
+      bbe.media.seeding.removeWhenDone: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QBITTORRENT_MAX_RATIO
+            value: "1.5"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QBITTORRENT_REMOVE_WHEN_DONE
+            value: "false"
+
   - it: should keep downloads in progress with the rest when that volume is off
     template: templates/setup.yaml
     documentSelector:

@@ -24,6 +24,11 @@ DOWNLOADS_DIR = os.path.join(MEDIA_ROOT, "downloads")
 TRANSCODE_DIR = os.environ.get("JELLYFIN_TRANSCODE_DIR", "")
 # Where qBittorrent keeps downloads in progress, a volume on the node, or empty to keep them in DOWNLOADS_DIR
 INCOMPLETE_DIR = os.environ.get("QBITTORRENT_INCOMPLETE_DIR", "")
+# The ratio every torrent seeds to, 0 for no limit, and whether it's then removed with its files rather than stopped
+MAX_RATIO = float(os.environ.get("QBITTORRENT_MAX_RATIO") or 0)
+REMOVE_WHEN_DONE = os.environ.get("QBITTORRENT_REMOVE_WHEN_DONE", "true").lower() == "true"
+# qBittorrent's actions at a share limit
+STOP, REMOVE_WITH_FILES = 0, 3
 READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
 # The indexers bbe adds to Prowlarr, from `bbe configure`, with their credentials as files in INDEXER_SECRETS_DIR
 INDEXERS = json.loads(os.environ.get("INDEXERS") or "[]")
@@ -248,11 +253,22 @@ def configure_qbittorrent(qbittorrent):
     preferences = {"save_path": DOWNLOADS_DIR, "temp_path_enabled": bool(INCOMPLETE_DIR)}
     if INCOMPLETE_DIR:
         preferences["temp_path"] = INCOMPLETE_DIR
+    # Seeding stops at the ratio, and what's done is removed with its files: Sonarr and Radarr hardlink what they
+    # import, and Shelfmark copies its books, so the library keeps its own
+    preferences["max_ratio_enabled"] = MAX_RATIO > 0
+    if MAX_RATIO > 0:
+        preferences["max_ratio"] = MAX_RATIO
+        preferences["max_ratio_act"] = REMOVE_WITH_FILES if REMOVE_WHEN_DONE else STOP
     qbittorrent.post("/api/v2/app/setPreferences", form={"json": json.dumps(preferences)})
     if INCOMPLETE_DIR:
         log(f"qBittorrent: downloads kept in {INCOMPLETE_DIR} while in progress, then saved to {DOWNLOADS_DIR}")
     else:
         log(f"qBittorrent: downloads saved to {DOWNLOADS_DIR}")
+    if MAX_RATIO > 0:
+        done = "removed with their files" if REMOVE_WHEN_DONE else "stopped"
+        log(f"qBittorrent: torrents seed to a ratio of {MAX_RATIO:g}, then are {done}")
+    else:
+        log("qBittorrent: torrents seed without a limit")
 
 
 def configure_arr(app, qbittorrent, root_folder, category_field, category):

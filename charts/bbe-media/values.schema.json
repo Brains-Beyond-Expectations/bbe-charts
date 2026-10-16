@@ -132,6 +132,20 @@
                 }
               }
             },
+            "seeding": {
+              "type": "object",
+              "properties": {
+                "maxRatio": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "The ratio qBittorrent seeds every torrent to, or 0 for no limit"
+                },
+                "removeWhenDone": {
+                  "type": "boolean",
+                  "description": "Whether qBittorrent removes a torrent with its files once it reaches the ratio"
+                }
+              }
+            },
             "flaresolverr": {
               "type": "object",
               "properties": {

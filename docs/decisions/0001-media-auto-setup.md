@@ -92,6 +92,8 @@ The user gives an NFS server and path (`bbe.media.nfs`). They're required values
 
 The same path in every app means Sonarr and Radarr move finished downloads instead of copying them, and no app needs a path mapping. The volume's reclaim policy is `Retain`, and deleting a static NFS volume never touches the share's data.
 
+qBittorrent seeds every torrent to a ratio of 2, then removes it with its files (`bbe.media.seeding`). That only removes the download: Sonarr and Radarr hardlink what they import, as a torrent still seeding can't be moved, and Shelfmark copies its books ([0004](0004-book-library.md)). On `present-sprite`, an imported episode had two links. Rejected: only stopping torrents at the ratio, which leaves them and their files in qBittorrent.
+
 Rejected: local-path on one node, which ties every media app and the library to that node's disk. Assuming a default StorageClass was also rejected: bbe clusters don't have one, and a `ReadWriteOnce` volume would still need every app on one node.
 
 Talos mounts NFS through its kubelet image. NFSv3 needs `nolock` there, as Talos runs no lock daemon, so the default is `nfsvers=4`, which locks within the protocol. It uses the newest NFSv4 version the server offers: 4.1 where available, 4.0 on a Synology NAS that doesn't offer 4.1. Pinning `nfsvers=4.1` failed against one with `mount.nfs: Protocol not supported`.

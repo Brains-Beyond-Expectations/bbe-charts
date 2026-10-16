@@ -45,6 +45,13 @@ bbe:
       # Empty for no profile
       languages:
         - en
+    # What qBittorrent does with what it seeds. It stops at the ratio, and removes the torrent with its files, as
+    # Sonarr and Radarr hardlink what they import and Shelfmark copies its books, so the library keeps them
+    seeding:
+      # -- The ratio qBittorrent seeds every torrent to, or 0 to seed without a limit
+      maxRatio: 2
+      # -- Whether qBittorrent removes a torrent with its files once it reaches the ratio, rather than only stopping it
+      removeWhenDone: true
     flaresolverr:
       # -- Whether to run FlareSolverr, which Prowlarr sends an indexer's requests through when Cloudflare challenges
       # them. The setup tags every indexer it adds for it
