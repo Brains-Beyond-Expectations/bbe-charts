@@ -7,7 +7,7 @@ release:
   name: bbe-library
   namespace: bbe-library
 tests:
-  - it: should link the books' share, and mount its folders directly, keeping them when the volumes go
+  - it: should link the books' share, keeping it when the volume goes
     documentSelector:
       path: kind
       value: PersistentVolume
@@ -21,10 +21,10 @@ tests:
           value:
             - nfsvers=4
 
-  - it: should mount the library and ingest folders without going through the share's own folder
+  - it: should mount the whole share, as the kubelet can't reach into it
     asserts:
       - hasDocuments:
-          count: 6
+          count: 2
       - equal:
           path: spec.nfs
           value:
@@ -32,36 +32,11 @@ tests:
             path: /volume1/media
         documentIndex: 0
       - equal:
-          path: spec.nfs
-          value:
-            server: 192.168.1.10
-            path: /volume1/media/books
-        documentIndex: 2
-      - equal:
           path: spec.claimRef
           value:
             namespace: bbe-library
-            name: bbe-library-calibre-books
-        documentIndex: 2
-      - equal:
-          path: spec.nfs
-          value:
-            server: 192.168.1.10
-            path: /volume1/media/books-ingest
-        documentIndex: 4
-      - equal:
-          path: metadata.name
-          value: bbe-library-bbe-library-calibre-ingest
-        documentIndex: 4
-
-  - it: should take the share's path with a trailing slash
-    set:
-      bbe.library.nfs.path: /volume1/media/
-    asserts:
-      - equal:
-          path: spec.nfs.path
-          value: /volume1/media/books
-        documentIndex: 2
+            name: bbe-library-share
+        documentIndex: 0
 
   - it: should link bbe-media's share read-only, for qBittorrent's downloads
     kubernetesProvider:
@@ -86,20 +61,20 @@ tests:
               path: /volume1/bbe-media
     asserts:
       - hasDocuments:
-          count: 8
+          count: 4
       - equal:
           path: spec.nfs
           value:
             server: 192.168.1.219
             path: /volume1/bbe-media
             readOnly: true
-        documentIndex: 6
+        documentIndex: 2
       - equal:
           path: spec.accessModes
           value:
             - ReadOnlyMany
-        documentIndex: 6
+        documentIndex: 2
       - equal:
           path: spec.volumeName
           value: bbe-library-bbe-library-downloads
-        documentIndex: 7
+        documentIndex: 3

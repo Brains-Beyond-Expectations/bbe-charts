@@ -139,7 +139,7 @@ spec:
             {{- end }}
             # Where books go, which Calibre-Web-Automated adds and empties. Hardlinks and folders don't suit it
             - name: INGEST_DIR
-              value: /books
+              value: /share/books-ingest
             - name: FILE_ORGANIZATION
               value: rename
             - name: HARDLINK_TORRENTS
@@ -265,8 +265,8 @@ spec:
             - name: certificates
               mountPath: /certificates
               readOnly: true
-            - name: ingest
-              mountPath: /books
+            - name: share
+              mountPath: /share
             {{- if $media.spec }}
             # Where qBittorrent puts what it downloaded, as bbe-media mounts it
             - name: downloads
@@ -284,9 +284,9 @@ spec:
           configMap:
             name: bbe-library-ca
             optional: true
-        - name: ingest
+        - name: share
           persistentVolumeClaim:
-            claimName: bbe-library-calibre-ingest
+            claimName: bbe-library-share
         {{- if $media.spec }}
         - name: downloads
           persistentVolumeClaim:

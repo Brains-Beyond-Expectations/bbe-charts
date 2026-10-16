@@ -1,5 +1,23 @@
 # Calibre-Web-Automated: the library people read, download and send books from, which adds what lands in its ingest
 # folder by itself. Its config volume holds its users and settings, and SQLite, so it stays off NFS
+#
+# Its library and ingest folder are in the share, named in its dirs.json. Its start runs as root, which the share maps
+# away, and checks the image's own /calibre-library, so that stays as it is
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-library-calibre-dirs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+data:
+  dirs.json: |
+    {
+      "ingest_folder": "/share/books-ingest",
+      "calibre_library_dir": "/share/books",
+      "tmp_conversion_dir": "/config/.cwa_conversion_tmp"
+    }
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -38,6 +56,9 @@ spec:
         {{- include "bbe-library.labels" . | nindent 8 }}
         app.kubernetes.io/component: calibre
     spec:
+      # Its config volume is the NAS user's, as it doesn't change the owner of anything with NETWORK_SHARE_MODE
+      securityContext:
+        fsGroup: {{ .Values.bbe.library.user.gid | int }}
       containers:
         # It starts as root, like the linuxserver images it's built on, and runs Calibre-Web and the ingest as the NAS
         # user from PUID and PGID
@@ -51,7 +72,7 @@ spec:
             # doesn't see what other pods write
             - name: NETWORK_SHARE_MODE
               value: "true"
-            # bbe's setup points it at the library the init container created, rather than it looking for one as root
+            # bbe's setup points it at the library the folders Job created, rather than it looking for one as root
             - name: DISABLE_LIBRARY_AUTOMOUNT
               value: "true"
             # Traefik is the one proxy in front of it
@@ -85,20 +106,22 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
-            - name: books
-              mountPath: /calibre-library
-            - name: ingest
-              mountPath: /cwa-book-ingest
+            - name: share
+              mountPath: /share
+            - name: dirs
+              mountPath: /app/calibre-web-automated/dirs.json
+              subPath: dirs.json
+              readOnly: true
       volumes:
         - name: config
           persistentVolumeClaim:
             claimName: bbe-library-calibre-config
-        - name: books
+        - name: share
           persistentVolumeClaim:
-            claimName: bbe-library-calibre-books
-        - name: ingest
-          persistentVolumeClaim:
-            claimName: bbe-library-calibre-ingest
+            claimName: bbe-library-share
+        - name: dirs
+          configMap:
+            name: bbe-library-calibre-dirs
 ---
 apiVersion: v1
 kind: Service

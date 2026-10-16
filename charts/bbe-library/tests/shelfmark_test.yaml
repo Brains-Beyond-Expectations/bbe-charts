@@ -56,16 +56,16 @@ tests:
           path: spec.template.spec.securityContext.fsGroup
           value: 100
       - contains:
-          path: spec.template.spec.containers[0].volumeMounts
+          path: spec.template.spec.containers[0].env
           content:
-            name: ingest
-            mountPath: /books
+            name: INGEST_DIR
+            value: /share/books-ingest
       - contains:
           path: spec.template.spec.volumes
           content:
-            name: ingest
+            name: share
             persistentVolumeClaim:
-              claimName: bbe-library-calibre-ingest
+              claimName: bbe-library-share
       - contains:
           path: spec.template.spec.containers[0].env
           content:

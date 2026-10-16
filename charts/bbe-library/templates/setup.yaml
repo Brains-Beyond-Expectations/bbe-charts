@@ -41,6 +41,8 @@ spec:
           env:
             - name: CALIBRE_URL
               value: http://{{ .Release.Name }}-calibre:8083
+            - name: LIBRARY_DIR
+              value: /share/books
             - name: ADMIN_USERNAME
               valueFrom:
                 secretKeyRef:

@@ -42,19 +42,24 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
-            name: books
-            mountPath: /calibre-library
+            name: share
+            mountPath: /share
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
-            name: ingest
-            mountPath: /cwa-book-ingest
+            name: dirs
+            mountPath: /app/calibre-web-automated/dirs.json
+            subPath: dirs.json
+            readOnly: true
       - contains:
           path: spec.template.spec.volumes
           content:
-            name: ingest
+            name: share
             persistentVolumeClaim:
-              claimName: bbe-library-calibre-ingest
+              claimName: bbe-library-share
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 100
       - contains:
           path: spec.template.spec.volumes
           content:
@@ -86,6 +91,19 @@ tests:
           content:
             configMapRef:
               name: bbe-library-user
+
+  - it: should name the library and ingest folders in the share
+    template: calibre.yaml
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - matchRegex:
+          path: data["dirs.json"]
+          pattern: '"calibre_library_dir": "/share/books"'
+      - matchRegex:
+          path: data["dirs.json"]
+          pattern: '"ingest_folder": "/share/books-ingest"'
 
   - it: should run the apps as the NAS user
     template: user.yaml

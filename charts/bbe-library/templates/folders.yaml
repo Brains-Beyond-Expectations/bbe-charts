@@ -1,5 +1,4 @@
-# Creates the books' folders on the share, and an empty library, as the NAS user, as the share maps root away. The
-# apps' volumes mount the folders, so they wait for this on a first install
+# Creates the books' folders on the share, and an empty library, as the NAS user, as the share maps root away
 apiVersion: batch/v1
 kind: Job
 metadata:

@@ -34,7 +34,8 @@ READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
 
 # Calibre-Web's first start creates this admin, which bbe renames and gives its own password
 DEFAULT_ADMIN = ("admin", "admin123")
-LIBRARY_DIR = "/calibre-library"
+# The library the chart's folders Job created on the share, as the chart's dirs.json names it
+LIBRARY_DIR = os.environ.get("LIBRARY_DIR", "/share/books")
 # The groups people sign in with, and the one whose members are the library's admins
 GROUPS = ["users", "admins"]
 ADMIN_GROUP = "admins"
