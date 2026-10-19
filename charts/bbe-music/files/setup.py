@@ -2,8 +2,8 @@
 
 - Lidarr: its login, the music folder, bbe-media's qBittorrent, and bbe-media's Prowlarr sharing its indexers with it.
 - Music Assistant: its admin, its address, and the music folders it plays.
-- SoulSync: its API key, slskd and bbe-media's Prowlarr and qBittorrent as sources, the folder it mirrors Spotify
-  into with an M3U per playlist, and the Spotify address its login comes back to.
+- SoulSync: its API key, slskd, bbe-media's Prowlarr and qBittorrent, and Lidarr as sources, Lidarr's music folder
+  to mirror Spotify into with Lidarr's naming and an M3U per playlist, and the Spotify address its login comes back to.
 
 Every step reads what's already there first, so running it again changes nothing. Only the Python standard library
 is used, so the job runs on the plain python image.
@@ -24,7 +24,9 @@ READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
 DOMAIN = os.environ.get("DOMAIN", "")
 SSO = os.environ.get("SSO", "true").lower() == "true"
 MUSIC_DIR = os.environ.get("MUSIC_DIR", "/media/music")
-SPOTIFY_DIR = os.environ.get("SPOTIFY_DIR", "/media/music-spotify")
+# The Lidarr root folder SoulSync asks Lidarr to download into, outside the music: it copies the tracks it wants into
+# the music and has Lidarr forget the rest, which would otherwise stay there as duplicates
+SOULSYNC_LIDARR_DIR = os.environ.get("SOULSYNC_LIDARR_DIR", "/media/downloads/soulsync-lidarr")
 SOULSEEK_DOWNLOADS = os.environ.get("SOULSEEK_DOWNLOADS", "/media/downloads/soulseek/complete")
 DOWNLOADS_DIR = os.environ.get("DOWNLOADS_DIR", "/media/downloads")
 
@@ -205,19 +207,25 @@ def profile_id(lidarr, kind, name):
     return found["id"]
 
 
-def configure_lidarr_root_folder(lidarr):
-    if any(folder["path"].rstrip("/") == MUSIC_DIR for folder in lidarr.get(f"{lidarr.api}/rootfolder")):
-        return
+def configure_lidarr_root_folders(lidarr):
+    """The music, which Lidarr adds new artists to, and the folder SoulSync has it download into"""
+    existing = {folder["path"].rstrip("/") for folder in lidarr.get(f"{lidarr.api}/rootfolder")}
+    for name, path in (("Music", MUSIC_DIR), ("SoulSync", SOULSYNC_LIDARR_DIR)):
+        if path not in existing:
+            add_lidarr_root_folder(lidarr, name, path)
+
+
+def add_lidarr_root_folder(lidarr, name, path):
     lidarr.post(f"{lidarr.api}/rootfolder", {
-        "name": "Music",
-        "path": MUSIC_DIR,
+        "name": name,
+        "path": path,
         "defaultQualityProfileId": profile_id(lidarr, "qualityprofile", LIDARR_QUALITY_PROFILE),
         "defaultMetadataProfileId": profile_id(lidarr, "metadataprofile", LIDARR_METADATA_PROFILE),
         "defaultMonitorOption": "all",
         "defaultNewItemMonitorOption": "all",
         "defaultTags": [],
     })
-    log(f"Lidarr: added the root folder {MUSIC_DIR}")
+    log(f"Lidarr: added the root folder {path}")
 
 
 def configure_lidarr_download_client(lidarr):
@@ -283,27 +291,32 @@ def configure_music_assistant_address(music_assistant):
     log(f"Music Assistant: its address is {wanted}")
 
 
-def configure_music_assistant_folders(music_assistant):
-    """A local files provider for Lidarr's music, and one for SoulSync's mirror of Spotify with its playlists"""
+def music_assistant_paths(music_assistant):
     configs = music_assistant.command("config/providers", provider_domain="filesystem_local", include_values=True)
     paths = set()
     for config in configs or []:
-        values = config.get("values") or {}
-        path = values.get("path")
-        paths.add(path.get("value") if isinstance(path, dict) else path)
+        path = (config.get("values") or {}).get("path")
+        paths.add((path.get("value") if isinstance(path, dict) else path or "").rstrip("/"))
+    return paths
 
-    for path in (MUSIC_DIR, SPOTIFY_DIR):
-        if path in paths:
-            continue
-        step = music_assistant.command("config/providers/setup", provider_domain="filesystem_local")
-        flow_id = (step or {}).get("flow_id")
-        if not flow_id:
-            raise SetupError(f"Music Assistant: adding the local files in {path} didn't start a setup: {step}")
-        step = music_assistant.command("config/flows/submit", flow_id=flow_id,
-                                       values={"content_type": "music", "path": path})
-        if str((step or {}).get("type", "")).lower() not in ("finish", "flowsteptype.finish"):
-            raise SetupError(f"Music Assistant: the local files in {path} weren't added: {step}")
-        log(f"Music Assistant: plays the music in {path}")
+
+def configure_music_assistant_folders(music_assistant):
+    """A local files provider for the music, which Lidarr and SoulSync both write to, with SoulSync's playlists"""
+    if MUSIC_DIR in music_assistant_paths(music_assistant):
+        return
+    step = music_assistant.command("config/providers/setup", provider_domain="filesystem_local")
+    flow_id = (step or {}).get("flow_id")
+    if not flow_id:
+        raise SetupError(f"Music Assistant: adding the local files in {MUSIC_DIR} didn't start a setup: {step}")
+    step = music_assistant.command("config/flows/submit", flow_id=flow_id,
+                                   values={"content_type": "music", "path": MUSIC_DIR})
+    # The flow's last step says it's done, but what counts is the provider being there
+    for _ in range(12):
+        if MUSIC_DIR in music_assistant_paths(music_assistant):
+            log(f"Music Assistant: plays the music in {MUSIC_DIR}")
+            return
+        time.sleep(5)
+    raise SetupError(f"Music Assistant: the local files in {MUSIC_DIR} weren't added: {step}")
 
 
 # ---- SoulSync ---------------------------------------------------------------------------------------------------------
@@ -372,17 +385,26 @@ def soulsync_settings():
             "slskd_url": SLSKD_URL,
             "api_key": SLSKD_API_KEY,
             "download_path": SOULSEEK_DOWNLOADS,
-            "transfer_path": SPOTIFY_DIR,
+            "transfer_path": MUSIC_DIR,
         },
         "download_source": {"mode": "hybrid", "hybrid_order": ["soulseek"]},
+        # Into the music, named as Lidarr names it, so it sees what Lidarr has and nothing is there twice
+        "file_organization": {"enabled": True, "templates": {
+            "album_path": "$albumartist/$album ($year)/$albumartist - $album - $track - $title",
+            "single_path": "$albumartist/$title ($year)/$albumartist - $title",
+            "compilation_path": "Various Artists/$album ($year)/$artist - $album - $track - $title",
+            "playlist_path": "Playlists/$playlist/$artist - $title",
+        }},
         # Each playlist as an M3U next to its tracks, which Music Assistant reads
         "m3u_export": {"enabled": True, "relative_paths": True},
         # Spotify sends its login back here, through authentik
         "spotify": {"redirect_uri": f"https://soulsync.{DOMAIN}/callback"},
         "security": {"trust_reverse_proxy": True},
     }
+    order = ["soulseek"]
     if PROWLARR_URL and QBITTORRENT_URL:
-        settings["download_source"].update(hybrid_order=["soulseek", "torrent"], torrent_download_path=DOWNLOADS_DIR)
+        order.append("torrent")
+        settings["download_source"]["torrent_download_path"] = DOWNLOADS_DIR
         settings["prowlarr"] = {"url": PROWLARR_URL, "api_key": PROWLARR_API_KEY}
         settings["torrent_client"] = {
             "type": "qbittorrent",
@@ -394,6 +416,17 @@ def soulsync_settings():
             "seed_ratio_goal": SEED_RATIO,
             "seed_remove_data": True,
         }
+    if LIDARR_URL:
+        # Lidarr finds whole albums, of which SoulSync takes the tracks it wants
+        order.append("lidarr")
+        settings["lidarr_download"] = {
+            "url": LIDARR_URL,
+            "api_key": LIDARR_API_KEY,
+            "root_folder": SOULSYNC_LIDARR_DIR,
+            "quality_profile": LIDARR_QUALITY_PROFILE,
+            "cleanup_after_import": True,
+        }
+    settings["download_source"]["hybrid_order"] = order
     return settings
 
 
@@ -402,7 +435,8 @@ def configure_soulsync(soulsync, kubernetes):
     soulsync.headers["X-API-Key"] = key
     # Its settings come back with secrets masked, so they're all saved, which is what makes it reload its sources
     soulsync.post("/api/settings", soulsync_settings())
-    log(f"SoulSync: mirrors into {SPOTIFY_DIR}, from Soulseek" + (" and torrents" if PROWLARR_URL else ""))
+    sources = soulsync_settings()["download_source"]["hybrid_order"]
+    log(f"SoulSync: mirrors into {MUSIC_DIR}, from {', '.join(sources)}")
 
 
 def main():
@@ -412,7 +446,7 @@ def main():
         lidarr = servarr("Lidarr", LIDARR_URL, LIDARR_API_KEY)
         lidarr.wait_until_ready("/ping", deadline)
         configure_lidarr_login(lidarr)
-        configure_lidarr_root_folder(lidarr)
+        configure_lidarr_root_folders(lidarr)
         configure_lidarr_download_client(lidarr)
         if PROWLARR_URL:
             prowlarr = servarr("Prowlarr", PROWLARR_URL, PROWLARR_API_KEY)

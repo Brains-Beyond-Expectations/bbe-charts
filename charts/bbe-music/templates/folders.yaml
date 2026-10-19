@@ -28,7 +28,7 @@ spec:
             - mkdir
             - -p
             - {{ include "bbe-music.musicDir" . }}
-            - {{ include "bbe-music.spotifyDir" . }}
+            - {{ include "bbe-music.soulsyncLidarrDir" . }}
             - {{ include "bbe-music.soulseekDir" . }}/complete
             - {{ include "bbe-music.soulseekDir" . }}/incomplete
           resources:

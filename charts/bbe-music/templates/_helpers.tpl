@@ -31,7 +31,7 @@ limits:
   memory: 64Mi
 {{- end -}}
 
-{{- define "bbe-music.spotifyDir" -}}/media/music-spotify{{- end -}}
+{{- define "bbe-music.soulsyncLidarrDir" -}}/media/downloads/soulsync-lidarr{{- end -}}
 
 {{/*
 gluetun, the VPN every byte of a pod's internet traffic goes through, as a native sidecar: it starts before the pod's

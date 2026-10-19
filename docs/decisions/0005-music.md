@@ -59,7 +59,8 @@ slskd 0.26.1, the Soulseek client Soularr and SoulSync download with:
 SoulSync 3.5.7 mirrors liked songs, playlists and followed artists, downloading each track rather than its whole album:
 - **Sources:** Soulseek through slskd first, then bbe-media's Prowlarr and qBittorrent.
 - **Torrents seed to ratio 2**, which it hands to qBittorrent, like everything else there (0001).
-- **It writes to `music-spotify/`** on the share, with an M3U per playlist, which Music Assistant reads. No media server is involved ("Standalone").
+- **It writes into Lidarr's `music/`**, named as Lidarr names albums (`Artist/Album (Year)/Artist - Album - 01 - Title`), so it sees what's already there and nothing is downloaded twice. Its M3U per playlist goes to `music/Playlists/`, which Music Assistant reads. No media server is involved ("Standalone").
+- **Lidarr is one of its sources too**, after Soulseek and torrents: it has Lidarr find a whole album, takes the tracks it wants, and has Lidarr forget the album. Lidarr downloads those into a root folder of its own outside the music, `downloads/soulsync-lidarr/`, so the rest don't stay in the music as duplicates.
 - **Setup:** it makes its own API keys. The setup Job asks for its first one and keeps it in `bbe-music-soulsync-key`, the only Secret its ServiceAccount may change. It then sets its sources, folders, M3U export and the address Spotify's login comes back to.
 - **What stays manual**, as Spotify requires it: creating a Spotify developer app with a Premium account, putting its ID and secret in SoulSync, signing in (again every six months), and choosing the playlists to mirror. Playlists others own can't be read, so they need copying to one's own first.
 - It's behind authentik's forward auth. It has no OIDC or LDAP. The header it trusts only skips its launch PIN, which is off.
@@ -70,7 +71,7 @@ Rejected: **Lidarr's Spotify lists**, which add whole albums and skip liked song
 ### 4. Music Assistant plays it all, on the node's network
 
 Music Assistant 2.10.7:
-- **Local files:** one provider for Lidarr's `music/` and one for SoulSync's `music-spotify/`, which also reads its playlists. They're mounted read-only.
+- **Local files:** one provider for `music/`, which Lidarr and SoulSync both write to, and which also reads SoulSync's playlists. It's mounted read-only.
 - **Spotify:** with its own provider, which needs Premium and a sign-in in its settings, it links each Spotify track to the local copy, by MusicBrainz ID or ISRC, and plays the best one there is. When Spotify is down, that's the local one.
 - **Host networking:** speakers are found by multicast, and AirPlay and Cast call back on ports of their own, so it runs on the node's network. That needs `bbe/pod-security: privileged` for the namespace, which every pod in it then gets. Kubernetes is unsupported upstream.
 - **It runs as the NAS user** rather than root, which the share maps away. Its image is prepared for that.
@@ -85,7 +86,8 @@ Every app mounts the share at `/media`, as bbe-media does, so Lidarr finds qBitt
 
 ```
 music/                      Lidarr's root folder, Music Assistant's first provider, what slskd shares
-music-spotify/              SoulSync's mirror and its playlists
+music/Playlists/            SoulSync's playlists of tracks in music/
+downloads/soulsync-lidarr/  The Lidarr root folder SoulSync has albums downloaded into, then takes tracks from
 downloads/soulseek/         slskd's downloads, which Soularr and SoulSync move from
 ```
 
@@ -97,6 +99,6 @@ A folders Job creates them as the NAS user. The databases are on Longhorn.
 - **Every pod in bbe-music may run privileged**, as pod security is set per namespace.
 - **People sign in to Music Assistant with its own accounts**, separate from authentik, until it supports OIDC.
 - **Spotify asks SoulSync to sign in again every six months.**
-- **Albums and tracks can be in both folders**, from Lidarr and SoulSync. Music Assistant links them as one.
+- **Lidarr lists SoulSync's tracks as unmapped files** in its music folder, as they're not albums it monitors.
 - **slskd asks for its own login** after authentik's, so admins sign in twice there.
 - **What's verified, and what isn't:** against the apps' source only, and unit tests. Nothing has run yet.

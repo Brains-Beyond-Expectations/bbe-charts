@@ -297,7 +297,7 @@ tests:
             - mkdir
             - -p
             - /media/music
-            - /media/music-spotify
+            - /media/downloads/soulsync-lidarr
             - /media/downloads/soulseek/complete
             - /media/downloads/soulseek/incomplete
       - equal:

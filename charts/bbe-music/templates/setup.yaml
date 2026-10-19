@@ -87,8 +87,8 @@ spec:
               value: {{ .Values.global.bbe.sso.enabled | quote }}
             - name: MUSIC_DIR
               value: {{ include "bbe-music.musicDir" . }}
-            - name: SPOTIFY_DIR
-              value: {{ include "bbe-music.spotifyDir" . }}
+            - name: SOULSYNC_LIDARR_DIR
+              value: {{ include "bbe-music.soulsyncLidarrDir" . }}
             - name: SOULSEEK_DOWNLOADS
               value: {{ include "bbe-music.soulseekDir" . }}/complete
             - name: LIDARR_URL
