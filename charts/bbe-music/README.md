@@ -34,7 +34,8 @@ A music library for the BBE cluster, with Lidarr to find albums, slskd and Soula
 | bbe.music.slskd.dataSize | string | `"2Gi"` | The size of its data volume, with its database and search history |
 | bbe.music.slskd.image.repository | string | `"slskd/slskd"` | The slskd image, a Soulseek client with a web interface and API |
 | bbe.music.slskd.image.tag | string | `"0.26.1"` | The slskd version |
-| bbe.music.slskd.listenPort | int | `50300` | The port slskd listens on for Soulseek peers. With the VPN, the port it forwards is used instead. Without it, nothing forwards this port, and slskd only reaches peers whose own port is open |
+| bbe.music.slskd.listenPort | int | `50300` | The port slskd listens on for Soulseek peers, the same on the router and the address above. With the VPN, the port it forwards is used instead |
+| bbe.music.slskd.loadBalancerIP | string | `""` | Without the VPN, an IP address on your LAN for Soulseek peers to reach slskd at, which MetalLB announces. Forward the listen port on your router to it. Left empty, slskd only reaches peers whose own port is open |
 | bbe.music.slskd.resources.limits.memory | string | `"1Gi"` | The memory to limit slskd to |
 | bbe.music.slskd.resources.requests.cpu | string | `"50m"` | The CPU to request for slskd |
 | bbe.music.slskd.resources.requests.memory | string | `"256Mi"` | The memory to request for slskd |

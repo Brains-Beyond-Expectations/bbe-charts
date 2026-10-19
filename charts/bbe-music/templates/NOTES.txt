@@ -15,8 +15,12 @@ authentik's, which is:
 {{- if .Values.global.bbe.vpn.enabled }}
 All of slskd's traffic goes through the VPN, and Soulseek peers reach it through the port the VPN forwards. With the
 tunnel down, slskd leaves Soulseek and nothing but the cluster is reachable.
+{{- else if .Values.bbe.music.slskd.loadBalancerIP }}
+slskd reaches Soulseek directly, and peers reach it at {{ .Values.bbe.music.slskd.loadBalancerIP }}, port {{ .Values.bbe.music.slskd.listenPort }}. Forward that TCP port
+on your router to it, or slskd only reaches peers whose own port is open.
 {{- else }}
-slskd reaches Soulseek directly, and no port is forwarded to it, so it only reaches peers whose own port is open.
+slskd reaches Soulseek directly, and no port is forwarded to it, so it only reaches peers whose own port is open. Set
+bbe.music.slskd.loadBalancerIP and forward its port on your router, or turn on the VPN, for the others.
 {{- end }}
 Soulseek's rules don't allow automated clients like Soularr, and expect you to share: slskd shares the music folder,
 at most {{ .Values.bbe.music.slskd.uploadSlots }} uploads at once.

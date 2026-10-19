@@ -33,6 +33,7 @@ annotations:
   bbe/recorded-values: |
     - bbe.music.seedRatio
     - bbe.music.lidarr
+    - bbe.music.slskd.loadBalancerIP
     - bbe.music.slskd.uploadSlots
     - bbe.music.slskd.uploadSpeedLimit
     - bbe.music.soularr.allowedFiletypes

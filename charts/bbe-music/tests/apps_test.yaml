@@ -117,6 +117,42 @@ tests:
       - hasDocuments:
           count: 3
 
+  - it: should let peers reach slskd directly at its own address without the VPN
+    template: templates/slskd.yaml
+    set:
+      bbe.music.slskd.loadBalancerIP: 192.168.1.242
+    asserts:
+      - hasDocuments:
+          count: 6
+      - equal:
+          path: spec.externalTrafficPolicy
+          value: Local
+        documentSelector:
+          path: metadata.name
+          value: bbe-music-slskd-soulseek
+      - equal:
+          path: spec.addresses
+          value:
+            - 192.168.1.242/32
+        documentSelector:
+          path: kind
+          value: IPAddressPool
+      - equal:
+          path: metadata.namespace
+          value: bbe-networking
+        documentSelector:
+          path: kind
+          value: L2Advertisement
+
+  - it: should ignore slskd's own address with the VPN, which forwards a port instead
+    template: templates/slskd.yaml
+    set:
+      bbe.music.slskd.loadBalancerIP: 192.168.1.242
+      global.bbe.vpn.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 3
+
   - it: should copy slskd's WireGuard key from bbe-media's Secret
     template: templates/vpn.yaml
     set:

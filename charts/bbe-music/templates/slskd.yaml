@@ -1,8 +1,11 @@
 {{- $slskd := .Values.bbe.music.slskd }}
 {{- $vpn := .Values.global.bbe.vpn }}
+{{- /* Without the VPN, peers can reach slskd directly at an address of its own, which the router forwards to */ -}}
+{{- $direct := and (not $vpn.enabled) $slskd.loadBalancerIP }}
 # slskd, a Soulseek client, which Soularr downloads the albums Lidarr is missing with. It shares the music folder, as
 # Soulseek expects. Its database is on Longhorn, as SQLite on NFS breaks. With the VPN, all its traffic goes through
-# gluetun, and peers reach it through the port the VPN forwards
+# gluetun, and peers reach it through the port the VPN forwards. Without, they reach it directly at its own address,
+# when it has one
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -134,6 +137,10 @@ spec:
           ports:
             - name: http
               containerPort: 5030
+            {{- if $direct }}
+            - name: soulseek
+              containerPort: {{ $slskd.listenPort }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /health
@@ -200,3 +207,53 @@ spec:
     - name: http
       port: 5030
       targetPort: http
+{{- if $direct }}
+---
+# Without the VPN, Soulseek peers connect to slskd here, at its own address on the LAN, which the router forwards the
+# port to. Local traffic policy keeps the peers' own addresses
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-slskd-soulseek
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+    app.kubernetes.io/component: slskd
+  annotations:
+    metallb.io/address-pool: bbe-music-slskd
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: slskd
+  ports:
+    - name: soulseek
+      protocol: TCP
+      port: {{ $slskd.listenPort }}
+      targetPort: soulseek
+---
+# slskd's own address, which only its Service gets, in MetalLB's namespace
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: bbe-music-slskd
+  namespace: bbe-networking
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  autoAssign: false
+  addresses:
+    - {{ $slskd.loadBalancerIP }}/32
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: bbe-music-slskd
+  namespace: bbe-networking
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  ipAddressPools:
+    - bbe-music-slskd
+{{- end }}

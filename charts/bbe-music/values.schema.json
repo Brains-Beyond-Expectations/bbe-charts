@@ -97,6 +97,11 @@
                 "uploadSpeedLimit": {
                   "type": "integer",
                   "minimum": 0
+                },
+                "loadBalancerIP": {
+                  "type": "string",
+                  "pattern": "^$|^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$",
+                  "description": "Without the VPN, a free IP address on your LAN for Soulseek peers to reach slskd at, outside your router's DHCP range, or empty for none"
                 }
               }
             }

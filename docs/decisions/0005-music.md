@@ -50,7 +50,7 @@ slskd 0.26.1, the Soulseek client Soularr and SoulSync download with:
 - **Its account is generated** (`bbe` and 12 random characters) and registered by Soulseek on its first login. A name unused for 30 days is freed.
 - **It shares the music folder**, as Soulseek expects, with at most 4 uploads at 2 MiB/s (`bbe.music.slskd.uploadSlots`, `uploadSpeedLimit`).
 - **All its traffic goes through the VPN** (`global.bbe.vpn`, as qBittorrent's in 0001's decision 12), and peers reach it through the port ProtonVPN forwards. slskd's own gluetun integration reads the forwarded port from gluetun's control server and listens on it, and leaves Soulseek while the VPN is down.
-- **Nothing is opened at home.** Soulseek peers connect to each other directly, so without a forwarded port slskd only reaches peers whose own port is open. A forwarded port on the router to an address of slskd's own was the other way, rejected for opening the home network.
+- **Without the VPN, it connects directly.** Soulseek peers connect to each other directly, so without a forwarded port slskd only reaches peers whose own port is open. With `bbe.music.slskd.loadBalancerIP` set, slskd gets an address of its own on the LAN, in a MetalLB pool bbe-music adds to bbe-networking's namespace, and the router forwards its port (50300) there. That opens one port of the home network, so the VPN is the recommended way.
 - **Its own login stays on**, behind authentik's forward auth. It has no OIDC, LDAP or trusted header, and its maintainer suggests turning its login off behind a proxy, but the cluster doesn't enforce NetworkPolicies (0002, decision 7), so anything in the cluster could reach it. Soularr and SoulSync use its API key.
 - Soulseek's rules don't allow automated clients like Soularr. It's at the user's own risk.
 
@@ -93,7 +93,7 @@ A folders Job creates them as the NAS user. The databases are on Longhorn.
 
 ## Consequences
 
-- **With the VPN off, slskd only reaches Soulseek peers whose own port is open**, as nothing forwards a port to it.
+- **With the VPN off and no address of its own, slskd only reaches Soulseek peers whose own port is open.** With an address, the router has to forward its port, which bbe can't do.
 - **Every pod in bbe-music may run privileged**, as pod security is set per namespace.
 - **People sign in to Music Assistant with its own accounts**, separate from authentik, until it supports OIDC.
 - **Spotify asks SoulSync to sign in again every six months.**

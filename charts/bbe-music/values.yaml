@@ -79,8 +79,11 @@ bbe:
         repository: slskd/slskd
         # -- The slskd version
         tag: "0.26.1"
-      # -- The port slskd listens on for Soulseek peers. With the VPN, the port it forwards is used instead. Without
-      # it, nothing forwards this port, and slskd only reaches peers whose own port is open
+      # -- Without the VPN, an IP address on your LAN for Soulseek peers to reach slskd at, which MetalLB announces.
+      # Forward the listen port on your router to it. Left empty, slskd only reaches peers whose own port is open
+      loadBalancerIP: ""
+      # -- The port slskd listens on for Soulseek peers, the same on the router and the address above. With the VPN,
+      # the port it forwards is used instead
       listenPort: 50300
       # -- How many uploads at once. Soulseek expects people to share, and slskd shares the music folder
       uploadSlots: 4
