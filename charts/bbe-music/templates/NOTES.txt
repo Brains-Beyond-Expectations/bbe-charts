@@ -1,0 +1,25 @@
+{{- $domain := .Values.global.bbe.domain }}
+Music Assistant plays the music at https://music.{{ $domain }}, on speakers it finds on the LAN, in the browser and in
+its apps (connect them to music.{{ $domain }}, port 443). Its admin is {{ .Values.bbe.admin.username }}, with the password:
+  kubectl get secret bbe-music-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
+It can't sign people in with authentik yet, so add people in its Settings → Users. To play Spotify too, add the
+Spotify provider in its Settings → Providers and sign in with your Premium account. It plays a local copy of a track
+when there is one, also when Spotify is down.
+
+Lidarr finds albums at https://lidarr.{{ $domain }}, slskd shows Soulseek at https://slskd.{{ $domain }}, and SoulSync
+mirrors Spotify at https://soulsync.{{ $domain }}, all for authentik's admins. slskd asks for its own login after
+authentik's, which is:
+  kubectl get secret bbe-music-slskd -n {{ .Release.Namespace }} -o jsonpath='{.data.username}' | base64 -d
+  kubectl get secret bbe-music-slskd -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
+
+Soulseek peers reach slskd at {{ .Values.bbe.music.slskd.loadBalancerIP }}, port {{ .Values.bbe.music.slskd.listenPort }}. Forward that TCP port on your router to it,
+or slskd only reaches peers whose own port is open. Soulseek's rules don't allow automated clients like Soularr, and
+expect you to share: slskd shares the music folder, at most {{ .Values.bbe.music.slskd.uploadSlots }} uploads at once.
+
+To mirror your Spotify library with SoulSync, once:
+  1. Create an app at https://developer.spotify.com/dashboard with your Premium account, with the redirect URI
+     https://soulsync.{{ $domain }}/callback
+  2. Put its client ID and secret in SoulSync's Settings → Spotify, and sign in there. Spotify asks again every 6 months.
+  3. Choose the playlists to mirror, and your Liked Songs. Spotify only lets SoulSync read playlists you own or
+     collaborate on, so save a copy of others' as your own first.
+SoulSync writes them to music-spotify/ on the share, with an M3U per playlist that Music Assistant reads.

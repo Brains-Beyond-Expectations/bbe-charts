@@ -35,6 +35,9 @@ bbe:
         Read:
           style: row
           columns: 4
+        Listen:
+          style: row
+          columns: 4
         Manage:
           style: row
           columns: 4

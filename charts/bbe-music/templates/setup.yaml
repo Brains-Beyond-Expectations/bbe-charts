@@ -1,0 +1,181 @@
+{{- if .Values.bbe.setup.enabled }}
+{{- /* bbe-media's secrets, which secrets.yaml copies into bbe-music-media */ -}}
+{{- $media := and (lookup "v1" "Secret" "bbe-media" "bbe-media-api-keys") (lookup "v1" "Secret" "bbe-media" "bbe-media-admin") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-music-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+data:
+  setup.py: |
+    {{- .Files.Get "files/setup.py" | nindent 4 }}
+---
+# The setup keeps SoulSync's API key, which SoulSync makes itself, in this one Secret
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bbe-music-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: bbe-music-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["bbe-music-soulsync-key"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bbe-music-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: bbe-music-setup
+subjects:
+  - kind: ServiceAccount
+    name: bbe-music-setup
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job can't be changed once it exists, so each revision gets its own, which also runs it again
+  name: bbe-music-setup-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.bbe.setup.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-music.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup
+    spec:
+      restartPolicy: Never
+      serviceAccountName: bbe-music-setup
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: setup
+          image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
+          command:
+            - python3
+            - /scripts/setup.py
+          env:
+            - name: DOMAIN
+              value: {{ .Values.global.bbe.domain }}
+            - name: SSO
+              value: {{ .Values.global.bbe.sso.enabled | quote }}
+            - name: MUSIC_DIR
+              value: {{ include "bbe-music.musicDir" . }}
+            - name: SPOTIFY_DIR
+              value: {{ include "bbe-music.spotifyDir" . }}
+            - name: SOULSEEK_DOWNLOADS
+              value: {{ include "bbe-music.soulseekDir" . }}/complete
+            - name: LIDARR_URL
+              value: http://{{ .Release.Name }}-lidarr.{{ .Release.Namespace }}.svc.cluster.local:8686
+            - name: LIDARR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-api-keys
+                  key: lidarr
+            - name: LIDARR_QUALITY_PROFILE
+              value: {{ .Values.bbe.music.lidarr.qualityProfile | quote }}
+            - name: LIDARR_METADATA_PROFILE
+              value: {{ .Values.bbe.music.lidarr.metadataProfile | quote }}
+            # Lidarr's own login, for going back to it without authentik, is Music Assistant's admin
+            - name: LIDARR_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-admin
+                  key: username
+            - name: LIDARR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-admin
+                  key: password
+            {{- if $media }}
+            # bbe-media's Prowlarr and qBittorrent
+            - name: PROWLARR_URL
+              value: http://bbe-media-prowlarr.bbe-media.svc.cluster.local:9696
+            - name: PROWLARR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-media
+                  key: prowlarr-api-key
+            - name: QBITTORRENT_URL
+              value: http://bbe-media-qbittorrent.bbe-media.svc.cluster.local:8080
+            - name: QBITTORRENT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-media
+                  key: qbittorrent-username
+            - name: QBITTORRENT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-media
+                  key: qbittorrent-password
+            {{- end }}
+            - name: SEED_RATIO
+              value: {{ .Values.bbe.music.seedRatio | quote }}
+            - name: MUSIC_ASSISTANT_URL
+              value: http://{{ .Release.Name }}-music-assistant.{{ .Release.Namespace }}.svc.cluster.local:8095
+            - name: MUSIC_ASSISTANT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-admin
+                  key: username
+            - name: MUSIC_ASSISTANT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-admin
+                  key: password
+            - name: SOULSYNC_URL
+              value: http://{{ .Release.Name }}-soulsync.{{ .Release.Namespace }}.svc.cluster.local:8008
+            - name: SLSKD_URL
+              value: http://{{ .Release.Name }}-slskd.{{ .Release.Namespace }}.svc.cluster.local:5030
+            - name: SLSKD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-api-keys
+                  key: slskd
+            - name: READY_TIMEOUT
+              value: {{ .Values.bbe.setup.readyTimeout | quote }}
+          {{- with .Values.bbe.setup.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: bbe-music-setup
+{{- end }}

@@ -1,0 +1,91 @@
+suite: test setup
+values:
+  - ./values/required-values.yaml
+templates:
+  - templates/setup.yaml
+release:
+  name: bbe-music
+  namespace: bbe-music
+  revision: 2
+tests:
+  - it: should only let the setup change SoulSync's key Secret
+    documentSelector:
+      path: kind
+      value: Role
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: ["secrets"]
+              resourceNames: ["bbe-music-soulsync-key"]
+              verbs: ["get", "patch"]
+
+  - it: should run the setup with its own ServiceAccount, once per revision
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-music-setup-2
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: bbe-music-setup
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MUSIC_ASSISTANT_URL
+            value: http://bbe-music-music-assistant.bbe-music.svc.cluster.local:8095
+
+  - it: should leave out bbe-media's apps when bbe-media isn't installed
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content:
+            name: PROWLARR_URL
+
+  - it: should connect Lidarr and SoulSync to bbe-media's Prowlarr and qBittorrent
+    documentSelector:
+      path: kind
+      value: Job
+    kubernetesProvider:
+      scheme:
+        "v1/Secret":
+          gvr:
+            version: "v1"
+            resource: "secrets"
+          namespaced: true
+      objects:
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: bbe-media-api-keys
+            namespace: bbe-media
+          data:
+            prowlarr: cHJvd2xhcnI=
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: bbe-media-admin
+            namespace: bbe-media
+          data:
+            username: YWRtaW4=
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PROWLARR_URL
+            value: http://bbe-media-prowlarr.bbe-media.svc.cluster.local:9696
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: QBITTORRENT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: bbe-music-media
+                key: qbittorrent-password

@@ -1,0 +1,223 @@
+{{- $slskd := .Values.bbe.music.slskd }}
+# slskd, a Soulseek client, which Soularr downloads the albums Lidarr is missing with. It shares the music folder, as
+# Soulseek expects. Its database is on Longhorn, as SQLite on NFS breaks
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-music-slskd-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: {{ $slskd.dataSize }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-slskd
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+    app.kubernetes.io/component: slskd
+spec:
+  replicas: 1
+  # A second login with the same Soulseek account signs the first one out
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: slskd
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-music.labels" . | nindent 8 }}
+        app.kubernetes.io/component: slskd
+    spec:
+      # It runs as the NAS user, which writes the downloads, and owns its data volume through the group
+      securityContext:
+        {{- include "bbe-music.runAsUser" . | nindent 8 }}
+        fsGroup: {{ .Values.bbe.music.user.gid | int }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: slskd
+          image: "{{ $slskd.image.repository }}:{{ $slskd.image.tag }}"
+          env:
+            - name: SLSKD_SLSK_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-slskd
+                  key: soulseek-username
+            - name: SLSKD_SLSK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-slskd
+                  key: soulseek-password
+            - name: SLSKD_SLSK_LISTEN_PORT
+              value: {{ $slskd.listenPort | quote }}
+            - name: SLSKD_DOWNLOADS_DIR
+              value: {{ include "bbe-music.soulseekDir" . }}/complete
+            - name: SLSKD_INCOMPLETE_DIR
+              value: {{ include "bbe-music.soulseekDir" . }}/incomplete
+            - name: SLSKD_SHARED_DIR
+              value: {{ include "bbe-music.musicDir" . }}
+            # New music gets shared within a day
+            - name: SLSKD_SHARE_CACHE_RETENTION
+              value: "1440"
+            - name: SLSKD_SHARE_CACHE_STORAGE_MODE
+              value: disk
+            - name: SLSKD_UPLOAD_SLOTS
+              value: {{ $slskd.uploadSlots | quote }}
+            {{- if $slskd.uploadSpeedLimit }}
+            - name: SLSKD_UPLOAD_SPEED_LIMIT
+              value: {{ $slskd.uploadSpeedLimit | quote }}
+            {{- end }}
+            # Its own login stays behind authentik, as it has no other, and the cluster doesn't fence off its port
+            - name: SLSKD_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-slskd
+                  key: username
+            - name: SLSKD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-slskd
+                  key: password
+            - name: SLSKD_JWT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-slskd
+                  key: jwt-key
+            # Soularr's key
+            - name: SLSKD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-api-keys
+                  key: slskd
+            - name: SLSKD_REMOTE_CONFIGURATION
+              value: "false"
+            - name: SLSKD_NO_HTTPS
+              value: "true"
+            - name: SLSKD_NO_VERSION_CHECK
+              value: "true"
+            - name: SLSKD_NO_DISK_LOGGER
+              value: "true"
+            # Its single-file binary unpacks itself at start, where the root filesystem is read-only
+            - name: DOTNET_BUNDLE_EXTRACT_BASE_DIR
+              value: /tmp/.net
+          ports:
+            - name: http
+              containerPort: 5030
+            - name: soulseek
+              containerPort: {{ $slskd.listenPort }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          {{- with $slskd.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /app
+            - name: tmp
+              mountPath: /tmp
+            - name: share
+              mountPath: /media
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: bbe-music-slskd-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+        - name: share
+          persistentVolumeClaim:
+            claimName: bbe-music-share
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-slskd
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+    app.kubernetes.io/component: slskd
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: slskd
+  ports:
+    - name: http
+      port: 5030
+      targetPort: http
+{{- if $slskd.loadBalancerIP }}
+---
+# Soulseek peers connect to slskd here, at its own address on the LAN, which the router forwards the port to. Local
+# traffic policy keeps the peers' own addresses
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-slskd-soulseek
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+    app.kubernetes.io/component: slskd
+  annotations:
+    metallb.io/address-pool: bbe-music-slskd
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: slskd
+  ports:
+    - name: soulseek
+      protocol: TCP
+      port: {{ $slskd.listenPort }}
+      targetPort: soulseek
+---
+# slskd's own address, which only its Service gets, in MetalLB's namespace
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: bbe-music-slskd
+  namespace: bbe-networking
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  autoAssign: false
+  addresses:
+    - {{ $slskd.loadBalancerIP }}/32
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: bbe-music-slskd
+  namespace: bbe-networking
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  ipAddressPools:
+    - bbe-music-slskd
+{{- end }}

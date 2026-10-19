@@ -45,6 +45,7 @@ A book library for the BBE cluster, with Calibre-Web-Automated to read and manag
 | bbe.library.user.uid | string | `nil` | The user ID of the NAS user |
 | bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when the library couldn't be set up |
 | bbe.setup.enabled | bool | `true` | Whether to run the Job connecting the library to authentik after every install and upgrade |
+| bbe.setup.peopleSchedule | string | `"*/10 * * * *"` | When the setup gives the people Calibre-Web created on their first sign-in their admin rights and Send to eReader address, as a cron schedule |
 | bbe.setup.readyTimeout | int | `900` | How long the setup waits for the library to start, in seconds |
 | bbe.setup.resources.limits.memory | string | `"256Mi"` | The amount of memory to limit the setup pod to |
 | bbe.setup.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the setup pod |

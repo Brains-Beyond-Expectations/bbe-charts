@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["bbe"],
+  "properties": {
+    "bbe": {
+      "type": "object",
+      "required": ["music"],
+      "properties": {
+        "music": {
+          "type": "object",
+          "required": ["nfs", "user", "slskd"],
+          "properties": {
+            "nfs": {
+              "type": "object",
+              "required": ["server", "path"],
+              "properties": {
+                "server": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The NFS server holding the music, as a hostname or IP address. Best bbe-media's"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^/",
+                  "description": "The exported path holding the music on the NFS server, such as /volume1/media. Best bbe-media's share, so Lidarr finds qBittorrent's downloads"
+                },
+                "mountOptions": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Mount options for the NFS share"
+                }
+              }
+            },
+            "user": {
+              "type": "object",
+              "required": ["uid", "gid"],
+              "description": "The NAS user the apps write the music as, best bbe-media's",
+              "properties": {
+                "uid": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The user ID of the NAS user writing the music, as shown by `id <user>` on the NAS. Best bbe-media's"
+                },
+                "gid": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The group ID of the NAS user writing the music, as shown by `id <user>` on the NAS"
+                }
+              }
+            },
+            "seedRatio": { "type": "number", "minimum": 0 },
+            "lidarr": {
+              "type": "object",
+              "properties": {
+                "qualityProfile": { "type": "string", "minLength": 1 },
+                "metadataProfile": { "type": "string", "minLength": 1 }
+              }
+            },
+            "slskd": {
+              "type": "object",
+              "required": ["loadBalancerIP"],
+              "properties": {
+                "loadBalancerIP": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$",
+                  "description": "A free IP address on your LAN for Soulseek peers to reach slskd at, outside your router's DHCP range. Forward its listen port (50300) on your router to it"
+                },
+                "listenPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+                "uploadSlots": { "type": "integer", "minimum": 1 },
+                "uploadSpeedLimit": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        },
+        "admin": {
+          "type": "object",
+          "properties": {
+            "username": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]+$",
+              "description": "Music Assistant's admin username"
+            }
+          }
+        }
+      }
+    }
+  }
+}

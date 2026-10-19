@@ -1,0 +1,222 @@
+suite: test apps
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-music
+  namespace: bbe-music
+tests:
+  - it: should run Music Assistant on the node's network, as the NAS user, reading the music only
+    template: templates/music-assistant.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.hostNetwork
+          value: true
+      - equal:
+          path: spec.template.spec.dnsPolicy
+          value: ClusterFirstWithHostNet
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1031
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 100
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: share
+            mountPath: /media
+            readOnly: true
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/music-assistant/server:2.10.7
+
+  - it: should give slskd its Soulseek account, folders and keys, sharing the music
+    template: templates/slskd.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SLSKD_SLSK_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: bbe-music-slskd
+                key: soulseek-username
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SLSKD_DOWNLOADS_DIR
+            value: /media/downloads/soulseek/complete
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SLSKD_SHARED_DIR
+            value: /media/music
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SLSKD_REMOTE_CONFIGURATION
+            value: "false"
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1031
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+
+  - it: should let Soulseek peers reach slskd at its own address, with a pool of its own
+    template: templates/slskd.yaml
+    asserts:
+      - equal:
+          path: spec.externalTrafficPolicy
+          value: Local
+        documentSelector:
+          path: metadata.name
+          value: bbe-music-slskd-soulseek
+      - equal:
+          path: metadata.annotations["metallb.io/address-pool"]
+          value: bbe-music-slskd
+        documentSelector:
+          path: metadata.name
+          value: bbe-music-slskd-soulseek
+      - equal:
+          path: spec.addresses
+          value:
+            - 192.168.1.242/32
+        documentSelector:
+          path: kind
+          value: IPAddressPool
+      - equal:
+          path: metadata.namespace
+          value: bbe-networking
+        documentSelector:
+          path: kind
+          value: L2Advertisement
+
+  - it: should run Soularr without its web interface, its keys only in the environment
+    template: templates/soularr.yaml
+    asserts:
+      - matchRegex:
+          path: data["config.ini"]
+          pattern: 'api_key = \$\{SLSKD_API_KEY\}'
+        documentSelector:
+          path: kind
+          value: ConfigMap
+      - matchRegex:
+          path: data["config.ini"]
+          pattern: download_dir = /media/downloads/soulseek/complete
+        documentSelector:
+          path: kind
+          value: ConfigMap
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: WEBUI_ENABLED
+            value: "false"
+        documentSelector:
+          path: kind
+          value: Deployment
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - /app/run.sh
+            - --config-dir
+            - /config
+            - --var-dir
+            - /data
+        documentSelector:
+          path: kind
+          value: Deployment
+
+  - it: should run SoulSync as the NAS user, its state on Longhorn
+    template: templates/soulsync.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].envFrom
+          content:
+            configMapRef:
+              name: bbe-music-user
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /app/data
+            subPath: data
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: share
+            mountPath: /media
+
+  - it: should keep SoulSync's key across upgrades
+    template: templates/soulsync.yaml
+    documentSelector:
+      path: kind
+      value: Secret
+    kubernetesProvider:
+      scheme:
+        "v1/Secret":
+          gvr:
+            version: "v1"
+            resource: "secrets"
+          namespaced: true
+      objects:
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: bbe-music-soulsync-key
+            namespace: bbe-music
+          data:
+            api-key: c291bHN5bmMta2V5
+    asserts:
+      - equal:
+          path: data["api-key"]
+          value: c291bHN5bmMta2V5
+
+  - it: should give Lidarr its key and the NAS user, on the share
+    template: charts/lidarr/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LIDARR__AUTH__APIKEY
+            valueFrom:
+              secretKeyRef:
+                name: bbe-music-api-keys
+                key: lidarr
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: media
+            persistentVolumeClaim:
+              claimName: bbe-music-share
+
+  - it: should create the folders as the NAS user
+    template: templates/folders.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value:
+            - mkdir
+            - -p
+            - /media/music
+            - /media/music-spotify
+            - /media/downloads/soulseek/complete
+            - /media/downloads/soulseek/incomplete
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1031
+
+  - it: should require the share, the NAS user and slskd's address
+    set:
+      bbe.music.slskd.loadBalancerIP: ""
+    asserts:
+      - failedTemplate: {}

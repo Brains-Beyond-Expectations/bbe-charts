@@ -1,0 +1,10 @@
+bbe:
+  music:
+    nfs:
+      server: 192.168.1.10
+      path: /volume1/media
+    user:
+      uid: 1031
+      gid: 100
+    slskd:
+      loadBalancerIP: 192.168.1.242

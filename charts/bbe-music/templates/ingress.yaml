@@ -1,0 +1,51 @@
+{{- /*
+The apps are served at <app>.<domain> with the domain's certificate, which bbe-networking makes Traefik's default.
+Lidarr and slskd are behind authentik's forward auth, for its admins. Music Assistant signs people in itself, as its
+apps connect to it directly. bbe-networking's dashboard lists them from their `gethomepage.dev/*` annotations
+*/ -}}
+{{- if .Values.bbe.ingress.enabled }}
+{{- $domain := .Values.global.bbe.domain }}
+{{- $apps := list
+    (dict "host" "music" "service" "music-assistant" "port" 8095 "selector" "app.kubernetes.io/component=music-assistant" "name" "Music Assistant" "group" "Listen" "description" "Play the music" "icon" "music-assistant.png")
+    (dict "host" "lidarr" "service" "lidarr" "port" 8686 "selector" "app.kubernetes.io/name=lidarr" "name" "Lidarr" "group" "Manage" "description" "Music" "icon" "lidarr.png" "sso" true)
+    (dict "host" "soulsync" "service" "soulsync" "port" 8008 "selector" "app.kubernetes.io/component=soulsync" "name" "SoulSync" "group" "Manage" "description" "Spotify mirror" "icon" "mdi-spotify" "sso" true)
+    (dict "host" "slskd" "service" "slskd" "port" 5030 "selector" "app.kubernetes.io/component=slskd" "name" "slskd" "group" "Manage" "description" "Soulseek" "icon" "slskd.png" "sso" true)
+}}
+{{- range $apps }}
+{{- $sso := and $.Values.global.bbe.sso.enabled (hasKey . "sso") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $.Release.Name }}-{{ .host }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" $ | nindent 4 }}
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: {{ .name }}
+    gethomepage.dev/description: {{ .description }}
+    gethomepage.dev/group: {{ .group }}
+    gethomepage.dev/icon: {{ .icon }}
+    gethomepage.dev/pod-selector: {{ .selector }},app.kubernetes.io/instance={{ $.Release.Name }}
+    {{- if $sso }}
+    # Traefik asks authentik first, which sends whoever isn't signed in to its sign-in
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $.Release.Namespace }}-sso@kubernetescrd
+    {{- end }}
+spec:
+  tls:
+    - hosts:
+        - {{ .host }}.{{ $domain }}
+  rules:
+    - host: {{ .host }}.{{ $domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $.Release.Name }}-{{ .service }}
+                port:
+                  number: {{ .port }}
+{{- end }}
+{{- end }}

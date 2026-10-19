@@ -214,7 +214,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["settings.yaml"]
-          pattern: "Watch:(.|\\n)*Read:(.|\\n)*Manage:(.|\\n)*Cluster:"
+          pattern: "Watch:(.|\\n)*Read:(.|\\n)*Listen:(.|\\n)*Manage:(.|\\n)*Cluster:"
 
   - it: should give Homepage a writable config folder, starting from bbe's files
     template: templates/dashboard.yaml

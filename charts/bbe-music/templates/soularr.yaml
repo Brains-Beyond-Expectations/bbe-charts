@@ -1,0 +1,144 @@
+{{- $soularr := .Values.bbe.music.soularr }}
+{{- $downloads := printf "%s/complete" (include "bbe-music.soulseekDir" .) }}
+# Soularr looks for the albums Lidarr is missing on Soulseek through slskd, then has Lidarr import what it downloaded.
+# Its keys come from the environment, which it reads in its config, so the config holds none
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-music-soularr
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+data:
+  config.ini: |
+    [Lidarr]
+    api_key = ${LIDARR_API_KEY}
+    host_url = http://{{ .Release.Name }}-lidarr:8686
+    # Where Lidarr finds slskd's downloads, at the same place on the share as Soularr
+    download_dir = {{ $downloads }}
+    disable_sync = False
+
+    [Slskd]
+    api_key = ${SLSKD_API_KEY}
+    host_url = http://{{ .Release.Name }}-slskd:5030
+    url_base = /
+    download_dir = {{ $downloads }}
+    delete_searches = False
+    stalled_timeout = 3600
+    remote_queue_timeout = 300
+
+    [Release Settings]
+    use_most_common_tracknum = True
+    allow_multi_disc = True
+    accepted_countries = Europe,Japan,United Kingdom,United States,[Worldwide],Australia,Canada
+    skip_region_check = False
+    accepted_formats = CD,Digital Media,Vinyl
+
+    [Search Settings]
+    search_timeout = 5000
+    maximum_peer_queue = 50
+    minimum_peer_upload_speed = 0
+    minimum_filename_match_ratio = 0.8
+    allowed_filetypes = {{ $soularr.allowedFiletypes }}
+    search_type = incrementing_page
+    number_of_albums_to_grab = 10
+    search_source = missing
+    failed_import_denylist = True
+
+    [Download Settings]
+    download_filtering = True
+    use_extension_whitelist = False
+    rename_download_folders = True
+
+    [Logging]
+    level = INFO
+    log_to_file = False
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-soularr
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+    app.kubernetes.io/component: soularr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: soularr
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-music.labels" . | nindent 8 }}
+        app.kubernetes.io/component: soularr
+    spec:
+      # It moves and retags what slskd downloaded, as the NAS user
+      securityContext:
+        {{- include "bbe-music.runAsUser" . | nindent 8 }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: soularr
+          image: "{{ $soularr.image.repository }}:{{ $soularr.image.tag }}"
+          args:
+            - /app/run.sh
+            - --config-dir
+            - /config
+            - --var-dir
+            - /data
+          env:
+            - name: SCRIPT_INTERVAL
+              value: {{ $soularr.interval | quote }}
+            # Its web interface has no login, and could rewrite where it sends the keys
+            - name: WEBUI_ENABLED
+              value: "false"
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: LIDARR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-api-keys
+                  key: lidarr
+            - name: SLSKD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-api-keys
+                  key: slskd
+          {{- with $soularr.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            # Its log, and the albums it gave up on
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+            - name: share
+              mountPath: /media
+      volumes:
+        - name: config
+          configMap:
+            name: bbe-music-soularr
+        - name: data
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: share
+          persistentVolumeClaim:
+            claimName: bbe-music-share
