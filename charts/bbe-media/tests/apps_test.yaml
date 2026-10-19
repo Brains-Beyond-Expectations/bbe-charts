@@ -75,3 +75,66 @@ tests:
             name: media
             persistentVolumeClaim:
               claimName: bbe-media-library
+
+  - it: should send all of qBittorrent's traffic through the VPN when it's on, before qBittorrent starts
+    template: charts/qbittorrent/templates/deployment.yaml
+    set:
+      global.bbe.vpn.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: gluetun
+      - equal:
+          path: spec.template.spec.initContainers[0].restartPolicy
+          value: Always
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: VPN_PORT_FORWARDING_UP_COMMAND
+            value: "/bin/sh /scripts/qbittorrent-port.sh {{PORT}} {{VPN_INTERFACE}}"
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: FIREWALL_OUTBOUND_SUBNETS
+            value: 10.244.0.0/16,10.96.0.0/12
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vpn-key
+            secret:
+              secretName: bbe-vpn
+              items:
+                - key: qbittorrent
+                  path: wireguard_private_key
+
+  - it: should keep qBittorrent off the VPN by default
+    template: charts/qbittorrent/templates/deployment.yaml
+    asserts:
+      - notEqual:
+          path: spec.template.spec.initContainers[0].name
+          value: gluetun
+
+  - it: should give gluetun its firewall rules, qBittorrent's port script and a control key
+    template: templates/vpn.yaml
+    set:
+      global.bbe.vpn.enabled: true
+    asserts:
+      - matchRegex:
+          path: data["post-rules.txt"]
+          pattern: iptables -I OUTPUT -o eth0 ! -s 10.244.0.0/16 -j DROP
+        documentSelector:
+          path: kind
+          value: ConfigMap
+      - matchRegex:
+          path: data["qbittorrent-port.sh"]
+          pattern: 'Authorization: Bearer \$key'
+        documentSelector:
+          path: kind
+          value: ConfigMap
+      - matchRegex:
+          path: data.control-role
+          pattern: '^\{"apikey":"[A-Za-z0-9]{32}","auth":"apikey"\}$'
+          decodeBase64: true
+        documentSelector:
+          path: kind
+          value: Secret

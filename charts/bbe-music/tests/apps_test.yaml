@@ -69,34 +69,87 @@ tests:
           path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
           value: true
 
-  - it: should let Soulseek peers reach slskd at its own address, with a pool of its own
+  - it: should send all of slskd's traffic through the VPN, with the port it forwards
     template: templates/slskd.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    set:
+      global.bbe.vpn.enabled: true
     asserts:
       - equal:
-          path: spec.externalTrafficPolicy
-          value: Local
-        documentSelector:
-          path: metadata.name
-          value: bbe-music-slskd-soulseek
+          path: spec.template.spec.initContainers[0].name
+          value: gluetun
       - equal:
-          path: metadata.annotations["metallb.io/address-pool"]
-          value: bbe-music-slskd
-        documentSelector:
-          path: metadata.name
-          value: bbe-music-slskd-soulseek
-      - equal:
-          path: spec.addresses
-          value:
-            - 192.168.1.242/32
+          path: spec.template.spec.initContainers[0].restartPolicy
+          value: Always
+      - contains:
+          path: spec.template.spec.initContainers[0].securityContext.capabilities.add
+          content: NET_ADMIN
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: FIREWALL_INPUT_PORTS
+            value: "5030"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SLSKD_VPN_GLUETUN_URL
+            value: http://127.0.0.1:8000
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vpn-key
+            secret:
+              secretName: bbe-music-vpn
+              items:
+                - key: wireguard-private-key
+                  path: wireguard_private_key
+
+  - it: should run slskd without a VPN by default, and with no address of its own
+    template: templates/slskd.yaml
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
         documentSelector:
           path: kind
-          value: IPAddressPool
+          value: Deployment
+      - hasDocuments:
+          count: 3
+
+  - it: should copy slskd's WireGuard key from bbe-media's Secret
+    template: templates/vpn.yaml
+    set:
+      global.bbe.vpn.enabled: true
+    kubernetesProvider:
+      scheme:
+        "v1/Secret":
+          gvr:
+            version: "v1"
+            resource: "secrets"
+          namespaced: true
+      objects:
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: bbe-vpn
+            namespace: bbe-media
+          data:
+            qbittorrent: cWJ0LWtleQ==
+            slskd: c2xza2Qta2V5
+    asserts:
       - equal:
-          path: metadata.namespace
-          value: bbe-networking
+          path: data.wireguard-private-key
+          value: c2xza2Qta2V5
         documentSelector:
           path: kind
-          value: L2Advertisement
+          value: Secret
+      - matchRegex:
+          path: data.control-role
+          pattern: .+
+        documentSelector:
+          path: kind
+          value: Secret
 
   - it: should run Soularr without its web interface, its keys only in the environment
     template: templates/soularr.yaml
@@ -215,8 +268,8 @@ tests:
           path: spec.template.spec.securityContext.runAsUser
           value: 1031
 
-  - it: should require the share, the NAS user and slskd's address
+  - it: should require the share and the NAS user
     set:
-      bbe.music.slskd.loadBalancerIP: ""
+      bbe.music.nfs.server: ""
     asserts:
       - failedTemplate: {}

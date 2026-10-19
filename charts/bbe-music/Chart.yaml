@@ -36,6 +36,7 @@ annotations:
     - bbe.music.slskd.uploadSlots
     - bbe.music.slskd.uploadSpeedLimit
     - bbe.music.soularr.allowedFiletypes
+    - global.bbe.vpn
   # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
   bbe/uninstall: |
     keeps:

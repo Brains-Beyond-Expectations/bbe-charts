@@ -34,8 +34,7 @@ A music library for the BBE cluster, with Lidarr to find albums, slskd and Soula
 | bbe.music.slskd.dataSize | string | `"2Gi"` | The size of its data volume, with its database and search history |
 | bbe.music.slskd.image.repository | string | `"slskd/slskd"` | The slskd image, a Soulseek client with a web interface and API |
 | bbe.music.slskd.image.tag | string | `"0.26.1"` | The slskd version |
-| bbe.music.slskd.listenPort | int | `50300` | The port Soulseek peers connect to, the same on the router, the address above and slskd |
-| bbe.music.slskd.loadBalancerIP | string | `""` | The IP address Soulseek peers reach slskd at, which MetalLB announces on the LAN. Forward the listen port on your router to it, or slskd only reaches peers whose own port is open |
+| bbe.music.slskd.listenPort | int | `50300` | The port slskd listens on for Soulseek peers. With the VPN, the port it forwards is used instead. Without it, nothing forwards this port, and slskd only reaches peers whose own port is open |
 | bbe.music.slskd.resources.limits.memory | string | `"1Gi"` | The memory to limit slskd to |
 | bbe.music.slskd.resources.requests.cpu | string | `"50m"` | The CPU to request for slskd |
 | bbe.music.slskd.resources.requests.memory | string | `"256Mi"` | The memory to request for slskd |
@@ -66,6 +65,14 @@ A music library for the BBE cluster, with Lidarr to find albums, slskd and Soula
 | bbe.setup.resources.requests.memory | string | `"64Mi"` | The amount of memory to request for the setup pod |
 | global.bbe.domain | string | `"bbe.home.arpa"` | The domain the cluster's apps are named under, which bbe-networking answers for. Music Assistant is at music.<domain>, and Lidarr, slskd and SoulSync at their own names |
 | global.bbe.sso.enabled | bool | `true` | Whether Lidarr, slskd and SoulSync sign people in with bbe-auth's authentik, letting in its `admins` |
+| global.bbe.vpn.clusterDns | string | `"10.96.0.10"` | The cluster's DNS, which gluetun sends cluster names to. Everything else is resolved through the tunnel |
+| global.bbe.vpn.enabled | bool | `false` | Whether slskd's traffic goes through the VPN. Needs bbe-media's `bbe-vpn` Secret |
+| global.bbe.vpn.image | string | `"qmcgaw/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027"` | The gluetun image |
+| global.bbe.vpn.podSubnet | string | `"10.244.0.0/16"` | The cluster's pod network, reachable outside the tunnel |
+| global.bbe.vpn.provider | string | `"protonvpn"` | The VPN provider, as gluetun names it. Its port forwarding lets Soulseek peers reach slskd through the VPN |
+| global.bbe.vpn.secret | string | `"bbe-vpn"` | bbe-media's Secret with a WireGuard private key for each app, which bbe-music copies slskd's from |
+| global.bbe.vpn.serverCountries | string | `""` | The countries of the servers to use, comma-separated, or any with port forwarding when empty |
+| global.bbe.vpn.serviceSubnet | string | `"10.96.0.0/12"` | The cluster's Service network, reachable outside the tunnel |
 | lidarr.lidarr.env[0].name | string | `"LIDARR__AUTH__APIKEY"` |  |
 | lidarr.lidarr.env[0].valueFrom.secretKeyRef.key | string | `"lidarr"` |  |
 | lidarr.lidarr.env[0].valueFrom.secretKeyRef.name | string | `"bbe-music-api-keys"` |  |

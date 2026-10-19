@@ -67,3 +67,22 @@ tests:
             name: proxy
             configMap:
               name: proxy-config
+
+  - it: should run extra init containers before its own, rendered as a template
+    template: templates/deployment.yaml
+    set:
+      extraInitContainers: |
+        - name: vpn
+          image: vpn:{{ .Chart.Name }}
+          restartPolicy: Always
+      incomplete.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: vpn
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: vpn:qbittorrent
+      - equal:
+          path: spec.template.spec.initContainers[1].name
+          value: incomplete-owner

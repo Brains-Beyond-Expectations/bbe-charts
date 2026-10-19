@@ -63,6 +63,14 @@ A collection of charts for BBE cluster media, connected to each other when insta
 | bbe.setup.resources.requests.memory | string | `"64Mi"` | The amount of memory to request for the setup pod |
 | global.bbe.domain | string | `"bbe.home.arpa"` | The domain the apps are named under, such as sonarr.bbe.home.arpa, the same as bbe-networking's |
 | global.bbe.sso.enabled | bool | `true` | Whether people sign in with bbe-auth's authentik. The apps managing the media are behind its forward auth, for admins, and skip their own logins, which only bbe's setup and the apps' connections to each other use. Jellyfin signs people in against its LDAP, and Seerr through Jellyfin |
+| global.bbe.vpn.clusterDns | string | `"10.96.0.10"` | The cluster's DNS, which gluetun sends cluster names to. Everything else is resolved through the tunnel |
+| global.bbe.vpn.enabled | bool | `false` | Whether qBittorrent's traffic goes through the VPN. Needs the `bbe-vpn` Secret |
+| global.bbe.vpn.image | string | `"qmcgaw/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027"` | The gluetun image |
+| global.bbe.vpn.podSubnet | string | `"10.244.0.0/16"` | The cluster's pod network, reachable outside the tunnel |
+| global.bbe.vpn.provider | string | `"protonvpn"` | The VPN provider, as gluetun names it. Its port forwarding lets peers reach qBittorrent through the VPN |
+| global.bbe.vpn.secret | string | `"bbe-vpn"` | The Secret with a WireGuard private key for each app, one configuration each, made with port forwarding |
+| global.bbe.vpn.serverCountries | string | `""` | The countries of the servers to use, comma-separated, or any with port forwarding when empty |
+| global.bbe.vpn.serviceSubnet | string | `"10.96.0.0/12"` | The cluster's Service network, reachable outside the tunnel |
 | jellyfin.image.repository | string | `"lscr.io/linuxserver/jellyfin"` |  |
 | jellyfin.image.tag | string | `"12.2ubu2604-ls53"` |  |
 | jellyfin.jellyfin.env[0].name | string | `"PUID"` |  |
@@ -81,7 +89,8 @@ A collection of charts for BBE cluster media, connected to each other when insta
 | prowlarr.prowlarr.env[0].valueFrom.secretKeyRef.key | string | `"prowlarr"` |  |
 | prowlarr.prowlarr.env[0].valueFrom.secretKeyRef.name | string | `"bbe-media-api-keys"` |  |
 | qbittorrent.extraContainers | string | `"{{- if .Values.global.bbe.sso.enabled }}\n- name: sso\n  image: nginxinc/nginx-unprivileged:1.29-alpine\n  ports:\n    - name: sso\n      containerPort: 4180\n  readinessProbe:\n    tcpSocket:\n      port: sso\n  resources:\n    requests:\n      memory: 16Mi\n      cpu: 10m\n    limits:\n      memory: 64Mi\n  securityContext:\n    runAsNonRoot: true\n    runAsUser: 101\n    runAsGroup: 101\n    allowPrivilegeEscalation: false\n    capabilities:\n      drop:\n        - ALL\n  volumeMounts:\n    - name: sso\n      mountPath: /etc/nginx/conf.d\n      readOnly: true\n{{- end }}\n"` |  |
-| qbittorrent.extraVolumes | string | `"{{- if .Values.global.bbe.sso.enabled }}\n- name: sso\n  configMap:\n    name: {{ .Release.Name }}-qbittorrent-sso\n{{- end }}\n"` |  |
+| qbittorrent.extraInitContainers | string | `"{{- if .Values.global.bbe.vpn.enabled }}\n{{- include \"bbe.gluetun\" (dict \"root\" . \"inputPorts\" \"8080,4180\" \"controlSecret\" \"bbe-media-vpn\" \"qbittorrent\" true \"volumeMounts\" (list (dict \"name\" \"vpn-scripts\" \"mountPath\" \"/scripts\" \"readOnly\" true) (dict \"name\" \"qbittorrent-api-key\" \"mountPath\" \"/secrets/qbittorrent\" \"readOnly\" true))) }}\n{{- end }}\n"` |  |
+| qbittorrent.extraVolumes | string | `"{{- if .Values.global.bbe.sso.enabled }}\n- name: sso\n  configMap:\n    name: {{ .Release.Name }}-qbittorrent-sso\n{{- end }}\n{{- if .Values.global.bbe.vpn.enabled }}\n- name: vpn-key\n  secret:\n    secretName: {{ .Values.global.bbe.vpn.secret }}\n    items:\n      - key: qbittorrent\n        path: wireguard_private_key\n- name: vpn-rules\n  configMap:\n    name: bbe-media-vpn\n    items:\n      - key: post-rules.txt\n        path: post-rules.txt\n- name: vpn-scripts\n  configMap:\n    name: bbe-media-vpn\n    items:\n      - key: qbittorrent-port.sh\n        path: qbittorrent-port.sh\n- name: qbittorrent-api-key\n  secret:\n    secretName: bbe-media-api-keys\n    items:\n      - key: qbittorrent\n        path: api-key\n{{- end }}\n"` |  |
 | qbittorrent.incomplete.enabled | bool | `true` |  |
 | qbittorrent.incomplete.size | string | `"20Gi"` | The node storage for downloads in progress. Downloads that don't fit together wait until others complete |
 | qbittorrent.media.existingClaim | string | `"bbe-media-library"` |  |

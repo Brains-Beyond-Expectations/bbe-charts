@@ -31,6 +31,9 @@ annotations:
   bbe/recorded-values: |
     - bbe.media.seeding
     - bbe.media.flaresolverr.concurrency
+    - global.bbe.vpn
+  # gluetun, when the VPN is on, changes qBittorrent's pod network, which `baseline` doesn't allow
+  bbe/pod-security: privileged
   # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
   bbe/uninstall: |
     keeps:

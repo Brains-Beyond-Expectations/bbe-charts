@@ -185,6 +185,19 @@ Every step reads the current state first, so a second run only updates bbe's own
 
 Left to the user: adding indexers in Prowlarr. They depend on which sites someone uses, and Prowlarr pushes them to Sonarr and Radarr from there.
 
+### 12. qBittorrent can send everything through a VPN, with a kill switch
+
+With `global.bbe.vpn.enabled`, gluetun 3.41.3 runs next to qBittorrent, as a native sidecar that starts before it once the tunnel and its DNS are up:
+- **ProtonVPN over WireGuard, in the node's kernel.** The private key comes from a Secret the user makes, `bbe-vpn`, which bbe never stores: one key per app, as two tunnels on one key would fight. bbe-music copies slskd's.
+- **The kill switch is gluetun's firewall.** Outside the tunnel, only the VPN server and the cluster are reachable (`podSubnet`, `serviceSubnet`), also while the tunnel or gluetun itself restarts. A last rule drops anything leaving the pod's own interface with another address, as gluetun 3.41.3 can briefly let tunnel packets out that way while it takes a tunnel down. That fix is in gluetun's main branch, not yet released.
+- **qBittorrent only sends through the tunnel too.** gluetun gives it the port ProtonVPN forwards, with qBittorrent's API key, and binds it to the tunnel's interface, or to nothing reachable while the tunnel is down.
+- **Cluster names still resolve.** gluetun resolves everything through the tunnel, except cluster names, which it sends to the cluster's DNS: the nginx in front of qBittorrent asks authentik by its Service's name. Its start puts the cluster's DNS back in the pod's resolv.conf, which it rewrites, so a restart doesn't lose them.
+- **bbe-media's namespace is `privileged`**, as gluetun needs `NET_ADMIN`, which `baseline` doesn't allow.
+
+Rejected:
+- **The qBittorrent chart's own WireGuard sidecar**, which has no firewall of its own, so it isn't a kill switch.
+- **A forwarded port on the router**, which opens the home network.
+
 ## Consequences
 
 - **The NFS export must let the NAS user write**, which owns the share (decision 8). Root can be mapped away.
@@ -193,6 +206,7 @@ Left to the user: adding indexers in Prowlarr. They depend on which sites someon
 - **Jellyfin's data moves.** Earlier `bbe-media` versions ran the official Jellyfin image, which keeps its data directly in `/config`. The linuxserver image starts with an empty `/config/data`, so an upgraded install starts Jellyfin over; the old data stays on its volume.
 - **Jellyfin runs 12,** its current release. The jellyfin chart still defaults to 10.11, so `bbe-media` sets the image tag itself. Its first start migrates a 10.11 database in place, which can't be undone, so going back to 10.11 means starting Jellyfin over. Jellyfin's release notes ask for a full library scan after upgrading, which its scheduled scan does. Seerr's "Recently Added" scan misses new episodes on Jellyfin 12 ([seerr#3547](https://github.com/seerr-team/seerr/issues/3547), closed as not planned), so TV shows only show up as available after its full scan.
 - **Changing the NFS server or path after installing fails the upgrade**, as a volume's source can't be changed. Uninstall and install again instead. The media stays on the share.
+- **With the VPN on, everything in bbe-media's namespace may run privileged**, and torrents only move while the tunnel is up.
 - **Changing `bbe.admin.username` after installing** updates every app except Jellyfin and Seerr, whose accounts are created once.
 - **Older bbe versions can't install this chart version**, as they can't ask for the required NFS values. `required-versions.yaml` has to raise `bbe-media`'s `min-bbe-cli` to the first bbe release that can.
 - **Verified against real apps:** Sonarr 4.0.20, Radarr 6.4.4, Prowlarr 2.6.5, qBittorrent 5.2.3 and Jellyfin 10.11.11 ran natively, with the Job's script run twice against them. Bazarr 1.6.1 and Jellyseerr 2.7.3 couldn't be started there. Their steps follow their source and were run against stubs, so the first real install is their first real test.

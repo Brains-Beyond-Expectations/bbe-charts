@@ -23,7 +23,7 @@ Things that shaped what follows, as of October 2026:
 flowchart TD
     Q1{What finds albums?} -->|chosen| A1[Lidarr 3.1.0, stable]
     A1 --> Q2{Where from?}
-    Q2 -->|chosen| A2[bbe-media's Prowlarr and qBittorrent,<br/>and Soulseek through slskd and Soularr]
+    Q2 -->|chosen| A2[bbe-media's Prowlarr and qBittorrent,<br/>and Soulseek through slskd and Soularr,<br/>both through the VPN]
     Q2 -.->|rejected| B2[Tubifarry, a plugin needing<br/>Lidarr's develop branch]
 
     Q3{What mirrors Spotify?} -->|chosen| A3[SoulSync, track by track,<br/>with an M3U per playlist]
@@ -44,12 +44,13 @@ Lidarr 3.1.0 from linuxserver, as an app chart like Sonarr's (`charts/lidarr`):
 
 Rejected: **Tubifarry**, a Lidarr plugin adding Soulseek and YouTube, as it needs Lidarr's develop branch, and moving off it needs a database restore.
 
-### 2. slskd is on Soulseek, at an address of its own
+### 2. slskd is on Soulseek, through the VPN
 
 slskd 0.26.1, the Soulseek client Soularr and SoulSync download with:
 - **Its account is generated** (`bbe` and 12 random characters) and registered by Soulseek on its first login. A name unused for 30 days is freed.
 - **It shares the music folder**, as Soulseek expects, with at most 4 uploads at 2 MiB/s (`bbe.music.slskd.uploadSlots`, `uploadSpeedLimit`).
-- **Peers reach it at its own LAN address** (`bbe.music.slskd.loadBalancerIP`, which bbe asks for), in a MetalLB pool bbe-music adds to bbe-networking's namespace. The router has to forward the listen port, 50300, to it. Without that, slskd only reaches peers whose own port is open. The Service keeps peers' own addresses (`externalTrafficPolicy: Local`).
+- **All its traffic goes through the VPN** (`global.bbe.vpn`, as qBittorrent's in 0001's decision 12), and peers reach it through the port ProtonVPN forwards. slskd's own gluetun integration reads the forwarded port from gluetun's control server and listens on it, and leaves Soulseek while the VPN is down.
+- **Nothing is opened at home.** Soulseek peers connect to each other directly, so without a forwarded port slskd only reaches peers whose own port is open. A forwarded port on the router to an address of slskd's own was the other way, rejected for opening the home network.
 - **Its own login stays on**, behind authentik's forward auth. It has no OIDC, LDAP or trusted header, and its maintainer suggests turning its login off behind a proxy, but the cluster doesn't enforce NetworkPolicies (0002, decision 7), so anything in the cluster could reach it. Soularr and SoulSync use its API key.
 - Soulseek's rules don't allow automated clients like Soularr. It's at the user's own risk.
 
@@ -92,7 +93,7 @@ A folders Job creates them as the NAS user. The databases are on Longhorn.
 
 ## Consequences
 
-- **The router has to forward port 50300** to slskd's address, which bbe can't do.
+- **With the VPN off, slskd only reaches Soulseek peers whose own port is open**, as nothing forwards a port to it.
 - **Every pod in bbe-music may run privileged**, as pod security is set per namespace.
 - **People sign in to Music Assistant with its own accounts**, separate from authentik, until it supports OIDC.
 - **Spotify asks SoulSync to sign in again every six months.**

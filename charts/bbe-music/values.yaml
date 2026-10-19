@@ -6,6 +6,25 @@ global:
     sso:
       # -- Whether Lidarr, slskd and SoulSync sign people in with bbe-auth's authentik, letting in its `admins`
       enabled: true
+    # A VPN every byte of slskd's internet traffic goes through, with gluetun, and a kill switch: with the tunnel down
+    # nothing but the cluster is reachable. Its WireGuard private key is the `slskd` one in bbe-media's `bbe-vpn` Secret
+    vpn:
+      # -- Whether slskd's traffic goes through the VPN. Needs bbe-media's `bbe-vpn` Secret
+      enabled: false
+      # -- The gluetun image
+      image: qmcgaw/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027
+      # -- The VPN provider, as gluetun names it. Its port forwarding lets Soulseek peers reach slskd through the VPN
+      provider: protonvpn
+      # -- The countries of the servers to use, comma-separated, or any with port forwarding when empty
+      serverCountries: ""
+      # -- bbe-media's Secret with a WireGuard private key for each app, which bbe-music copies slskd's from
+      secret: bbe-vpn
+      # -- The cluster's pod network, reachable outside the tunnel
+      podSubnet: 10.244.0.0/16
+      # -- The cluster's Service network, reachable outside the tunnel
+      serviceSubnet: 10.96.0.0/12
+      # -- The cluster's DNS, which gluetun sends cluster names to. Everything else is resolved through the tunnel
+      clusterDns: 10.96.0.10
 
 bbe:
   music:
@@ -60,10 +79,8 @@ bbe:
         repository: slskd/slskd
         # -- The slskd version
         tag: "0.26.1"
-      # -- The IP address Soulseek peers reach slskd at, which MetalLB announces on the LAN. Forward the listen port
-      # on your router to it, or slskd only reaches peers whose own port is open
-      loadBalancerIP: ""
-      # -- The port Soulseek peers connect to, the same on the router, the address above and slskd
+      # -- The port slskd listens on for Soulseek peers. With the VPN, the port it forwards is used instead. Without
+      # it, nothing forwards this port, and slskd only reaches peers whose own port is open
       listenPort: 50300
       # -- How many uploads at once. Soulseek expects people to share, and slskd shares the music folder
       uploadSlots: 4

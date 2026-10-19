@@ -22,3 +22,9 @@ first install. To follow along:
 
 Add indexers with `bbe configure {{ .Release.Name }}`, and Prowlarr shares them with Sonarr and Radarr.
 Seerr signs in with the same login, through Jellyfin.
+{{- if .Values.global.bbe.vpn.enabled }}
+
+All of qBittorrent's traffic goes through the VPN ({{ .Values.global.bbe.vpn.provider }}), and peers reach it through the port the VPN
+forwards. With the tunnel down, nothing but the cluster is reachable. To see the tunnel:
+  kubectl logs -n {{ .Release.Namespace }} deploy/{{ .Release.Name }}-qbittorrent -c gluetun
+{{- end }}

@@ -29,8 +29,11 @@ spec:
       {{- if and .Values.qbittorrent.webui.existingSecret (not .Values.config.enabled) }}
       {{- fail "qbittorrent.webui.existingSecret needs config.enabled, as the login is written to the config volume" }}
       {{- end }}
-      {{- if or .Values.qbittorrent.webui.existingSecret .Values.incomplete.enabled .Values.wireguard.enabled }}
+      {{- if or .Values.extraInitContainers .Values.qbittorrent.webui.existingSecret .Values.incomplete.enabled .Values.wireguard.enabled }}
       initContainers:
+        {{- with .Values.extraInitContainers }}
+        {{- tpl . $ | nindent 8 }}
+        {{- end }}
         {{- if .Values.qbittorrent.webui.existingSecret }}
         - name: webui-auth
           image: "{{ .Values.qbittorrent.image.repository }}:{{ include "qbittorrent.image" . }}"

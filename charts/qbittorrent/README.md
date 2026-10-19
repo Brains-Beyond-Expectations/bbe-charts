@@ -22,6 +22,7 @@ qBittorrent is a BitTorrent client programmed in C++ / Qt that uses libtorrent
 | config.size | string | `"1Gi"` | The amount of storage to request for the qBittorrent config |
 | config.storageClass | string | `""` | Storage class to use for the qBittorrent config persistent volume claim |
 | extraContainers | string | `""` | More containers for the qBittorrent pod, such as a proxy in front of it, as a YAML string rendered as a template |
+| extraInitContainers | string | `""` | More init containers for the qBittorrent pod, before its own, as a YAML string rendered as a template. A native sidecar (`restartPolicy: Always`) such as a VPN starts before qBittorrent and stays up next to it |
 | extraVolumes | string | `""` | More volumes for the qBittorrent pod, such as the configuration of a container in `extraContainers`, as a YAML string rendered as a template |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
 | incomplete.accessMode | string | `"ReadWriteOnce"` | The access mode to use for the persistent volume claim for downloads in progress |

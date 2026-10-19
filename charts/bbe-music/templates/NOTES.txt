@@ -12,9 +12,14 @@ authentik's, which is:
   kubectl get secret bbe-music-slskd -n {{ .Release.Namespace }} -o jsonpath='{.data.username}' | base64 -d
   kubectl get secret bbe-music-slskd -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
 
-Soulseek peers reach slskd at {{ .Values.bbe.music.slskd.loadBalancerIP }}, port {{ .Values.bbe.music.slskd.listenPort }}. Forward that TCP port on your router to it,
-or slskd only reaches peers whose own port is open. Soulseek's rules don't allow automated clients like Soularr, and
-expect you to share: slskd shares the music folder, at most {{ .Values.bbe.music.slskd.uploadSlots }} uploads at once.
+{{- if .Values.global.bbe.vpn.enabled }}
+All of slskd's traffic goes through the VPN, and Soulseek peers reach it through the port the VPN forwards. With the
+tunnel down, slskd leaves Soulseek and nothing but the cluster is reachable.
+{{- else }}
+slskd reaches Soulseek directly, and no port is forwarded to it, so it only reaches peers whose own port is open.
+{{- end }}
+Soulseek's rules don't allow automated clients like Soularr, and expect you to share: slskd shares the music folder,
+at most {{ .Values.bbe.music.slskd.uploadSlots }} uploads at once.
 
 To mirror your Spotify library with SoulSync, once:
   1. Create an app at https://developer.spotify.com/dashboard with your Premium account, with the redirect URI

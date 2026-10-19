@@ -1,6 +1,8 @@
 {{- $slskd := .Values.bbe.music.slskd }}
+{{- $vpn := .Values.global.bbe.vpn }}
 # slskd, a Soulseek client, which Soularr downloads the albums Lidarr is missing with. It shares the music folder, as
-# Soulseek expects. Its database is on Longhorn, as SQLite on NFS breaks
+# Soulseek expects. Its database is on Longhorn, as SQLite on NFS breaks. With the VPN, all its traffic goes through
+# gluetun, and peers reach it through the port the VPN forwards
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -45,6 +47,10 @@ spec:
         fsGroup: {{ .Values.bbe.music.user.gid | int }}
         seccompProfile:
           type: RuntimeDefault
+      {{- if $vpn.enabled }}
+      initContainers:
+        {{- include "bbe.gluetun" (dict "root" . "inputPorts" "5030" "controlSecret" "bbe-music-vpn") | nindent 8 }}
+      {{- end }}
       containers:
         - name: slskd
           image: "{{ $slskd.image.repository }}:{{ $slskd.image.tag }}"
@@ -61,6 +67,20 @@ spec:
                   key: soulseek-password
             - name: SLSKD_SLSK_LISTEN_PORT
               value: {{ $slskd.listenPort | quote }}
+            {{- if $vpn.enabled }}
+            # slskd asks gluetun for the forwarded port and listens on it, and leaves Soulseek while the VPN is down
+            - name: SLSKD_VPN
+              value: "true"
+            - name: SLSKD_VPN_PORT_FORWARDING
+              value: "true"
+            - name: SLSKD_VPN_GLUETUN_URL
+              value: http://127.0.0.1:8000
+            - name: SLSKD_VPN_GLUETUN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-music-vpn
+                  key: control-api-key
+            {{- end }}
             - name: SLSKD_DOWNLOADS_DIR
               value: {{ include "bbe-music.soulseekDir" . }}/complete
             - name: SLSKD_INCOMPLETE_DIR
@@ -114,8 +134,6 @@ spec:
           ports:
             - name: http
               containerPort: 5030
-            - name: soulseek
-              containerPort: {{ $slskd.listenPort }}
           readinessProbe:
             httpGet:
               path: /health
@@ -153,6 +171,17 @@ spec:
         - name: share
           persistentVolumeClaim:
             claimName: bbe-music-share
+        {{- if $vpn.enabled }}
+        - name: vpn-key
+          secret:
+            secretName: bbe-music-vpn
+            items:
+              - key: wireguard-private-key
+                path: wireguard_private_key
+        - name: vpn-rules
+          configMap:
+            name: bbe-music-vpn
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -171,53 +200,3 @@ spec:
     - name: http
       port: 5030
       targetPort: http
-{{- if $slskd.loadBalancerIP }}
----
-# Soulseek peers connect to slskd here, at its own address on the LAN, which the router forwards the port to. Local
-# traffic policy keeps the peers' own addresses
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}-slskd-soulseek
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "bbe-music.labels" . | nindent 4 }}
-    app.kubernetes.io/component: slskd
-  annotations:
-    metallb.io/address-pool: bbe-music-slskd
-spec:
-  type: LoadBalancer
-  externalTrafficPolicy: Local
-  selector:
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: slskd
-  ports:
-    - name: soulseek
-      protocol: TCP
-      port: {{ $slskd.listenPort }}
-      targetPort: soulseek
----
-# slskd's own address, which only its Service gets, in MetalLB's namespace
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: bbe-music-slskd
-  namespace: bbe-networking
-  labels:
-    {{- include "bbe-music.labels" . | nindent 4 }}
-spec:
-  autoAssign: false
-  addresses:
-    - {{ $slskd.loadBalancerIP }}/32
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: bbe-music-slskd
-  namespace: bbe-networking
-  labels:
-    {{- include "bbe-music.labels" . | nindent 4 }}
-spec:
-  ipAddressPools:
-    - bbe-music-slskd
-{{- end }}

@@ -95,6 +95,10 @@ service:
 # -- More containers for the qBittorrent pod, such as a proxy in front of it, as a YAML string rendered as a template
 extraContainers: ""
 
+# -- More init containers for the qBittorrent pod, before its own, as a YAML string rendered as a template. A native
+# sidecar (`restartPolicy: Always`) such as a VPN starts before qBittorrent and stays up next to it
+extraInitContainers: ""
+
 # -- More volumes for the qBittorrent pod, such as the configuration of a container in `extraContainers`, as a YAML
 # string rendered as a template
 extraVolumes: ""

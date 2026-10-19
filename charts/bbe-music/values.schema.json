@@ -1,19 +1,29 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["bbe"],
+  "required": [
+    "bbe"
+  ],
   "properties": {
     "bbe": {
       "type": "object",
-      "required": ["music"],
+      "required": [
+        "music"
+      ],
       "properties": {
         "music": {
           "type": "object",
-          "required": ["nfs", "user", "slskd"],
+          "required": [
+            "nfs",
+            "user"
+          ],
           "properties": {
             "nfs": {
               "type": "object",
-              "required": ["server", "path"],
+              "required": [
+                "server",
+                "path"
+              ],
               "properties": {
                 "server": {
                   "type": "string",
@@ -28,14 +38,19 @@
                 },
                 "mountOptions": {
                   "type": "array",
-                  "items": { "type": "string" },
+                  "items": {
+                    "type": "string"
+                  },
                   "description": "Mount options for the NFS share"
                 }
               }
             },
             "user": {
               "type": "object",
-              "required": ["uid", "gid"],
+              "required": [
+                "uid",
+                "gid"
+              ],
               "description": "The NAS user the apps write the music as, best bbe-media's",
               "properties": {
                 "uid": {
@@ -50,27 +65,39 @@
                 }
               }
             },
-            "seedRatio": { "type": "number", "minimum": 0 },
+            "seedRatio": {
+              "type": "number",
+              "minimum": 0
+            },
             "lidarr": {
               "type": "object",
               "properties": {
-                "qualityProfile": { "type": "string", "minLength": 1 },
-                "metadataProfile": { "type": "string", "minLength": 1 }
+                "qualityProfile": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "metadataProfile": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             },
             "slskd": {
               "type": "object",
-              "required": ["loadBalancerIP"],
               "properties": {
-                "loadBalancerIP": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$",
-                  "description": "A free IP address on your LAN for Soulseek peers to reach slskd at, outside your router's DHCP range. Forward its listen port (50300) on your router to it"
+                "listenPort": {
+                  "type": "integer",
+                  "minimum": 1024,
+                  "maximum": 65535
                 },
-                "listenPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
-                "uploadSlots": { "type": "integer", "minimum": 1 },
-                "uploadSpeedLimit": { "type": "integer", "minimum": 0 }
+                "uploadSlots": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "uploadSpeedLimit": {
+                  "type": "integer",
+                  "minimum": 0
+                }
               }
             }
           }
