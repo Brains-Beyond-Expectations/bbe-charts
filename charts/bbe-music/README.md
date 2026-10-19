@@ -2,7 +2,7 @@
 
 ![Version: 0.0.1](https://img.shields.io/badge/Version-0.0.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
-A music library for the BBE cluster, with Lidarr to find albums, slskd and Soularr for Soulseek, SoulSync to mirror a Spotify library, and Music Assistant to play it all
+A music library for the BBE cluster, with Lidarr to find albums, slskd for Soulseek, SoulSync to mirror a Spotify library and import Soulseek downloads, and Music Assistant to play it all
 
 **Homepage:** <https://brains-beyond-expectations.github.io/bbe-charts>
 
@@ -41,13 +41,6 @@ A music library for the BBE cluster, with Lidarr to find albums, slskd and Soula
 | bbe.music.slskd.resources.requests.memory | string | `"256Mi"` | The memory to request for slskd |
 | bbe.music.slskd.uploadSlots | int | `4` | How many uploads at once. Soulseek expects people to share, and slskd shares the music folder |
 | bbe.music.slskd.uploadSpeedLimit | int | `2048` | The upload speed limit, in KiB/s, or 0 for none |
-| bbe.music.soularr.allowedFiletypes | string | `"flac 24/192,flac 16/44.1,flac,mp3 320,mp3"` | The formats Soularr takes, best first |
-| bbe.music.soularr.image.repository | string | `"mrusse08/soularr"` | The Soularr image, which downloads the albums Lidarr is missing from Soulseek through slskd |
-| bbe.music.soularr.image.tag | string | `"latest@sha256:89b6809a169f6c78032c9a66abf5130e4877c46c0b95391818a38ab66cd71548"` | The Soularr version. Its last release is older than main, which `latest` is built from |
-| bbe.music.soularr.interval | int | `300` | How long Soularr waits between looking for what Lidarr is missing, in seconds |
-| bbe.music.soularr.resources.limits.memory | string | `"512Mi"` | The memory to limit Soularr to |
-| bbe.music.soularr.resources.requests.cpu | string | `"20m"` | The CPU to request for Soularr |
-| bbe.music.soularr.resources.requests.memory | string | `"128Mi"` | The memory to request for Soularr |
 | bbe.music.soulsync.dataSize | string | `"5Gi"` | The size of its data volume, with its settings, database and image cache |
 | bbe.music.soulsync.image.repository | string | `"boulderbadgedad/soulsync"` | The SoulSync image, which mirrors a Spotify library track by track from Soulseek and torrents |
 | bbe.music.soulsync.image.tag | string | `"3.5.7"` | The SoulSync version. It releases every few days, so it's pinned |

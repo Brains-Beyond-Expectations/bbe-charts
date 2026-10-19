@@ -23,8 +23,9 @@ Things that shaped what follows, as of October 2026:
 flowchart TD
     Q1{What finds albums?} -->|chosen| A1[Lidarr 3.1.0, stable]
     A1 --> Q2{Where from?}
-    Q2 -->|chosen| A2[bbe-media's Prowlarr and qBittorrent,<br/>and Soulseek through slskd and Soularr,<br/>both through the VPN]
+    Q2 -->|chosen| A2[bbe-media's Prowlarr and qBittorrent,<br/>through the VPN]
     Q2 -.->|rejected| B2[Tubifarry, a plugin needing<br/>Lidarr's develop branch]
+    Q2 -.->|rejected| C2[Soulseek through Soularr,<br/>which SoulSync overlaps]
 
     Q3{What mirrors Spotify?} -->|chosen| A3[SoulSync, track by track,<br/>with an M3U per playlist]
     Q3 -.->|rejected| B3[Lidarr's Spotify lists,<br/>whole albums only]
@@ -35,24 +36,25 @@ flowchart TD
 
 ## Decisions
 
-### 1. Lidarr finds albums, through bbe-media and Soulseek
+### 1. Lidarr finds albums, through bbe-media
 
 Lidarr 3.1.0 from linuxserver, as an app chart like Sonarr's (`charts/lidarr`):
 - bbe-media's Prowlarr shares its indexers with it, and it downloads with bbe-media's qBittorrent, in the `music` category. Lidarr 3.1.0 can't use qBittorrent's API key, so it signs in as bbe-media's admin.
-- **Soulseek:** Soularr looks for the albums Lidarr is missing on Soulseek through slskd, then has Lidarr import what it downloaded.
 - It's behind authentik's forward auth for `admins`, like Sonarr (0002, decision 7). Its own login stays for going back to it.
 
-Rejected: **Tubifarry**, a Lidarr plugin adding Soulseek and YouTube, as it needs Lidarr's develop branch, and moving off it needs a database restore.
+Rejected:
+- **Tubifarry**, a Lidarr plugin adding Soulseek and YouTube, as it needs Lidarr's develop branch, and moving off it needs a database restore.
+- **Soularr**, which searches Soulseek through slskd for the albums Lidarr is missing and has Lidarr import them. It was in the first version, and removed: it only acts on albums Lidarr monitors, and SoulSync already searches Soulseek through its watchlist and searches, by track as well as by album. It also worked in slskd's downloads folder, where SoulSync now imports from (decision 3).
 
 ### 2. slskd is on Soulseek, through the VPN
 
-slskd 0.26.1, the Soulseek client Soularr and SoulSync download with:
+slskd 0.26.1, the Soulseek client SoulSync downloads with, and people by hand:
 - **Its account is generated** (`bbe` and 12 random characters) and registered by Soulseek on its first login. A name unused for 30 days is freed.
 - **It shares the music folder**, as Soulseek expects, with at most 4 uploads at 2 MiB/s (`bbe.music.slskd.uploadSlots`, `uploadSpeedLimit`).
 - **All its traffic goes through the VPN** (`global.bbe.vpn`, as qBittorrent's in 0001's decision 12), and peers reach it through the port ProtonVPN forwards. slskd's own gluetun integration reads the forwarded port from gluetun's control server and listens on it, and leaves Soulseek while the VPN is down.
 - **Without the VPN, it connects directly.** Soulseek peers connect to each other directly, so without a forwarded port slskd only reaches peers whose own port is open. With `bbe.music.slskd.loadBalancerIP` set, slskd gets an address of its own on the LAN, in a MetalLB pool bbe-music adds to bbe-networking's namespace, and the router forwards its port (50300) there. That opens one port of the home network, so the VPN is the recommended way.
-- **Its own login stays on**, behind authentik's forward auth. It has no OIDC, LDAP or trusted header, and its maintainer suggests turning its login off behind a proxy, but the cluster doesn't enforce NetworkPolicies (0002, decision 7), so anything in the cluster could reach it. Soularr and SoulSync use its API key.
-- Soulseek's rules don't allow automated clients like Soularr. It's at the user's own risk.
+- **Its own login stays on**, behind authentik's forward auth. It has no OIDC, LDAP or trusted header, and its maintainer suggests turning its login off behind a proxy, but the cluster doesn't enforce NetworkPolicies (0002, decision 7), so anything in the cluster could reach it. SoulSync uses its API key.
+- Soulseek's rules don't allow automated clients like SoulSync. It's at the user's own risk.
 
 ### 3. SoulSync mirrors Spotify track by track
 
@@ -61,7 +63,8 @@ SoulSync 3.5.7 mirrors liked songs, playlists and followed artists, downloading 
 - **Torrents seed to ratio 2**, which it hands to qBittorrent, like everything else there (0001).
 - **It writes into Lidarr's `music/`**, named as Lidarr names albums (`Artist/Album (Year)/Artist - Album - 01 - Title`), so it sees what's already there and nothing is downloaded twice. Its M3U per playlist goes to `music/Playlists/`, which Music Assistant reads. No media server is involved ("Standalone").
 - **Lidarr is one of its sources too**, after Soulseek and torrents: it has Lidarr find a whole album, takes the tracks it wants, and has Lidarr forget the album. Lidarr downloads those into a root folder of its own outside the music, `downloads/soulsync-lidarr/`, so the rest don't stay in the music as duplicates.
-- **Setup:** it makes its own API keys. The setup Job asks for its first one and keeps it in `bbe-music-soulsync-key`, the only Secret its ServiceAccount may change. It then sets its sources, folders, M3U export and the address Spotify's login comes back to.
+- **It imports what's downloaded in slskd by hand.** Its import folder is slskd's `downloads/soulseek/complete/`, where its own Soulseek downloads also land. It waits until a folder's files stop changing, identifies the album by tags, folder name or AcoustID, moves what it matched into `music/` with the same naming, and removes the folder. Below 90% confidence it leaves the folder for its Import page. Tracks already in the library are left alone, so one it's still processing from its own download isn't imported twice.
+- **Setup:** it makes its own API keys. The setup Job asks for its first one and keeps it in `bbe-music-soulsync-key`, the only Secret its ServiceAccount may change. It then sets its sources, folders, M3U export, the address Spotify's login comes back to, and turns on its import.
 - **What stays manual**, as Spotify requires it: creating a Spotify developer app with a Premium account, putting its ID and secret in SoulSync, signing in (again every six months), and choosing the playlists to mirror. Playlists others own can't be read, so they need copying to one's own first.
 - It's behind authentik's forward auth. It has no OIDC or LDAP. The header it trusts only skips its launch PIN, which is off.
 - It releases every few days, so it's pinned.
@@ -88,7 +91,7 @@ Every app mounts the share at `/media`, as bbe-media does, so Lidarr finds qBitt
 music/                      Lidarr's root folder, Music Assistant's first provider, what slskd shares
 music/Playlists/            SoulSync's playlists of tracks in music/
 downloads/soulsync-lidarr/  The Lidarr root folder SoulSync has albums downloaded into, then takes tracks from
-downloads/soulseek/         slskd's downloads, which Soularr and SoulSync move from
+downloads/soulseek/         slskd's downloads, which SoulSync imports from
 ```
 
 A folders Job creates them as the NAS user. The databases are on Longhorn.
@@ -99,6 +102,7 @@ A folders Job creates them as the NAS user. The databases are on Longhorn.
 - **Every pod in bbe-music may run privileged**, as pod security is set per namespace.
 - **People sign in to Music Assistant with its own accounts**, separate from authentik, until it supports OIDC.
 - **Spotify asks SoulSync to sign in again every six months.**
+- **Lidarr doesn't use Soulseek**, only torrents, so albums only on Soulseek come through SoulSync.
 - **Lidarr lists SoulSync's tracks as unmapped files** in its music folder, as they're not albums it monitors.
 - **slskd asks for its own login** after authentik's, so admins sign in twice there.
 - **What's verified, and what isn't:** against the apps' source only, and unit tests. Nothing has run yet.

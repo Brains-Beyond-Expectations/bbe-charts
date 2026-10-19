@@ -187,41 +187,6 @@ tests:
           path: kind
           value: Secret
 
-  - it: should run Soularr without its web interface, its keys only in the environment
-    template: templates/soularr.yaml
-    asserts:
-      - matchRegex:
-          path: data["config.ini"]
-          pattern: 'api_key = \$\{SLSKD_API_KEY\}'
-        documentSelector:
-          path: kind
-          value: ConfigMap
-      - matchRegex:
-          path: data["config.ini"]
-          pattern: download_dir = /media/downloads/soulseek/complete
-        documentSelector:
-          path: kind
-          value: ConfigMap
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: WEBUI_ENABLED
-            value: "false"
-        documentSelector:
-          path: kind
-          value: Deployment
-      - equal:
-          path: spec.template.spec.containers[0].args
-          value:
-            - /app/run.sh
-            - --config-dir
-            - /config
-            - --var-dir
-            - /data
-        documentSelector:
-          path: kind
-          value: Deployment
-
   - it: should run SoulSync as the NAS user, its state on Longhorn
     template: templates/soulsync.yaml
     documentSelector:

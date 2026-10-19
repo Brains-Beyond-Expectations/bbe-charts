@@ -22,7 +22,7 @@ on your router to it, or slskd only reaches peers whose own port is open.
 slskd reaches Soulseek directly, and no port is forwarded to it, so it only reaches peers whose own port is open. Set
 bbe.music.slskd.loadBalancerIP and forward its port on your router, or turn on the VPN, for the others.
 {{- end }}
-Soulseek's rules don't allow automated clients like Soularr, and expect you to share: slskd shares the music folder,
+Soulseek's rules don't allow automated clients like SoulSync, and expect you to share: slskd shares the music folder,
 at most {{ .Values.bbe.music.slskd.uploadSlots }} uploads at once.
 
 To mirror your Spotify library with SoulSync, once:
@@ -32,4 +32,5 @@ To mirror your Spotify library with SoulSync, once:
   3. Choose the playlists to mirror, and your Liked Songs. Spotify only lets SoulSync read playlists you own or
      collaborate on, so save a copy of others' as your own first.
 SoulSync writes them into music/ with Lidarr's naming, skipping what's already there, and an M3U per playlist in
-music/Playlists/ that Music Assistant reads.
+music/Playlists/ that Music Assistant reads. What you download in slskd yourself, SoulSync imports into music/ too,
+once it's identified the album. What it can't, it leaves in downloads/soulseek/complete/ and lists in its Import page.

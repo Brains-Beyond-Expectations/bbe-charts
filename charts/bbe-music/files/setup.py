@@ -396,6 +396,9 @@ def soulsync_settings():
         # Spotify sends its login back here, through authentik
         "spotify": {"redirect_uri": f"https://soulsync.{DOMAIN}/callback"},
         "security": {"trust_reverse_proxy": True},
+        # What's downloaded in slskd by hand lands there too. SoulSync identifies it, imports it into the music and
+        # removes the folder, and leaves what it can't identify for its Import page
+        "import": {"staging_path": SOULSEEK_DOWNLOADS, "clear_finished_from_staging": True},
     }
     order = ["soulseek"]
     if PROWLARR_URL and QBITTORRENT_URL:
@@ -431,8 +434,10 @@ def configure_soulsync(soulsync, kubernetes):
     soulsync.headers["X-API-Key"] = key
     # Its settings come back with secrets masked, so they're all saved, which is what makes it reload its sources
     soulsync.post("/api/settings", soulsync_settings())
+    # Which also starts its import worker
+    soulsync.post("/api/auto-import/settings", {"enabled": True, "clear_finished": True})
     sources = soulsync_settings()["download_source"]["hybrid_order"]
-    log(f"SoulSync: mirrors into {MUSIC_DIR}, from {', '.join(sources)}")
+    log(f"SoulSync: mirrors into {MUSIC_DIR}, from {', '.join(sources)}, and imports {SOULSEEK_DOWNLOADS}")
 
 
 def main():

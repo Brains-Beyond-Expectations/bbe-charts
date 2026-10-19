@@ -2,7 +2,7 @@
 {{- $vpn := .Values.global.bbe.vpn }}
 {{- /* Without the VPN, peers can reach slskd directly at an address of its own, which the router forwards to */ -}}
 {{- $direct := and (not $vpn.enabled) $slskd.loadBalancerIP }}
-# slskd, a Soulseek client, which Soularr downloads the albums Lidarr is missing with. It shares the music folder, as
+# slskd, a Soulseek client, which SoulSync downloads with, and people by hand. It shares the music folder, as
 # Soulseek expects. Its database is on Longhorn, as SQLite on NFS breaks. With the VPN, all its traffic goes through
 # gluetun, and peers reach it through the port the VPN forwards. Without, they reach it directly at its own address,
 # when it has one
@@ -117,7 +117,7 @@ spec:
                 secretKeyRef:
                   name: bbe-music-slskd
                   key: jwt-key
-            # Soularr's key
+            # SoulSync's key
             - name: SLSKD_API_KEY
               valueFrom:
                 secretKeyRef:

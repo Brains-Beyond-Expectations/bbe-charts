@@ -100,25 +100,6 @@ bbe:
         limits:
           # -- The memory to limit slskd to
           memory: 1Gi
-    soularr:
-      image:
-        # -- The Soularr image, which downloads the albums Lidarr is missing from Soulseek through slskd
-        repository: mrusse08/soularr
-        # -- The Soularr version. Its last release is older than main, which `latest` is built from
-        tag: latest@sha256:89b6809a169f6c78032c9a66abf5130e4877c46c0b95391818a38ab66cd71548
-      # -- How long Soularr waits between looking for what Lidarr is missing, in seconds
-      interval: 300
-      # -- The formats Soularr takes, best first
-      allowedFiletypes: flac 24/192,flac 16/44.1,flac,mp3 320,mp3
-      resources:
-        requests:
-          # -- The memory to request for Soularr
-          memory: 128Mi
-          # -- The CPU to request for Soularr
-          cpu: 20m
-        limits:
-          # -- The memory to limit Soularr to
-          memory: 512Mi
     soulsync:
       image:
         # -- The SoulSync image, which mirrors a Spotify library track by track from Soulseek and torrents

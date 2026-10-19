@@ -1,6 +1,6 @@
 apiVersion: v2
 name: bbe-music
-description: A music library for the BBE cluster, with Lidarr to find albums, slskd and Soularr for Soulseek, SoulSync to mirror a Spotify library, and Music Assistant to play it all
+description: A music library for the BBE cluster, with Lidarr to find albums, slskd for Soulseek, SoulSync to mirror a Spotify library and import Soulseek downloads, and Music Assistant to play it all
 type: application
 version: 0.0.1
 keywords:
@@ -36,7 +36,6 @@ annotations:
     - bbe.music.slskd.loadBalancerIP
     - bbe.music.slskd.uploadSlots
     - bbe.music.slskd.uploadSpeedLimit
-    - bbe.music.soularr.allowedFiletypes
     - global.bbe.vpn
   # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
   bbe/uninstall: |
