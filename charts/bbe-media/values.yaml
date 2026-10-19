@@ -70,8 +70,11 @@ bbe:
     seeding:
       # -- The ratio qBittorrent seeds every torrent to, or 0 to seed without a limit
       maxRatio: 2
-      # -- Whether qBittorrent removes a torrent with its files once it reaches the ratio, rather than only stopping it
+      # -- Whether a torrent is removed with its files once it reaches the ratio, rather than only stopped. qBittorrent
+      # stops it, and a CronJob removes it, as Sonarr, Radarr and Lidarr refuse a qBittorrent that removes torrents
       removeWhenDone: true
+      # -- When the CronJob removes the torrents that reached the ratio, as a cron schedule
+      schedule: "*/30 * * * *"
     flaresolverr:
       # -- Whether to run FlareSolverr, which Prowlarr sends an indexer's requests through when Cloudflare challenges
       # them. The setup tags every indexer it adds for it
