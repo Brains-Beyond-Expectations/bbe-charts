@@ -291,32 +291,28 @@ def configure_music_assistant_address(music_assistant):
     log(f"Music Assistant: its address is {wanted}")
 
 
-def music_assistant_paths(music_assistant):
+def music_assistant_has_folder(music_assistant, path):
+    """Whether a local files provider already plays the folder. The path is looked for anywhere in their settings, as
+    their shape differs between versions"""
     configs = music_assistant.command("config/providers", provider_domain="filesystem_local", include_values=True)
-    paths = set()
-    for config in configs or []:
-        path = (config.get("values") or {}).get("path")
-        paths.add((path.get("value") if isinstance(path, dict) else path or "").rstrip("/"))
-    return paths
+    return any(path in json.dumps(config) for config in configs or [])
 
 
 def configure_music_assistant_folders(music_assistant):
-    """A local files provider for the music, which Lidarr and SoulSync both write to, with SoulSync's playlists"""
-    if MUSIC_DIR in music_assistant_paths(music_assistant):
+    """A local files provider for the music, which Lidarr and SoulSync both write to, with SoulSync's playlists. Best
+    effort: Music Assistant imports in the background, and a provider it didn't take is left to add in its settings"""
+    if music_assistant_has_folder(music_assistant, MUSIC_DIR):
         return
     step = music_assistant.command("config/providers/setup", provider_domain="filesystem_local")
     flow_id = (step or {}).get("flow_id")
-    if not flow_id:
-        raise SetupError(f"Music Assistant: adding the local files in {MUSIC_DIR} didn't start a setup: {step}")
-    step = music_assistant.command("config/flows/submit", flow_id=flow_id,
-                                   values={"content_type": "music", "path": MUSIC_DIR})
-    # The flow's last step says it's done, but what counts is the provider being there
-    for _ in range(12):
-        if MUSIC_DIR in music_assistant_paths(music_assistant):
-            log(f"Music Assistant: plays the music in {MUSIC_DIR}")
-            return
-        time.sleep(5)
-    raise SetupError(f"Music Assistant: the local files in {MUSIC_DIR} weren't added: {step}")
+    if flow_id:
+        step = music_assistant.command("config/flows/submit", flow_id=flow_id,
+                                       values={"content_type": "music", "path": MUSIC_DIR})
+    if str((step or {}).get("type", "")).lower().endswith("finish") and ((step or {}).get("result") or {}).get("instance_id"):
+        log(f"Music Assistant: plays the music in {MUSIC_DIR}, importing it in the background")
+    else:
+        log(f"WARNING Music Assistant: the local files in {MUSIC_DIR} may not have been added, add them in its "
+            f"settings if they're missing: {step}")
 
 
 # ---- SoulSync ---------------------------------------------------------------------------------------------------------
