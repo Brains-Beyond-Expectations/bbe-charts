@@ -2,7 +2,7 @@ apiVersion: v2
 name: qbittorrent
 description: qBittorrent is a BitTorrent client programmed in C++ / Qt that uses libtorrent
 type: application
-version: 0.0.4
+version: 0.0.5
 appVersion: 5.3.0
 keywords:
   - qbittorrent
