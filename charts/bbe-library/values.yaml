@@ -5,6 +5,10 @@ global:
     domain: bbe.home.arpa
 
 bbe:
+  networkPolicy:
+    # -- Whether only Traefik and the library's own pods may reach the library and Shelfmark.
+    # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
+    enabled: true
   library:
     nfs:
       # -- The NFS server holding the books, as a hostname or IP address. It can be bbe-media's

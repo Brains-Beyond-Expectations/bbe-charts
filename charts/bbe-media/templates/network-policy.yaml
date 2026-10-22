@@ -1,0 +1,105 @@
+{{- if .Values.bbe.networkPolicy.enabled }}
+{{- /*
+The apps are only reached through Traefik and by each other. The other packages reach only what they use: Prowlarr's
+indexers, qBittorrent's API, which wants its key, and FlareSolverr. Policies add up: a pod accepts what any policy
+selecting it allows
+*/ -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    # The apps talking to each other, and the setup
+    - from:
+        - podSelector: {}
+    # Traefik, serving the apps, and qBittorrent through its nginx
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-networking
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-prowlarr
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prowlarr
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Lidarr searching through it, the music's setup adding Lidarr to it, and Shelfmark searching for books
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-music
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-library
+      ports:
+        - port: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-qbittorrent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: qbittorrent
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Lidarr and Shelfmark downloading. Only qBittorrent's own port, which wants its API key, not its nginx
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-music
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-library
+      ports:
+        - port: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-flaresolverr
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: flaresolverr
+  policyTypes:
+    - Ingress
+  ingress:
+    # Shelfmark, getting past Cloudflare's checks
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-library
+      ports:
+        - port: http
+{{- end }}

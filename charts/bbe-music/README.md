@@ -49,6 +49,7 @@ A music library for the BBE cluster, with Lidarr to find albums, slskd for Souls
 | bbe.music.soulsync.resources.requests.memory | string | `"512Mi"` | The memory to request for SoulSync |
 | bbe.music.user.gid | string | `nil` | The group ID of the NAS user |
 | bbe.music.user.uid | string | `nil` | The user ID of the NAS user |
+| bbe.networkPolicy.enabled | bool | `true` | Whether only Traefik and the apps themselves may reach the apps, besides bbe-media's Prowlarr reaching Lidarr, and Soulseek peers reaching slskd without the VPN. The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates |
 | bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when the apps couldn't be set up |
 | bbe.setup.enabled | bool | `true` | Whether to run the Job connecting the apps after every install and upgrade |
 | bbe.setup.image.repository | string | `"python"` | The image to run the setup with, which only needs Python |

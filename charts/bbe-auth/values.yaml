@@ -5,6 +5,11 @@ global:
     domain: bbe.home.arpa
 
 bbe:
+  networkPolicy:
+    # -- Whether only what signs people in may reach authentik: Traefik, qBittorrent's nginx, Shelfmark, the LDAP clients
+    # in bbe-media and bbe-library, and bbe-observability's Prometheus for its metrics.
+    # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
+    enabled: true
   auth:
     admin:
       # -- The username of the first admin, who can manage everyone else in authentik. Their first password is

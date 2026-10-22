@@ -27,6 +27,11 @@ global:
       clusterDns: 10.96.0.10
 
 bbe:
+  networkPolicy:
+    # -- Whether only Traefik and the apps themselves may reach the apps, besides bbe-media's Prowlarr reaching Lidarr,
+    # and Soulseek peers reaching slskd without the VPN.
+    # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
+    enabled: true
   music:
     nfs:
       # -- The NFS server holding the music, as a hostname or IP address. Best bbe-media's, as Lidarr then finds

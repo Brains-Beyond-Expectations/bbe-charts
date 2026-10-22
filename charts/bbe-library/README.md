@@ -43,6 +43,7 @@ A book library for the BBE cluster, with Calibre-Web-Automated to read and manag
 | bbe.library.size | string | `"100Gi"` | The size of the share. NFS doesn't enforce it, but Kubernetes needs one |
 | bbe.library.user.gid | string | `nil` | The group ID of the NAS user |
 | bbe.library.user.uid | string | `nil` | The user ID of the NAS user |
+| bbe.networkPolicy.enabled | bool | `true` | Whether only Traefik and the library's own pods may reach the library and Shelfmark. The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates |
 | bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when the library couldn't be set up |
 | bbe.setup.enabled | bool | `true` | Whether to run the Job connecting the library to authentik after every install and upgrade |
 | bbe.setup.peopleSchedule | string | `"*/10 * * * *"` | When the setup gives the people Calibre-Web created on their first sign-in their admin rights and Send to eReader address, as a cron schedule |

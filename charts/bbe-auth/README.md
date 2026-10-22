@@ -51,6 +51,7 @@ Single sign-on for the BBE cluster's apps with authentik, its PostgreSQL databas
 | bbe.ldap.resources.limits.memory | string | `"128Mi"` | The memory to limit the LDAP outpost to |
 | bbe.ldap.resources.requests.cpu | string | `"10m"` | The CPU to request for the LDAP outpost |
 | bbe.ldap.resources.requests.memory | string | `"64Mi"` | The memory to request for the LDAP outpost |
+| bbe.networkPolicy.enabled | bool | `true` | Whether only what signs people in may reach authentik: Traefik, qBittorrent's nginx, Shelfmark, the LDAP clients in bbe-media and bbe-library, and bbe-observability's Prometheus for its metrics. The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates |
 | bbe.postgres.image.repository | string | `"postgres"` | The PostgreSQL image, the official one |
 | bbe.postgres.image.tag | string | `"18.6"` | The PostgreSQL version. A new major version needs the database dumped and restored, which an upgrade doesn't |
 | bbe.postgres.resources.limits.memory | string | `"512Mi"` | The memory to limit PostgreSQL to |

@@ -1,0 +1,92 @@
+{{- if .Values.bbe.networkPolicy.enabled }}
+{{- /*
+Only what signs people in reaches authentik: Traefik, the apps checking with it themselves, and those signing people in
+over LDAP. Its database and the setup are only reached from bbe-auth itself. Policies add up: a pod accepts what any
+policy selecting it allows
+*/ -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    # authentik's server and worker, the LDAP outpost, the setup and PostgreSQL
+    - from:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: authentik
+      app.kubernetes.io/component: server
+  policyTypes:
+    - Ingress
+  ingress:
+    # Traefik, asking about every request to an app behind forward auth, and serving the sign-in pages
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-networking
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: http
+    # qBittorrent's nginx, which asks about every request itself, and Shelfmark, signing people in with OpenID Connect
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-media
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-library
+      ports:
+        - port: http
+    # bbe-observability's Prometheus, for authentik's metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-observability
+      ports:
+        - port: metrics
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-ldap
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bbe-auth
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: ldap
+  policyTypes:
+    - Ingress
+  ingress:
+    # Jellyfin and the book library, signing people in over LDAP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-media
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-library
+      ports:
+        - port: ldap
+{{- end }}

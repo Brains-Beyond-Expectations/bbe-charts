@@ -29,6 +29,11 @@ global:
       clusterDns: 10.96.0.10
 
 bbe:
+  networkPolicy:
+    # -- Whether only Traefik and the apps themselves may reach the apps, besides bbe-music and bbe-library reaching
+    # Prowlarr, qBittorrent's API and FlareSolverr.
+    # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
+    enabled: true
   media:
     ingress:
       # -- Whether to serve every app at <app>.<domain>, through bbe-networking's Traefik
