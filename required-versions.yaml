@@ -1,4 +1,7 @@
 charts:
+  - name: bbe-observability
+    # Reads the prerequisites naming only a package, bbe-networking, bbe-auth and bbe-storage, and the values it records
+    min-bbe-cli: 1.7.0
   - name: bbe-music
     # Reads the prerequisites naming only a package, and the values it records
     min-bbe-cli: 1.7.0

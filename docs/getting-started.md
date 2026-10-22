@@ -12,6 +12,7 @@ This guide takes you from a fresh BBE cluster to every app running, with your ho
 | bbe-media | Jellyfin to watch, Seerr to ask for shows and movies, and Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent to get them | `https://jellyfin.bbe.home.arpa`, … |
 | bbe-library | A book library to read and send to e-readers, and Shelfmark to find books | `https://calibre.bbe.home.arpa`, `https://shelfmark.bbe.home.arpa` |
 | bbe-music | Music Assistant to play music on the house's speakers, Lidarr to find albums, Soulseek, and SoulSync to keep a copy of your Spotify library | `https://music.bbe.home.arpa`, … |
+| bbe-observability | Grafana, with the cluster's metrics and logs, and alerts when something goes wrong | `https://grafana.bbe.home.arpa` |
 
 `bbe.home.arpa` is the default domain. You can choose another one under `home.arpa` when you install bbe-networking.
 
@@ -69,6 +70,7 @@ Tick the packages you want. bbe installs what each one needs first, offering to 
 | bbe-media | The NFS server and path, the NAS user's IDs, and an admin username for the apps |
 | bbe-library | The NFS server and path, and the NAS user's IDs |
 | bbe-music | The NFS server and path, and the NAS user's IDs |
+| bbe-observability | Nothing |
 
 Each package prints notes when it's installed, with its addresses and how to get its passwords. They're shown again whenever it's upgraded. Each also sets itself up in the background for a few minutes after a first install.
 
@@ -212,6 +214,31 @@ For Soulseek only. People reach slskd at an address of its own on your network, 
 4. On your router, forward TCP port **50300** to that address.
 
 This opens one port of your home network to the internet, which only reaches slskd.
+
+## 10. Watching the cluster
+
+bbe-observability keeps the cluster's metrics and the apps' logs for 15 days, and alerts when something goes wrong: a node down, a disk filling up, a Longhorn volume losing its copies, or a certificate not renewing.
+
+- **Looking:** at `https://grafana.bbe.home.arpa`, for admins. Its dashboards show each node, namespace and pod, and the apps' logs are under Explore → Loki.
+- **Getting alerts:** they're only shown in Grafana until you say where to send them. For example, to a Telegram chat:
+  1. Make a bot with [@BotFather](https://t.me/BotFather), and find your chat's ID.
+  2. Give the cluster the bot's token. It's never written to `bbe.yaml`:
+     ```
+     kubectl create secret generic bbe-observability-alerts -n bbe-observability \
+       --from-literal=token='<bot token>' --dry-run=client -o yaml | kubectl apply -f -
+     ```
+  3. Set the receiver under the `bbe-observability` package's values in `~/.bbe/bbe.yaml`, in [Alertmanager's format](https://prometheus.io/docs/alerting/latest/configuration/#receiver):
+     ```yaml
+     bbe:
+       observability:
+         alerts:
+           receiver:
+             telegram_configs:
+               - chat_id: 123456789
+                 bot_token_file: /etc/alertmanager/secrets/bbe-observability-alerts/token
+     ```
+  4. Run `bbe upgrade`.
+- **`kubectl top`** works once it's installed, as it adds metrics-server.
 
 ## Keeping things up to date
 

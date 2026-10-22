@@ -1,0 +1,23 @@
+{{- if .Values.bbe.observability.grafana.ingress.enabled }}
+# Traefik asks bbe-auth's authentik whether a request may go through. It lets admins signed in with authentik through,
+# and sends whoever isn't signed in to authentik, back to where they were going after. Grafana signs them in from the
+# username, email and name authentik passes on
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: sso
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.labels" . | nindent 4 }}
+spec:
+  forwardAuth:
+    address: http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+    # authentik sends people back to where they were going from the X-Forwarded-* headers, only under the domain
+    trustForwardHeader: true
+    authResponseHeaders:
+      - X-authentik-username
+      - X-authentik-groups
+      - X-authentik-email
+      - X-authentik-name
+      - X-authentik-uid
+{{- end }}
