@@ -1,0 +1,110 @@
+suite: test alerts
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-observability
+  namespace: bbe-observability
+tests:
+  - it: should send alerts nowhere without a receiver
+    template: templates/alertmanager.yaml
+    documentSelector:
+      path: metadata.name
+      value: bbe-observability-alertmanager
+    asserts:
+      - matchRegex:
+          path: stringData["alertmanager.yaml"]
+          pattern: 'route:\n  group_by:\n  - namespace\n  - alertname\n  group_interval: 5m\n  group_wait: 30s\n  receiver: "null"'
+      - notMatchRegex:
+          path: stringData["alertmanager.yaml"]
+          pattern: "name: bbe"
+
+  - it: should send alerts to the receiver, but never the Watchdog
+    template: templates/alertmanager.yaml
+    documentSelector:
+      path: metadata.name
+      value: bbe-observability-alertmanager
+    set:
+      bbe.observability.alerts.receiver:
+        telegram_configs:
+          - chat_id: 123
+            bot_token_file: /etc/alertmanager/secrets/bbe-observability-alerts/token
+      bbe.observability.alerts.repeatInterval: 4h
+    asserts:
+      - matchRegex:
+          path: stringData["alertmanager.yaml"]
+          pattern: "- name: bbe\n  telegram_configs:\n  - bot_token_file: /etc/alertmanager/secrets/bbe-observability-alerts/token\n    chat_id: 123"
+      - matchRegex:
+          path: stringData["alertmanager.yaml"]
+          pattern: "receiver: bbe\n  repeat_interval: 4h"
+      - matchRegex:
+          path: stringData["alertmanager.yaml"]
+          pattern: "- matchers:\n    - alertname = \"Watchdog\"\n    receiver: \"null\""
+
+  - it: should keep the credentials added to the alerts secret
+    template: templates/alertmanager.yaml
+    documentSelector:
+      path: metadata.name
+      value: bbe-observability-alerts
+    kubernetesProvider:
+      scheme:
+        "v1/Secret":
+          gvr:
+            version: "v1"
+            resource: "secrets"
+          namespaced: true
+      objects:
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: bbe-observability-alerts
+            namespace: bbe-observability
+          data:
+            token: dG9rZW4=
+    asserts:
+      - equal:
+          path: data.token
+          value: dG9rZW4=
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+
+  - it: should run Alertmanager with bbe's config, and the credentials mounted
+    template: charts/kube-prometheus-stack/templates/alertmanager/alertmanager.yaml
+    asserts:
+      - equal:
+          path: spec.configSecret
+          value: bbe-observability-alertmanager
+      - equal:
+          path: spec.secrets
+          value:
+            - bbe-observability-alerts
+
+  - it: should alert on degraded and faulted Longhorn volumes, and full disks past the threshold
+    template: templates/rules.yaml
+    set:
+      bbe.observability.rules.longhornDiskUsagePercent: 90
+    asserts:
+      - equal:
+          path: spec.groups[0].rules[0].expr
+          value: longhorn_volume_robustness == 2
+      - equal:
+          path: spec.groups[0].rules[1].expr
+          value: longhorn_volume_robustness == 3
+      - equal:
+          path: spec.groups[0].rules[2].expr
+          value: 100 * longhorn_disk_usage_bytes / longhorn_disk_capacity_bytes > 90
+
+  - it: should alert on certificates expiring within the days set
+    template: templates/rules.yaml
+    set:
+      bbe.observability.rules.certificateExpiryDays: 7
+    asserts:
+      - equal:
+          path: spec.groups[1].rules[0].alert
+          value: CertificateExpiringSoon
+      - equal:
+          path: spec.groups[1].rules[0].expr
+          value: (certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 < 7
+      - equal:
+          path: spec.groups[1].rules[0].annotations.summary
+          value: Certificate {{ $labels.name }} expires soon

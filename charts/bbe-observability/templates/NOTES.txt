@@ -1,0 +1,23 @@
+{{- if .Values.bbe.observability.grafana.ingress.enabled }}
+Grafana shows the cluster's metrics, logs and alerts at https://grafana.{{ .Values.global.bbe.domain }}, for admins signed in
+with authentik.
+{{- else }}
+Grafana shows the cluster's metrics, logs and alerts. To reach it:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-grafana 3000:80
+{{- end }}
+
+Logs are under Explore → Loki. Metrics are kept for 15 days, and logs for 15 days.
+{{- if .Values.bbe.observability.alerts.receiver }}
+
+Alerts are sent to the receiver in `bbe.observability.alerts.receiver`.
+{{- else }}
+
+Alerts are only shown in Grafana, under Alerting. To have them sent somewhere, set `bbe.observability.alerts.receiver`
+under the bbe-observability package's values in ~/.bbe/bbe.yaml, then run `bbe upgrade`. Its credentials go in the
+`bbe-observability-alerts` secret, for example a Telegram bot's token:
+  kubectl create secret generic bbe-observability-alerts -n {{ .Release.Namespace }} --from-literal=token=<token> \
+    --dry-run=client -o yaml | kubectl apply -f -
+{{- end }}
+
+The control plane's own metrics, from etcd, the scheduler, the controller manager and kube-proxy, need nodes set up by
+a bbe that has them serve those. On clusters set up before, their targets show as down in Prometheus.
