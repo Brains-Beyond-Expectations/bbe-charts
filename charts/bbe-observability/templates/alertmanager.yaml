@@ -1,0 +1,65 @@
+{{- /*
+Alertmanager's config, written from `bbe.observability.alerts`. Without a receiver, alerts go nowhere, and are only
+shown in Grafana. kube-prometheus-stack's Watchdog alert, which always fires to show alerting works, is never sent
+*/ -}}
+{{- $alerts := .Values.bbe.observability.alerts }}
+{{- $receivers := list (dict "name" "null") }}
+{{- $receiver := "null" }}
+{{- if $alerts.receiver }}
+{{- $receivers = append $receivers (merge (dict "name" "bbe") $alerts.receiver) }}
+{{- $receiver = "bbe" }}
+{{- end }}
+{{- $config := dict
+    "route" (dict
+      "receiver" $receiver
+      "group_by" (list "namespace" "alertname")
+      "group_wait" "30s"
+      "group_interval" "5m"
+      "repeat_interval" $alerts.repeatInterval
+      "routes" (list (dict "receiver" "null" "matchers" (list "alertname = \"Watchdog\"")))
+    )
+    "inhibit_rules" (list
+      (dict
+        "source_matchers" (list "severity = critical")
+        "target_matchers" (list "severity =~ warning|info")
+        "equal" (list "namespace" "alertname")
+      )
+      (dict
+        "source_matchers" (list "severity = warning")
+        "target_matchers" (list "severity = info")
+        "equal" (list "namespace" "alertname")
+      )
+    )
+    "receivers" $receivers
+}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bbe-observability-alertmanager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  alertmanager.yaml: |
+    {{- toYaml $config | nindent 4 }}
+---
+{{- /*
+Where the receiver's credentials go, which Alertmanager reads from files. It's created empty, and keeps what's added to
+it with kubectl, as it's never written to bbe.yaml
+*/}}
+{{- $credentials := (lookup "v1" "Secret" .Release.Namespace "bbe-observability-alerts").data | default dict }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bbe-observability-alerts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+type: Opaque
+{{- with $credentials }}
+data:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
