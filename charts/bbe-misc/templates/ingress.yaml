@@ -1,0 +1,36 @@
+{{- /*
+Snipe-IT is served at snipeit.<domain> with the domain's certificate, which bbe-networking makes Traefik's default. It
+isn't behind authentik's forward auth: it signs people in against authentik's LDAP itself, so `users` get in too.
+bbe-networking's dashboard lists it from its `gethomepage.dev/*` annotations
+*/ -}}
+{{- if .Values.bbe.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-snipeit
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: Snipe-IT
+    gethomepage.dev/description: Keep track of the household's things
+    gethomepage.dev/group: Keep
+    gethomepage.dev/icon: snipe-it.png
+    gethomepage.dev/pod-selector: app.kubernetes.io/component=snipeit,app.kubernetes.io/instance={{ .Release.Name }}
+spec:
+  tls:
+    - hosts:
+        - snipeit.{{ .Values.global.bbe.domain }}
+  rules:
+    - host: snipeit.{{ .Values.global.bbe.domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-snipeit
+                port:
+                  number: 80
+{{- end }}
