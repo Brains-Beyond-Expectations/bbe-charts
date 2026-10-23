@@ -1,0 +1,26 @@
+suite: test notes
+values:
+  - ./values/required-values.yaml
+templates:
+  - NOTES.txt
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should say who signs in to which app with authentik, and where bbe's login still works
+    asserts:
+      - matchRegexRaw:
+          pattern: "https://<app>.bbe.home.arpa"
+      - matchRegexRaw:
+          pattern: "Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent let in its admins"
+      - matchRegexRaw:
+          pattern: "Seerr signs people in through Jellyfin"
+
+  - it: should give every app's login without single sign-on
+    set:
+      global.bbe.sso.enabled: false
+    asserts:
+      - matchRegexRaw:
+          pattern: "Every app's web UI uses the same login:\n  username: admin"
+      - notMatchRegexRaw:
+          pattern: authentik

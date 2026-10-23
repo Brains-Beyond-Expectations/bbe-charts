@@ -1,0 +1,53 @@
+suite: test single sign-on
+values:
+  - ./values/required-values.yaml
+templates:
+  - sso.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should ask bbe-auth's authentik about every request
+    documentSelector:
+      path: kind
+      value: Middleware
+    asserts:
+      - equal:
+          path: spec.forwardAuth.address
+          value: http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+      - equal:
+          path: metadata.name
+          value: sso
+
+  - it: should trust Traefik's forwarded headers, so authentik sends people back where they were going
+    documentSelector:
+      path: kind
+      value: Middleware
+    asserts:
+      - equal:
+          path: spec.forwardAuth.trustForwardHeader
+          value: true
+
+  - it: should have nginx in qBittorrent's pod check with authentik, sending whoever isn't signed in to the domain's sign-in
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - matchRegex:
+          path: data["default.conf"]
+          pattern: auth_request /outpost.goauthentik.io/auth/nginx;
+      - matchRegex:
+          path: data["default.conf"]
+          pattern: proxy_pass http://127.0.0.1:8080;
+      - matchRegex:
+          path: data["default.conf"]
+          pattern: return 302 https://auth.lab.home.arpa/outpost.goauthentik.io/start
+
+  - it: should have no middleware or nginx when single sign-on is off
+    set:
+      global.bbe.sso.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

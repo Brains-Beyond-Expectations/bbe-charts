@@ -1,0 +1,352 @@
+global:
+  bbe:
+    # -- The domain the apps are named under, such as sonarr.bbe.home.arpa, the same as bbe-networking's
+    domain: bbe.home.arpa
+    sso:
+      # -- Whether people sign in with bbe-auth's authentik. The apps managing the media are behind its forward auth,
+      # for admins, and skip their own logins, which only bbe's setup and the apps' connections to each other use.
+      # Jellyfin signs people in against its LDAP, and Seerr through Jellyfin
+      enabled: true
+    # A VPN every byte of qBittorrent's internet traffic goes through, with gluetun, and a kill switch: with the
+    # tunnel down nothing but the cluster is reachable. It reads its WireGuard private keys from a Secret you make:
+    # `kubectl create secret generic bbe-vpn -n bbe-media --from-literal=qbittorrent=<key> --from-literal=slskd=<key>`
+    vpn:
+      # -- Whether qBittorrent's traffic goes through the VPN. Needs the `bbe-vpn` Secret
+      enabled: false
+      # -- The gluetun image
+      image: qmcgaw/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027
+      # -- The VPN provider, as gluetun names it. Its port forwarding lets peers reach qBittorrent through the VPN
+      provider: protonvpn
+      # -- The countries of the servers to use, comma-separated, or any with port forwarding when empty
+      serverCountries: ""
+      # -- The Secret with a WireGuard private key for each app, one configuration each, made with port forwarding
+      secret: bbe-vpn
+      # -- The cluster's pod network, reachable outside the tunnel
+      podSubnet: 10.244.0.0/16
+      # -- The cluster's Service network, reachable outside the tunnel
+      serviceSubnet: 10.96.0.0/12
+      # -- The cluster's DNS, which gluetun sends cluster names to. Everything else is resolved through the tunnel
+      clusterDns: 10.96.0.10
+
+bbe:
+  networkPolicy:
+    # -- Whether only Traefik and the apps themselves may reach the apps, besides bbe-music and bbe-library reaching
+    # Prowlarr, qBittorrent's API and FlareSolverr.
+    # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
+    enabled: true
+  media:
+    ingress:
+      # -- Whether to serve every app at <app>.<domain>, through bbe-networking's Traefik
+      enabled: true
+    nfs:
+      # -- The NFS server holding the media library, as a hostname or IP address
+      server: ""
+      # -- The exported path of the media library on the NFS server
+      path: ""
+      # -- Mount options for the NFS share. NFSv4 needs no lock daemon, which Talos nodes don't run, and `nfsvers=4`
+      # uses the newest NFSv4 version the server offers, such as 4.0 on Synology NAS where 4.1 isn't offered
+      mountOptions:
+        - nfsvers=4
+    # -- The size of the media library. NFS doesn't enforce it, but Kubernetes needs one
+    size: 1Ti
+    # The NAS user the apps write the library as, so nothing is written there as root and the share can map root
+    # away. Its IDs are shown by `id <user>` on the NAS
+    user:
+      # -- The user ID of the NAS user owning the media library share
+      uid:
+      # -- The group ID of the NAS user owning the media library share
+      gid:
+    prowlarr:
+      # -- The indexers Prowlarr searches, and shares with Sonarr and Radarr. Add them with `bbe configure bbe-media`.
+      # Each has the `name` it gets in Prowlarr, the Prowlarr `definition` it's made from, its `fields`, and in
+      # `secretFields` the key in the `bbe-media-indexers` secret of each field that's a credential
+      indexers: []
+    bazarr:
+      # -- The subtitle providers bbe turns on in Bazarr, besides those turned on in Bazarr. Add them with
+      # `bbe configure bbe-media`, each with the `name` Bazarr knows it by. Removing one here doesn't turn it off
+      providers: []
+      # -- The languages Bazarr downloads subtitles in, as two-letter codes. The setup puts them in a languages profile
+      # named `bbe`, which new series and movies get unless Bazarr has another default, and so do those without one.
+      # Empty for no profile
+      languages:
+        - en
+    # What qBittorrent does with what it seeds. It stops at the ratio, and removes the torrent with its files, as
+    # Sonarr and Radarr hardlink what they import and Shelfmark copies its books, so the library keeps them
+    seeding:
+      # -- The ratio qBittorrent seeds every torrent to, or 0 to seed without a limit
+      maxRatio: 2
+      # -- Whether a torrent is removed with its files once it reaches the ratio, rather than only stopped. qBittorrent
+      # stops it, and a CronJob removes it, as Sonarr, Radarr and Lidarr refuse a qBittorrent that removes torrents
+      removeWhenDone: true
+      # -- When the CronJob removes the torrents that reached the ratio, as a cron schedule
+      schedule: "*/30 * * * *"
+    flaresolverr:
+      # -- Whether to run FlareSolverr, which Prowlarr sends an indexer's requests through when Cloudflare challenges
+      # them. The setup tags every indexer it adds for it
+      enabled: true
+      image:
+        # -- The FlareSolverr image
+        repository: ghcr.io/flaresolverr/flaresolverr
+        # -- The FlareSolverr image tag
+        tag: v3.5.2
+      # -- How long FlareSolverr may take to get past a challenge, in seconds, from 1 to 180
+      requestTimeout: 60
+      # -- How many challenges FlareSolverr gets past at once. Each runs its own Chromium, so it's what its memory
+      # grows with, and the rest wait their turn
+      concurrency: 1
+      resources:
+        requests:
+          # -- The memory to request for FlareSolverr, which runs Chromium
+          memory: 256Mi
+          # -- The CPU to request for FlareSolverr
+          cpu: 50m
+        limits:
+          # -- The memory to limit FlareSolverr to
+          memory: 1Gi
+  admin:
+    # -- The username for every app's web UI. Its password is generated into the `bbe-media-admin` secret
+    username: admin
+  setup:
+    # -- Whether to connect the apps to each other after every install and upgrade
+    enabled: true
+    image:
+      # -- The image to run the setup with, which only needs Python
+      repository: python
+      # -- The tag of the setup image
+      tag: "3.13-alpine"
+    # -- How long the setup waits for the apps to start, in seconds
+    readyTimeout: 900
+    # -- How many times the setup is retried when an app couldn't be set up
+    backoffLimit: 5
+    resources:
+      requests:
+        # -- The amount of memory to request for the setup pod
+        memory: "64Mi"
+        # -- The amount of CPU to request for the setup pod
+        cpu: "50m"
+      limits:
+        # -- The amount of memory to limit the setup pod to
+        memory: "128Mi"
+
+# Each app starts with the API key the setup connects it with, from the `bbe-media-api-keys` secret,
+# and stores its media on the shared library. The apps on the library are linuxserver or hotio images, which
+# write as the user in PUID and PGID, from the `bbe-media-user` config map.
+#
+# The library lives on the NAS. The node only holds what's faster there, 31Gi together on the default
+# StorageClass: the five apps' configs (1Gi each), Jellyfin's config (3Gi) and transcoding cache (2Gi),
+# Seerr's config (1Gi), and qBittorrent's downloads in progress (20Gi), which it moves to the library
+# once complete
+sonarr:
+  sonarr:
+    env:
+      - name: SONARR__AUTH__APIKEY
+        valueFrom:
+          secretKeyRef:
+            name: bbe-media-api-keys
+            key: sonarr
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
+  media:
+    existingClaim: bbe-media-library
+
+radarr:
+  radarr:
+    env:
+      - name: RADARR__AUTH__APIKEY
+        valueFrom:
+          secretKeyRef:
+            name: bbe-media-api-keys
+            key: radarr
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
+  media:
+    existingClaim: bbe-media-library
+
+prowlarr:
+  prowlarr:
+    env:
+      - name: PROWLARR__AUTH__APIKEY
+        valueFrom:
+          secretKeyRef:
+            name: bbe-media-api-keys
+            key: prowlarr
+
+bazarr:
+  bazarr:
+    env:
+      # Bazarr loads its settings with Dynaconf, which reads overrides from DYNACONF_ variables
+      - name: DYNACONF_AUTH__APIKEY
+        valueFrom:
+          secretKeyRef:
+            name: bbe-media-api-keys
+            key: bazarr
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
+  media:
+    existingClaim: bbe-media-library
+
+qbittorrent:
+  qbittorrent:
+    webui:
+      existingSecret: bbe-media-admin
+      # Sonarr, Radarr and the setup sign in with the API key
+      apiKeySecret: bbe-media-api-keys
+      apiKeyKey: qbittorrent
+      # Only the nginx in qBittorrent's pod reaches it from 127.0.0.1, after checking the sign-in with authentik
+      localHostAuth: false
+    env:
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
+  media:
+    existingClaim: bbe-media-library
+  incomplete:
+    enabled: true
+    # -- The node storage for downloads in progress. Downloads that don't fit together wait until others complete
+    size: 20Gi
+  # qBittorrent only skips its own login for requests from its pod, so browsers go through nginx in the pod, which
+  # checks with authentik first, like Traefik does for the other apps
+  extraContainers: |
+    {{- if .Values.global.bbe.sso.enabled }}
+    - name: sso
+      image: nginxinc/nginx-unprivileged:1.29-alpine
+      ports:
+        - name: sso
+          containerPort: 4180
+      readinessProbe:
+        tcpSocket:
+          port: sso
+      resources:
+        requests:
+          memory: 16Mi
+          cpu: 10m
+        limits:
+          memory: 64Mi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: sso
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+    {{- end }}
+  # gluetun, when the VPN is on, before qBittorrent and the nginx in front of it
+  extraInitContainers: |
+    {{- if .Values.global.bbe.vpn.enabled }}
+    {{- include "bbe.gluetun" (dict "root" . "inputPorts" "8080,4180" "controlSecret" "bbe-media-vpn" "qbittorrent" true "volumeMounts" (list (dict "name" "vpn-scripts" "mountPath" "/scripts" "readOnly" true) (dict "name" "qbittorrent-api-key" "mountPath" "/secrets/qbittorrent" "readOnly" true))) }}
+    {{- end }}
+  extraVolumes: |
+    {{- if .Values.global.bbe.sso.enabled }}
+    - name: sso
+      configMap:
+        name: {{ .Release.Name }}-qbittorrent-sso
+    {{- end }}
+    {{- if .Values.global.bbe.vpn.enabled }}
+    - name: vpn-key
+      secret:
+        secretName: {{ .Values.global.bbe.vpn.secret }}
+        items:
+          - key: qbittorrent
+            path: wireguard_private_key
+    - name: vpn-rules
+      configMap:
+        name: bbe-media-vpn
+        items:
+          - key: post-rules.txt
+            path: post-rules.txt
+    - name: vpn-scripts
+      configMap:
+        name: bbe-media-vpn
+        items:
+          - key: qbittorrent-port.sh
+            path: qbittorrent-port.sh
+    - name: qbittorrent-api-key
+      secret:
+        secretName: bbe-media-api-keys
+        items:
+          - key: qbittorrent
+            path: api-key
+    {{- end }}
+  service:
+    extraPorts: |
+      {{- if .Values.global.bbe.sso.enabled }}
+      - name: sso
+        port: 4180
+        protocol: TCP
+      {{- end }}
+
+# The linuxserver image, like the other apps, so Jellyfin also reads the library as the NAS user
+jellyfin:
+  image:
+    repository: lscr.io/linuxserver/jellyfin
+    # Jellyfin 12, its current release, instead of the 10.11 the jellyfin chart defaults to
+    tag: 12.2ubu2604-ls53
+  jellyfin:
+    env:
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-media-user
+            key: PGID
+  persistence:
+    config:
+      size: 3Gi
+    media:
+      existingClaim: bbe-media-library
+    # Transcoding is bounded instead of filling the node's disk. The linuxserver image keeps its cache in /config,
+    # and gives /transcode to Jellyfin for transcoding, which the setup points Jellyfin at
+    cache:
+      enabled: true
+      size: 2Gi
+  volumeMounts:
+    - name: cache
+      mountPath: /transcode
+
+# Seerr, which Jellyseerr became, at its latest release instead of the one its chart defaults to
+seerr-chart:
+  image:
+    tag: v3.5.0
+  config:
+    persistence:
+      size: 1Gi
