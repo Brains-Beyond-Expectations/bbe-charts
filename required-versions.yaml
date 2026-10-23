@@ -1,5 +1,25 @@
 charts:
+  - name: bbe-misc
+    # Reads the prerequisites naming only a package, bbe-networking, bbe-auth and bbe-storage, and the values it records
+    min-bbe-cli: 1.7.0
+  - name: bbe-observability
+    # Reads the prerequisites naming only a package, bbe-networking, bbe-auth and bbe-storage, and the values it records
+    min-bbe-cli: 1.7.0
+  - name: bbe-music
+    # Reads the prerequisites naming only a package, and the values it records
+    min-bbe-cli: 1.7.0
+  - name: bbe-library
+    # Reads the prerequisites naming only a package, bbe-networking, bbe-auth and bbe-media
+    min-bbe-cli: 1.7.0
+  - name: bbe-auth
+    # Reads the users setting, which lists fields instead of a catalog, and the prerequisite naming only a package
+    min-bbe-cli: 1.7.0
   - name: bbe-media
-    min-bbe-cli: 0.6.0
+    # Reads the prerequisites naming only a package, bbe-networking and bbe-auth
+    min-bbe-cli: 1.7.0
+  - name: bbe-storage
+    # Reads the node prerequisites, the extensions and directories Longhorn needs, and what uninstalling deletes
+    min-bbe-cli: 1.7.0
   - name: bbe-networking
-    min-bbe-cli: 0.6.0
+    # Applies the CRDs of Traefik, which helm only installs on a first install
+    min-bbe-cli: 1.7.0
