@@ -1,0 +1,35 @@
+{{- /*
+authentik signs people in at auth.<domain>, which forward auth sends them to as well. Traefik serves it with the
+domain's certificate
+*/ -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bbe-auth
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+  # bbe-networking's dashboard links to where people manage their account, and admins everyone
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: authentik
+    gethomepage.dev/description: People, and how they sign in
+    gethomepage.dev/group: Cluster
+    gethomepage.dev/icon: authentik.png
+    gethomepage.dev/href: https://auth.{{ .Values.global.bbe.domain }}/if/user/
+    gethomepage.dev/pod-selector: app.kubernetes.io/name=authentik,app.kubernetes.io/component=server
+spec:
+  tls:
+    - hosts:
+        - auth.{{ .Values.global.bbe.domain }}
+  rules:
+    - host: auth.{{ .Values.global.bbe.domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bbe-auth-server
+                port:
+                  name: http
