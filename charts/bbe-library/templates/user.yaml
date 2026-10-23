@@ -1,0 +1,11 @@
+# The NAS user the apps write the books as, read by Calibre-Web-Automated as PUID and PGID
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-library-user
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+data:
+  PUID: {{ .Values.bbe.library.user.uid | int | quote }}
+  PGID: {{ .Values.bbe.library.user.gid | int | quote }}

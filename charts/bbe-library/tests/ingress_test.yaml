@@ -1,0 +1,35 @@
+suite: test ingress
+values:
+  - ./values/required-values.yaml
+templates:
+  - ingress.yaml
+release:
+  name: bbe-library
+  namespace: bbe-library
+tests:
+  - it: should serve the library and Shelfmark under the domain, without forward auth
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: spec.rules[0].host
+          value: calibre.lab.home.arpa
+        documentIndex: 0
+      - equal:
+          path: spec.rules[0].host
+          value: shelfmark.lab.home.arpa
+        documentIndex: 1
+      - notExists:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+      - equal:
+          path: metadata.annotations["gethomepage.dev/group"]
+          value: Read
+
+  - it: should serve nothing when the ingress is off
+    set:
+      bbe.ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
