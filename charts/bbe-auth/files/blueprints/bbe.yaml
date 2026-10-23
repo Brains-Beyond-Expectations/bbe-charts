@@ -37,7 +37,7 @@ entries:
       required: false
 
   # `admins` manage the media, the books and people in authentik. `users` watch and read: Jellyfin, Seerr through it,
-  # the book library and Shelfmark
+  # the book library and Shelfmark, and see what's theirs in Snipe-IT
   - model: authentik_core.group
     id: admins
     identifiers:
@@ -85,8 +85,8 @@ entries:
         authentik_host: !Format ["https://auth.%s/", !Context domain]
         log_level: info
 
-  # LDAP, which Jellyfin and the book library sign people in with, so their TV, phone and e-reader apps use the same
-  # people and passwords. Each binds with its own account
+  # LDAP, which Jellyfin, the book library and Snipe-IT sign people in with, so their TV, phone and e-reader apps use
+  # the same people and passwords. Each binds with its own account
   - model: authentik_core.user
     id: jellyfin-ldap
     identifiers:
@@ -121,6 +121,23 @@ entries:
       expiring: false
       key: !Env BBE_BOOKS_LDAP_PASSWORD
       description: The password the book library binds to LDAP with
+  - model: authentik_core.user
+    id: snipeit-ldap
+    identifiers:
+      username: snipeit-ldap
+    attrs:
+      name: Snipe-IT's LDAP account
+      type: service_account
+      path: bbe
+  - model: authentik_core.token
+    identifiers:
+      identifier: snipeit-ldap-password
+    attrs:
+      user: !KeyOf snipeit-ldap
+      intent: app_password
+      expiring: false
+      key: !Env BBE_SNIPEIT_LDAP_PASSWORD
+      description: The password Snipe-IT binds to LDAP with
   - model: authentik_providers_ldap.ldapprovider
     id: ldap
     identifiers:
@@ -138,6 +155,8 @@ entries:
         user: !KeyOf jellyfin-ldap
       - permission: authentik_providers_ldap.search_full_directory
         user: !KeyOf books-ldap
+      - permission: authentik_providers_ldap.search_full_directory
+        user: !KeyOf snipeit-ldap
   - model: authentik_core.application
     id: ldap-app
     identifiers:
@@ -146,7 +165,7 @@ entries:
       name: Jellyfin
       provider: !KeyOf ldap
       meta_launch_url: !Format ["https://jellyfin.%s", !Context domain]
-      meta_description: Signs people in with LDAP, in every Jellyfin app and to the book library
+      meta_description: Signs people in with LDAP, in every Jellyfin app, to the book library and to Snipe-IT
   - model: authentik_policies.policybinding
     identifiers:
       target: !KeyOf ldap-app
@@ -171,6 +190,12 @@ entries:
       user: !KeyOf books-ldap
     attrs:
       order: 3
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf ldap-app
+      user: !KeyOf snipeit-ldap
+    attrs:
+      order: 4
   # Its token is set by the setup Job, which the outpost's own Deployment signs in with
   - model: authentik_outposts.outpost
     id: ldap-outpost

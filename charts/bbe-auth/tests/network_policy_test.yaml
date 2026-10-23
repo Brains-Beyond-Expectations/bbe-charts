@@ -65,7 +65,7 @@ tests:
             ports:
               - port: metrics
 
-  - it: should let only bbe-media and bbe-library reach the LDAP outpost
+  - it: should let only bbe-media, bbe-library and bbe-misc reach the LDAP outpost
     documentSelector:
       path: metadata.name
       value: bbe-auth-ldap
@@ -83,6 +83,9 @@ tests:
                 - namespaceSelector:
                     matchLabels:
                       kubernetes.io/metadata.name: bbe-library
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: bbe-misc
               ports:
                 - port: ldap
 

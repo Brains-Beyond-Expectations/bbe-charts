@@ -39,10 +39,12 @@ Each package chart has `templates/network-policy.yaml`, on by default (`bbe.netw
 | | Lidarr | also bbe-media's Prowlarr |
 | | slskd's Soulseek port, without the VPN | anyone, as the router forwards it there |
 | bbe-library | all | its own pods, and Traefik |
+| bbe-misc | all | its own pods |
+| | Snipe-IT | also Traefik |
 | bbe-auth | all | its own pods |
 | | authentik's server, its `http` port | also Traefik, bbe-media (qBittorrent's nginx) and bbe-library (Shelfmark) |
 | | authentik's server, its `metrics` port | also bbe-observability |
-| | the LDAP outpost | also bbe-media (Jellyfin) and bbe-library |
+| | the LDAP outpost | also bbe-media (Jellyfin), bbe-library and bbe-misc (Snipe-IT) |
 | bbe-observability | all but metrics-server | its own pods |
 | | Grafana | also Traefik, as Grafana trusts the user named in a header that only Traefik may send ([0006](0006-observability.md)) |
 

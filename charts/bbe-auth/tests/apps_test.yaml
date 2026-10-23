@@ -113,6 +113,23 @@ tests:
           path: binaryData["background.webp"]
         documentIndex: 1
 
+  - it: should give Snipe-IT an LDAP account, which may search everyone and bind
+    template: templates/blueprints.yaml
+    documentIndex: 0
+    asserts:
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "username: snipeit-ldap"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "key: !Env BBE_SNIPEIT_LDAP_PASSWORD"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "search_full_directory\\n        user: !KeyOf snipeit-ldap"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "target: !KeyOf ldap-app\\n      user: !KeyOf snipeit-ldap"
+
   - it: should give the book library an LDAP account and Shelfmark an OpenID Connect client
     template: templates/blueprints.yaml
     documentIndex: 0

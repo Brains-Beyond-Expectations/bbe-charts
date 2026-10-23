@@ -1,7 +1,8 @@
 # BBE Charts
 
 The packages [bbe](https://github.com/Brains-Beyond-Expectations/bbe-quest) installs on a BBE cluster: storage,
-networking, single sign-on, media, books, music, and metrics, logs and alerts.
+networking, single sign-on, media, books, music, an inventory of the household's things, and metrics, logs and
+alerts.
 
 **New to bbe?** [Getting started](docs/getting-started.md) takes you from a fresh cluster to every app running, with
 one account per person for all of them. Why things are the way they are is in [docs/decisions](docs/decisions).

@@ -44,7 +44,7 @@ flowchart TD
     Q1 -.->|rejected| C1[A port forwarded<br/>to Traefik]
 
     B1 --> Q2{Which apps?}
-    Q2 -->|chosen| A2[The apps people use: Jellyfin, Seerr,<br/>the book library, Shelfmark, Music Assistant]
+    Q2 -->|chosen| A2[The apps people use: Jellyfin, Seerr,<br/>the book library, Shelfmark, Music Assistant, Snipe-IT]
     Q2 -.->|rejected| B2[The apps that manage the media,<br/>the dashboard, Blocky]
 
     B1 --> Q3{Who signs people in?}
@@ -90,6 +90,7 @@ Rejected: **forwarding a port to Traefik.** Every app, and every app's bugs, wou
 | Calibre-Web-Automated | Yes | Yes |
 | Shelfmark | Yes | Yes |
 | Music Assistant | Yes | Yes |
+| Snipe-IT | Yes | Yes ([0009](0009-snipe-it.md)) |
 | authentik (`auth`) | Yes, as the sign-in | No, Access sends people to it (decision 4) |
 | Sonarr, Radarr, Prowlarr, Bazarr, qBittorrent | No | Managing the media is done through the VPN |
 | Grafana, the dashboard, Blocky | No | They're for the house's network |

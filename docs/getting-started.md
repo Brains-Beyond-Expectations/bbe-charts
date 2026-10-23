@@ -12,6 +12,7 @@ This guide takes you from a fresh BBE cluster to every app running, with your ho
 | bbe-media | Jellyfin to watch, Seerr to ask for shows and movies, and Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent to get them | `https://jellyfin.bbe.home.arpa`, … |
 | bbe-library | A book library to read and send to e-readers, and Shelfmark to find books | `https://calibre.bbe.home.arpa`, `https://shelfmark.bbe.home.arpa` |
 | bbe-music | Music Assistant to play music on the house's speakers, Lidarr to find albums, Soulseek, and SoulSync to keep a copy of your Spotify library | `https://music.bbe.home.arpa`, … |
+| bbe-misc | Snipe-IT, to keep track of the household's things, who has them, and their receipts and warranties | `https://snipeit.bbe.home.arpa` |
 | bbe-observability | Grafana, with the cluster's metrics and logs, and alerts when something goes wrong | `https://grafana.bbe.home.arpa` |
 
 `bbe.home.arpa` is the default domain. You can choose another one under `home.arpa` when you install bbe-networking.
@@ -70,6 +71,7 @@ Tick the packages you want. bbe installs what each one needs first, offering to 
 | bbe-media | The NFS server and path, the NAS user's IDs, and an admin username for the apps |
 | bbe-library | The NFS server and path, and the NAS user's IDs |
 | bbe-music | The NFS server and path, and the NAS user's IDs |
+| bbe-misc | Nothing |
 | bbe-observability | Nothing |
 
 Each package prints notes when it's installed, with its addresses and how to get its passwords. They're shown again whenever it's upgraded. Each also sets itself up in the background for a few minutes after a first install.
@@ -86,7 +88,7 @@ To try it on one computer first, add the names to its hosts file, all at the app
 192.168.1.241  bbe.home.arpa auth.bbe.home.arpa jellyfin.bbe.home.arpa seerr.bbe.home.arpa
 192.168.1.241  sonarr.bbe.home.arpa radarr.bbe.home.arpa prowlarr.bbe.home.arpa bazarr.bbe.home.arpa
 192.168.1.241  qbittorrent.bbe.home.arpa calibre.bbe.home.arpa shelfmark.bbe.home.arpa music.bbe.home.arpa
-192.168.1.241  lidarr.bbe.home.arpa slskd.bbe.home.arpa soulsync.bbe.home.arpa
+192.168.1.241  lidarr.bbe.home.arpa slskd.bbe.home.arpa soulsync.bbe.home.arpa grafana.bbe.home.arpa snipeit.bbe.home.arpa
 ```
 
 ### The certificate
@@ -117,7 +119,7 @@ kubectl get secret bbe-auth-admin -n bbe-auth -o jsonpath='{.data.password}' | b
 Sign in at `https://auth.bbe.home.arpa`, and change it under your user settings.
 
 People are in one of two groups:
-- **`users`** watch, read and listen: Jellyfin, Seerr, the book library, Shelfmark.
+- **`users`** watch, read and listen: Jellyfin, Seerr, the book library, Shelfmark. In Snipe-IT, they see what's theirs.
 - **`admins`** also manage everything: Sonarr, Radarr, Lidarr, qBittorrent and the rest.
 
 Add people in either of two ways:
@@ -239,6 +241,18 @@ bbe-observability keeps the cluster's metrics and the apps' logs for 15 days, an
      ```
   4. Run `bbe upgrade`.
 - **`kubectl top`** works once it's installed, as it adds metrics-server.
+
+## 11. The household's things
+
+Snipe-IT keeps track of what the household has, who has it, and its receipts and warranties.
+
+- **Signing in:** at `https://snipeit.bbe.home.arpa`, with your authentik account. Snipe-IT creates your account the first time.
+- **What you see:** `users` see what's checked out to them. `admins` can do everything, within 10 minutes of their first sign-in.
+- **Snipe-IT's own admin**, for when authentik can't help, is `snipeit-admin`. Get its password with:
+  ```
+  kubectl get secret bbe-misc-admin -n bbe-misc -o jsonpath='{.data.password}' | base64 -d
+  ```
+- **Email:** Snipe-IT sends none yet, as no mail server is set up.
 
 ## Keeping things up to date
 
