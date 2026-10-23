@@ -1,0 +1,34 @@
+{{- if .Values.global.bbe.vpn.enabled }}
+{{- $keys := (lookup "v1" "Secret" "bbe-media" .Values.global.bbe.vpn.secret).data | default dict }}
+{{- if and (not (get $keys "slskd")) (lookup "v1" "Namespace" "" "kube-system") }}
+{{- fail (printf "The VPN is on, but bbe-media's %s Secret has no `slskd` WireGuard private key. Make it with: kubectl create secret generic %s -n bbe-media --from-literal=qbittorrent=<key> --from-literal=slskd=<key>" .Values.global.bbe.vpn.secret .Values.global.bbe.vpn.secret) }}
+{{- end }}
+# gluetun's last firewall rules
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-music-vpn
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+data:
+  post-rules.txt: |
+    iptables -I OUTPUT -o eth0 ! -s {{ .Values.global.bbe.vpn.podSubnet }} -j DROP
+---
+{{- $vpn := (lookup "v1" "Secret" .Release.Namespace "bbe-music-vpn").data | default dict }}
+{{- $apiKey := get $vpn "control-api-key" | default (randAlphaNum 32 | b64enc) }}
+# slskd's WireGuard private key, copied from bbe-media's Secret on every install and upgrade, and the key slskd reaches
+# gluetun's control server with, generated on the first install
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bbe-music-vpn
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+type: Opaque
+data:
+  wireguard-private-key: {{ get $keys "slskd" | quote }}
+  control-api-key: {{ $apiKey }}
+  control-role: {{ dict "auth" "apikey" "apikey" ($apiKey | b64dec) | toJson | b64enc }}
+{{- end }}

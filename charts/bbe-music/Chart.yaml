@@ -1,0 +1,48 @@
+apiVersion: v2
+name: bbe-music
+description: A music library for the BBE cluster, with Lidarr to find albums, slskd for Soulseek, SoulSync to mirror a Spotify library and import Soulseek downloads, and Music Assistant to play it all
+type: application
+version: 0.0.1
+keywords:
+  - bbe
+  - music
+  - lidarr
+  - soulseek
+  - music-assistant
+home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for the apps' config volumes
+      storageClass: longhorn
+      package: bbe-storage
+    - name: networking
+      description: Traefik, MetalLB and the domain's certificate, which the apps are served with
+      package: bbe-networking
+    - name: sso
+      description: authentik, which people sign in to Lidarr, slskd and SoulSync with
+      package: bbe-auth
+    - name: media
+      description: Prowlarr and qBittorrent, which Lidarr searches and downloads with
+      package: bbe-media
+  # Music Assistant finds speakers on the LAN by multicast and plays to them from its own address, so it runs on the
+  # node's network, which `baseline` forbids
+  bbe/pod-security: privileged
+  # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it behaves alike
+  bbe/recorded-values: |
+    - bbe.music.seedRatio
+    - bbe.music.lidarr
+    - bbe.music.slskd.loadBalancerIP
+    - bbe.music.slskd.uploadSlots
+    - bbe.music.slskd.uploadSpeedLimit
+    - global.bbe.vpn
+  # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
+  bbe/uninstall: |
+    keeps:
+      - The music on the NFS share, which only loses its link to the cluster
+      - The Soulseek account, which Soulseek forgets after 30 days without a login
+dependencies:
+  - name: lidarr
+    version: 0.0.1
+    repository: https://brains-beyond-expectations.github.io/bbe-charts
