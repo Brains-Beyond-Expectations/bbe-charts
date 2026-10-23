@@ -1,0 +1,119 @@
+# Snipe-IT: the household's things, who has them, and their receipts and warranties. Its volume holds the files and
+# pictures uploaded to it, and its OAuth keys. Everything else is in MariaDB
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-misc-snipeit
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: {{ .Values.bbe.misc.snipeit.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-snipeit
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+    app.kubernetes.io/component: snipeit
+spec:
+  replicas: 1
+  # Its volume can only be mounted by one pod at a time
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: snipeit
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-misc.labels" . | nindent 8 }}
+        app.kubernetes.io/component: snipeit
+    spec:
+      initContainers:
+        # Snipe-IT migrates its database as it starts, and carries on without it if MariaDB isn't answering yet.
+        # `mariadb-admin ping` succeeds once the server answers, even when it refuses the login
+        - name: wait-for-mariadb
+          image: "{{ .Values.bbe.misc.mariadb.image.repository }}:{{ .Values.bbe.misc.mariadb.image.tag }}"
+          command:
+            - sh
+            - -c
+            - until mariadb-admin ping --host=bbe-misc-mariadb --silent; do sleep 2; done
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              memory: 16Mi
+              cpu: 10m
+            limits:
+              memory: 64Mi
+      containers:
+        # It starts as root, to create its folders on the volume and give them to its own user, then runs Apache as
+        # that user
+        - name: snipeit
+          image: "{{ .Values.bbe.misc.snipeit.image.repository }}:{{ .Values.bbe.misc.snipeit.image.tag }}"
+          env:
+            {{- include "bbe-misc.snipeitEnv" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 80
+          # /health answers before Snipe-IT is set up, when every other page sends people to its setup
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          {{- with .Values.bbe.misc.snipeit.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/snipeit
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: bbe-misc-snipeit
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-snipeit
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+    app.kubernetes.io/component: snipeit
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: snipeit
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
