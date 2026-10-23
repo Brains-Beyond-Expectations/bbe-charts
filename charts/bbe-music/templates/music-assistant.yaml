@@ -1,0 +1,117 @@
+{{- $ma := .Values.bbe.music.musicAssistant }}
+# Music Assistant plays the music, Spotify and the rest to speakers on the LAN, the browser and its apps. Its settings
+# and database are on Longhorn
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-music-music-assistant-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: {{ $ma.dataSize }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-music-assistant
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+    app.kubernetes.io/component: music-assistant
+spec:
+  replicas: 1
+  # Two copies would share its database, and the node's ports
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: music-assistant
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-music.labels" . | nindent 8 }}
+        app.kubernetes.io/component: music-assistant
+    spec:
+      # Speakers are found by multicast on the LAN (mDNS, SSDP), AirPlay and Cast call back on ports of their own, and
+      # players fetch audio from its stream server at the node's address
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      # It runs as the NAS user rather than root, which the share maps away, and owns its data volume through the
+      # group. Its image is prepared for running as any user
+      securityContext:
+        {{- include "bbe-music.runAsUser" . | nindent 8 }}
+        fsGroup: {{ .Values.bbe.music.user.gid | int }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: music-assistant
+          image: "{{ $ma.image.repository }}:{{ $ma.image.tag }}"
+          env:
+            - name: HOME
+              value: /data
+          ports:
+            - name: http
+              containerPort: 8095
+            - name: stream
+              containerPort: 8097
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: http
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          {{- with $ma.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            # It only reads the music. Playlists it makes are kept in its own database
+            - name: share
+              mountPath: /media
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: bbe-music-music-assistant-data
+        - name: share
+          persistentVolumeClaim:
+            claimName: bbe-music-share
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-music-assistant
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+    app.kubernetes.io/component: music-assistant
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: music-assistant
+  ports:
+    - name: http
+      port: 8095
+      targetPort: http

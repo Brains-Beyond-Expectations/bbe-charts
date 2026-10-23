@@ -1,0 +1,39 @@
+suite: test ingress
+values:
+  - ./values/required-values.yaml
+templates:
+  - templates/ingress.yaml
+release:
+  name: bbe-music
+  namespace: bbe-music
+tests:
+  - it: should keep Music Assistant out of forward auth, as its apps connect directly
+    documentSelector:
+      path: spec.rules[0].host
+      value: music.bbe.home.arpa
+    asserts:
+      - notExists:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service
+          value:
+            name: bbe-music-music-assistant
+            port:
+              number: 8095
+
+  - it: should put Lidarr, SoulSync and slskd behind authentik
+    asserts:
+      - hasDocuments:
+          count: 4
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-music-sso@kubernetescrd
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-music-sso@kubernetescrd
+        documentIndex: 2
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-music-sso@kubernetescrd
+        documentIndex: 3
