@@ -1,8 +1,51 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["bbe", "ingress-nginx"],
+  "required": [
+    "global",
+    "bbe"
+  ],
   "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "bbe": {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+              "not": {
+                "enum": [
+                  "home.arpa"
+                ]
+              },
+              "description": "The domain the cluster's apps are named under, such as bbe.home.arpa"
+            },
+            "ingress": {
+              "type": "object",
+              "properties": {
+                "loadBalancerIP": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The IP address for the ingress, on the same network as your nodes"
+                }
+              },
+              "required": [
+                "loadBalancerIP"
+              ]
+            }
+          },
+          "required": [
+            "domain",
+            "ingress"
+          ]
+        }
+      },
+      "required": [
+        "bbe"
+      ]
+    },
     "bbe": {
       "type": "object",
       "properties": {
@@ -18,39 +61,19 @@
                   "description": "The IP address for the Blocky DNS service, or a range such as 192.168.1.240-192.168.1.245"
                 }
               },
-              "required": ["ipAddressPool"]
+              "required": [
+                "ipAddressPool"
+              ]
             }
           },
-          "required": ["blocky"]
+          "required": [
+            "blocky"
+          ]
         }
       },
-      "required": ["metallb"]
-    },
-    "ingress-nginx": {
-      "type": "object",
-      "additionalProperties": true,
-      "properties": {
-        "controller": {
-          "type": "object",
-          "additionalProperties": true,
-          "properties": {
-            "service": {
-              "type": "object",
-              "additionalProperties": true,
-              "properties": {
-                "loadBalancerIP": {
-                  "type": "string",
-                  "minLength": 1,
-                  "description": "The IP address for the ingress load balancer, on the same network as your nodes"
-                }
-              },
-              "required": ["loadBalancerIP"]
-            }
-          },
-          "required": ["service"]
-        }
-      },
-      "required": ["controller"]
+      "required": [
+        "metallb"
+      ]
     }
   }
 }
