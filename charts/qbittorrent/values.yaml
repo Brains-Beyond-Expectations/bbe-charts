@@ -37,6 +37,21 @@ qbittorrent:
       cpu: ""
   # -- The environment variables to set for the qBittorrent pod
   env: []
+  webui:
+    # -- Name of an existing secret holding the WebUI login. When set, qBittorrent starts with that login instead of printing a temporary password to its log. Needs `config.enabled`
+    existingSecret: ""
+    # -- The key in the secret holding the WebUI username
+    usernameKey: username
+    # -- The key in the secret holding the WebUI password
+    passwordKey: password
+    # -- Name of an existing secret holding a WebUI API key, which clients such as Sonarr send instead of signing in
+    # (qBittorrent 5.2 and later). It's `qbt_` and 28 letters or digits. Needs `existingSecret`
+    apiKeySecret: ""
+    # -- The key in apiKeySecret holding the API key
+    apiKeyKey: api-key
+    # -- Whether qBittorrent asks requests from its own pod (127.0.0.1) to sign in too. Turn it off when a proxy in the
+    # pod, such as a proxy in `extraContainers`, checks who's signed in before it. Needs `existingSecret`
+    localHostAuth: true
   # -- The livenessProbe configuration for the qBittorrent pod
   livenessProbe:
     failureThreshold: 5
@@ -73,6 +88,20 @@ service:
       protocol: TCP
   # -- The type of service to create
   type: ClusterIP
+  # -- More ports of the service, such as one for a container in `extraContainers`, as a YAML string rendered as a
+  # template
+  extraPorts: ""
+
+# -- More containers for the qBittorrent pod, such as a proxy in front of it, as a YAML string rendered as a template
+extraContainers: ""
+
+# -- More init containers for the qBittorrent pod, before its own, as a YAML string rendered as a template. A native
+# sidecar (`restartPolicy: Always`) such as a VPN starts before qBittorrent and stays up next to it
+extraInitContainers: ""
+
+# -- More volumes for the qBittorrent pod, such as the configuration of a container in `extraContainers`, as a YAML
+# string rendered as a template
+extraVolumes: ""
 
 ingress:
   # -- Whether to create an ingress for qBittorrent
@@ -124,6 +153,23 @@ media:
   accessMode: ReadWriteOnce
   # -- Whether to keep the persistent volume claim for the media after the qBittorrent chart is uninstalled
   retain: false
+
+incomplete:
+  # -- Annotations to apply to the persistent volume claim for downloads in progress
+  annotations: {}
+  # -- Whether to keep downloads in progress on their own volume, such as a fast one on the node, set as qBittorrent's
+  # "Keep incomplete torrents in" path. qBittorrent moves each download to its save path once it completes
+  enabled: false
+  # -- Use this attribute to reference an existing persistent volume claim for downloads in progress
+  existingClaim: ""
+  # -- The amount of storage to request for downloads in progress. Downloads larger than this together can't complete
+  size: "20Gi"
+  # -- Storage class to use for the persistent volume claim for downloads in progress
+  storageClass: ""
+  # -- The access mode to use for the persistent volume claim for downloads in progress
+  accessMode: ReadWriteOnce
+  # -- Where downloads in progress are kept in the container
+  mountPath: /incomplete
 
 wireguard:
   # -- Whether to run qBittorrent behind a WireGuard sidecar
