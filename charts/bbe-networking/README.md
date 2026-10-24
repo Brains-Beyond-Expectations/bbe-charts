@@ -32,7 +32,9 @@ A collection of charts for BBE cluster networking
 | bbe.dashboard.settings | string | `"title: bbe\nheaderStyle: clean\nlayout:\n  Watch:\n    style: row\n    columns: 4\n  Read:\n    style: row\n    columns: 4\n  Listen:\n    style: row\n    columns: 4\n  Keep:\n    style: row\n    columns: 4\n  Manage:\n    style: row\n    columns: 4\n  Cluster:\n    style: row\n    columns: 4\n"` | Homepage's settings.yaml, see https://gethomepage.dev/configs/settings. Its layout orders the groups the apps' annotations put them in, so it's kept as text, as Helm would sort the groups by name |
 | bbe.dashboard.widgets | list | `[]` | Homepage's widgets.yaml. Its Kubernetes widgets need metrics-server, which Talos doesn't run by default |
 | bbe.metallb.blocky.ipAddressPool | string | `nil` | The IP address for the Blocky DNS service, or a range such as 192.168.1.240-192.168.1.245 |
-| blocky.config.yaml | string | `"upstream:\n  default:\n    - 1.1.1.1\n    - 8.8.8.8\ncustomDNS:\n  mapping:\n    {{ .Values.global.bbe.domain }}: {{ .Values.global.bbe.ingress.loadBalancerIP }}\nblocking:\n  blackLists:\n    ads:\n      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\n  clientGroupsBlock:\n    default:\n      - ads\nport: 53\nhttpPort: 4000\ncaching:\n  minTime: 5m\n  maxTime: 30m\nprometheus:\n  enable: true\n"` |  |
+| blocky.blocky.resources.limits.memory | string | `"384Mi"` |  |
+| blocky.blocky.resources.requests.memory | string | `"160Mi"` |  |
+| blocky.config.yaml | string | `"{{- include \"bbe-networking.blockyConfig\" . }}\n"` |  |
 | blocky.service.annotations."metallb.io/address-pool" | string | `"blocky"` |  |
 | cert-manager.crds.enabled | bool | `false` |  |
 | cert-manager.startupapicheck.jobAnnotations."helm.sh/hook" | string | `"post-install,post-upgrade"` |  |
@@ -44,6 +46,19 @@ A collection of charts for BBE cluster networking
 | cert-manager.startupapicheck.serviceAccount.annotations."helm.sh/hook" | string | `"post-install,post-upgrade"` |  |
 | cert-manager.startupapicheck.serviceAccount.annotations."helm.sh/hook-delete-policy" | string | `"before-hook-creation,hook-succeeded"` |  |
 | cert-manager.startupapicheck.serviceAccount.annotations."helm.sh/hook-weight" | string | `"-5"` |  |
+| global.bbe.dns.blocking.allowed | list | `[]` | Domains never blocked, by any group, such as `example.com`, with everything under them |
+| global.bbe.dns.blocking.blockTTL | string | `"1m"` | How long devices remember that a name is blocked, so unblocking one works within this time |
+| global.bbe.dns.blocking.clients | object | `{}` | Groups for some devices instead, by IP address, subnet (CIDR) or name, such as `192.168.1.50: [ads, security, adult]`. A device given no groups (`[]`) isn't blocked at all |
+| global.bbe.dns.blocking.groups | list | `["ads","security"]` | The groups every device gets, unless `clients` names it |
+| global.bbe.dns.blocking.lists | object | ads: HaGeZi's Multi Normal; security: HaGeZi's Threat Intelligence Feeds mini; adult: HaGeZi's NSFW | The blocklists, by group, in a format Blocky reads: hosts files, or a domain, `*.domain` with everything under it, or `/regex/` per line. HaGeZi's lists are kept up to date, rarely block what they shouldn't, and are in the `*.domain` format. Only the groups some device gets are downloaded, so `adult` is there to turn on. Every list is held in memory: more than the defaults may need more for Blocky |
+| global.bbe.dns.blocking.refreshPeriod | string | `"6h"` | How often the lists are downloaded again |
+| global.bbe.dns.bootstrap | list | `[{"ips":["9.9.9.9","149.112.112.112"],"upstream":"https://dns.quad9.net/dns-query"},{"ips":["1.1.1.1","1.0.0.1"],"upstream":"https://cloudflare-dns.com/dns-query"}]` | How Blocky finds the upstreams' and the blocklists' own addresses, encrypted too. Each upstream is listed with its addresses, so nothing is asked in plain text |
+| global.bbe.dns.forward | object | `{}` | Domains asked of another DNS server, such as the router's own, like `fritz.box: 192.168.1.1` |
+| global.bbe.dns.queryLog | string | `"none"` | Where Blocky logs every query: `none`, or `console` for its output, which bbe-observability keeps in Loki. None by default, as it's who looked up what |
+| global.bbe.dns.rebindingProtection.allowedDomains | list | `[]` | Domains whose public DNS points at private addresses on purpose, which are let through |
+| global.bbe.dns.rebindingProtection.enabled | bool | `true` | Whether to refuse them |
+| global.bbe.dns.records | object | `{}` | More names Blocky answers itself, with an address each, such as `nas.home.arpa: 192.168.1.10`. The domain is already answered with the ingress's IP |
+| global.bbe.dns.upstreams | list | `["https://dns.quad9.net/dns-query","https://cloudflare-dns.com/dns-query"]` | Where Blocky asks for the names it doesn't block or know, encrypted with DNS-over-HTTPS. It asks the two fastest. Quad9 also refuses names it knows to be malicious |
 | global.bbe.domain | string | `"bbe.home.arpa"` | The domain the cluster's apps are named under, such as jellyfin.bbe.home.arpa. Blocky answers for it and everything under it with the ingress's IP, and bbe's own certificate authority signs a certificate for it. home.arpa itself can't be used: browsers treat it as a public suffix like .com, so a certificate for *.home.arpa is refused and a login can't be shared between apps under it |
 | global.bbe.ingress.loadBalancerIP | string | `nil` | The IP address for the ingress, on the same network as your nodes |
 | metallb.crds.enabled | bool | `false` |  |
