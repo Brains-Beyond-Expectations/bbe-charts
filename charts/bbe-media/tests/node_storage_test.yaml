@@ -38,7 +38,7 @@ tests:
             mountPath: /incomplete
 
   - it: should bound Jellyfin's config and transcoding cache
-    template: charts/jellyfin/templates/persistentVolumeClaim.yaml
+    template: templates/jellyfin.yaml
     asserts:
       - equal:
           path: spec.resources.requests.storage

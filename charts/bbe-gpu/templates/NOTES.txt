@@ -1,0 +1,8 @@
+{{- if .Values.bbe.gpu.intel.enabled }}
+Nodes with an Intel GPU offer it to the apps as gpu.intel.com/i915, shared by up to {{ .Values.bbe.gpu.intel.sharedDevNum }} pods each. To see which nodes have
+one:
+  kubectl get nodes -o custom-columns='NODE:.metadata.name,INTEL GPU:.status.allocatable.gpu\.intel\.com/i915'
+
+A node only offers its GPU with Talos' i915 extension, which bbe's amd64 node image has. A node set up before it was
+added needs upgrading to that image, as docs/decisions/0011-gpu-transcoding.md describes.
+{{- end }}

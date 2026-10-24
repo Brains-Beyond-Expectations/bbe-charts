@@ -79,7 +79,20 @@ tests:
             version: "v1"
             resource: "secrets"
           namespaced: true
+        # The suite renders Jellyfin too, which looks for nodes offering a GPU
+        "v1/Node":
+          gvr:
+            version: "v1"
+            resource: "nodes"
+          namespaced: false
       objects:
+        - apiVersion: v1
+          kind: Node
+          metadata:
+            name: with-gpu
+          status:
+            allocatable:
+              gpu.intel.com/i915: "2"
         - apiVersion: v1
           kind: Secret
           metadata:

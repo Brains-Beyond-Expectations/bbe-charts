@@ -56,6 +56,54 @@ bbe:
       uid:
       # -- The group ID of the NAS user owning the media library share
       gid:
+    jellyfin:
+      image:
+        # -- The Jellyfin image: linuxserver's, like the other apps, so it reads the library as the NAS user. It has
+        # Intel's and AMD's drivers for transcoding on their GPUs
+        repository: lscr.io/linuxserver/jellyfin
+        # -- The Jellyfin version
+        tag: 12.2ubu2604-ls53
+      # -- The size of Jellyfin's config volume, with its database, metadata and images
+      configSize: 3Gi
+      # -- The size of the volume Jellyfin transcodes to, so transcoding can't fill the node's disk
+      cacheSize: 2Gi
+      resources:
+        requests:
+          # -- The memory to request for Jellyfin
+          memory: 512Mi
+          # -- The CPU to request for Jellyfin
+          cpu: 100m
+        limits:
+          # -- The memory to limit Jellyfin to
+          memory: 4Gi
+      # Jellyfin transcodes on a GPU, which bbe-gpu offers, so it only runs on a node with one. bbe writes these into
+      # bbe.yaml with their defaults
+      transcoding:
+        # -- Whether Jellyfin may run without a GPU, transcoding on the CPU, when no node has one to give. It still
+        # takes a GPU whenever a node has one, when installed or upgraded
+        allowCpu: false
+        # -- The GPU Jellyfin asks for, as bbe-gpu offers it
+        gpu: gpu.intel.com/i915
+        # -- How Jellyfin uses the GPU: `qsv` (Intel Quick Sync) or `vaapi` (Intel or AMD)
+        acceleration: qsv
+        # -- The codecs the GPU decodes. The defaults suit Intel's 7th generation (Kaby Lake) and newer. Add `av1`
+        # from the 11th (Tiger Lake)
+        decodingCodecs:
+          - h264
+          - hevc
+          - mpeg2video
+          - vc1
+          - vp8
+          - vp9
+        # -- Whether the GPU decodes 10-bit HEVC and VP9, from Intel's 7th generation
+        tenBitDecoding: true
+        # -- Whether Jellyfin may encode HEVC as well as H.264, for the clients that play it
+        hevcEncoding: true
+        # -- Whether Jellyfin may encode AV1, which needs an Intel Arc GPU or Intel's 14th generation (Meteor Lake)
+        av1Encoding: false
+        # -- Whether to tone-map HDR to SDR with OpenCL, through linuxserver's OpenCL mod, which Jellyfin downloads as
+        # it starts
+        tonemapping: false
     prowlarr:
       # -- The indexers Prowlarr searches, and shares with Sonarr and Radarr. Add them with `bbe configure bbe-media`.
       # Each has the `name` it gets in Prowlarr, the Prowlarr `definition` it's made from, its `fields`, and in
@@ -310,38 +358,6 @@ qbittorrent:
         port: 4180
         protocol: TCP
       {{- end }}
-
-# The linuxserver image, like the other apps, so Jellyfin also reads the library as the NAS user
-jellyfin:
-  image:
-    repository: lscr.io/linuxserver/jellyfin
-    # Jellyfin 12, its current release, instead of the 10.11 the jellyfin chart defaults to
-    tag: 12.2ubu2604-ls53
-  jellyfin:
-    env:
-      - name: PUID
-        valueFrom:
-          configMapKeyRef:
-            name: bbe-media-user
-            key: PUID
-      - name: PGID
-        valueFrom:
-          configMapKeyRef:
-            name: bbe-media-user
-            key: PGID
-  persistence:
-    config:
-      size: 3Gi
-    media:
-      existingClaim: bbe-media-library
-    # Transcoding is bounded instead of filling the node's disk. The linuxserver image keeps its cache in /config,
-    # and gives /transcode to Jellyfin for transcoding, which the setup points Jellyfin at
-    cache:
-      enabled: true
-      size: 2Gi
-  volumeMounts:
-    - name: cache
-      mountPath: /transcode
 
 # Seerr, which Jellyseerr became, at its latest release instead of the one its chart defaults to
 seerr-chart:

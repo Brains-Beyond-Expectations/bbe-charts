@@ -27,11 +27,16 @@ annotations:
     - name: sso
       description: authentik, which people sign in to the apps with
       package: bbe-auth
-  # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it seeds and solves challenges alike
+    - name: gpu
+      description: The nodes' GPUs, which Jellyfin transcodes on
+      package: bbe-gpu
+  # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it seeds, solves challenges and
+  # transcodes alike
   bbe/recorded-values: |
     - bbe.media.seeding
     - bbe.media.flaresolverr.concurrency
     - global.bbe.vpn
+    - bbe.media.jellyfin.transcoding
   # gluetun, when the VPN is on, changes qBittorrent's pod network, which `baseline` doesn't allow
   bbe/pod-security: privileged
   # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
@@ -91,9 +96,6 @@ dependencies:
   - name: bazarr
     version: 0.4.0
     repository: https://brains-beyond-expectations.github.io/bbe-charts
-  - name: jellyfin
-    version: 3.2.0
-    repository: https://jellyfin.github.io/jellyfin-helm
   - name: seerr-chart
     version: 3.9.1
     repository: oci://ghcr.io/seerr-team/seerr

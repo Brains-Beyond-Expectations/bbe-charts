@@ -60,6 +60,7 @@ Every selector and named port was checked against the charts rendered together: 
 
 ### 3. What the policies leave out
 
+- **bbe-gpu has none,** as its device plugin listens on no port.
 - **bbe-networking and bbe-storage have none.** The API server calls cert-manager's and MetalLB's webhooks and Longhorn's, from the node's network (decision 1). Traefik and Blocky are reached from the whole network anyway.
 - **Pods on the host network aren't covered:** Music Assistant, and bbe-observability's node-exporter. Their ports are the node's own.
 - **Traffic going out** isn't limited (decision 2).
