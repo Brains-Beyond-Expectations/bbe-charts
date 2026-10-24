@@ -11,3 +11,8 @@ MetalLB takes addresses as a CIDR or a range, so a single IP becomes a CIDR hold
 {{- printf "%s/32" $addresses -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "bbe-networking.dashboardLabels" -}}
+app.kubernetes.io/name: dashboard
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}

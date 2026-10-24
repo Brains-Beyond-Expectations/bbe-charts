@@ -46,10 +46,10 @@ tests:
           value:
             - fd00::240/128
 
-  - it: gives the load balancer's IP its own pool
+  - it: gives the ingress's IP its own pool
     template: templates/metallb-ip-address-pool-default.yaml
     set:
-      ingress-nginx.controller.service.loadBalancerIP: 192.168.1.241
+      global.bbe.ingress.loadBalancerIP: 192.168.1.241
     documentIndex: 0
     asserts:
       - equal:
@@ -69,3 +69,331 @@ tests:
       - equal:
           path: webhooks[1].failurePolicy
           value: Ignore
+
+  - it: only gives a pool's address to the service naming it
+    templates:
+      - templates/metallb-ip-address-pool-default.yaml
+      - templates/metallb-ip-address-pool-blocky.yaml
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: spec.autoAssign
+          value: false
+
+  - it: puts Traefik on the ingress's pool
+    template: charts/traefik/templates/service.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["metallb.io/address-pool"]
+          value: default
+      - equal:
+          path: spec.type
+          value: LoadBalancer
+
+  - it: puts Blocky on its own pool
+    template: charts/blocky/templates/service.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["metallb.io/address-pool"]
+          value: blocky
+
+  - it: has Blocky answer for the domain with the ingress's IP
+    template: charts/blocky/templates/config_map.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+      global.bbe.ingress.loadBalancerIP: 192.168.1.241
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "customDNS:\\n  mapping:\\n    lab.home.arpa: 192.168.1.241\\n"
+
+  - it: has Blocky ask Quad9 and Cloudflare over DNS-over-HTTPS, finding them by their addresses
+    template: charts/blocky/templates/config_map.yaml
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "upstreams:\\n  groups:\\n    default:\\n      - https://dns.quad9.net/dns-query\\n      - https://cloudflare-dns.com/dns-query\\n"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "bootstrapDns:\\n  - ips:\\n    - 9.9.9.9\\n    - 149.112.112.112\\n    upstream: https://dns.quad9.net/dns-query\\n"
+      - notMatchRegex:
+          path: data["config.yml"]
+          pattern: "(?m)^(upstream|port|httpPort):"
+
+  - it: blocks ads and threats for every device by default, with HaGeZi's lists in Blocky's wildcard format
+    template: charts/blocky/templates/config_map.yaml
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "denylists:\\n    ads:\\n      - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/multi.txt\\n    security:\\n      - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/tif.mini.txt\\n"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "clientGroupsBlock:\\n    default:\\n      - ads\\n      - security\\n"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "refreshPeriod: 6h"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "    strategy: fast\\ncaching:"
+      - notMatchRegex:
+          path: data["config.yml"]
+          pattern: "allowlists:"
+      - notMatchRegex:
+          path: data["config.yml"]
+          pattern: "nsfw"
+
+  - it: blocks nothing for a device given no groups, and loads no lists when nobody gets any
+    template: charts/blocky/templates/config_map.yaml
+    set:
+      global.bbe.dns.blocking.groups: []
+      global.bbe.dns.blocking.allowed: [example.com]
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "  denylists:\\n  clientGroupsBlock:\\n    default:\\n      \\[\\]\\n"
+      - notMatchRegex:
+          path: data["config.yml"]
+          pattern: "allowlists:"
+
+  - it: keeps the queries out of the logs, and refuses rebinding answers, by default
+    template: charts/blocky/templates/config_map.yaml
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "queryLog:\\n  type: none\\n"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "rebindingProtection:\\n  enable: true\\n"
+
+  - it: applies what bbe.yaml changes, loading only the groups some device gets
+    template: charts/blocky/templates/config_map.yaml
+    set:
+      global.bbe.dns.upstreams:
+        - https://dns.mullvad.net/dns-query
+      global.bbe.dns.blocking.groups: [ads]
+      global.bbe.dns.blocking.clients:
+        192.168.1.60: [ads, adult]
+      global.bbe.dns.records:
+        nas.home.arpa: 192.168.1.10
+      global.bbe.dns.forward:
+        fritz.box: 192.168.1.1
+      global.bbe.dns.queryLog: console
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "    default:\\n      - https://dns.mullvad.net/dns-query\\n  # Asks"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "denylists:\\n    ads:\\n      - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/multi.txt\\n    adult:\\n      - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/nsfw.txt\\n  "
+      - notMatchRegex:
+          path: data["config.yml"]
+          pattern: "security"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "    default:\\n      - ads\\n    \"192.168.1.60\":\\n      - ads\\n      - adult\\n"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "    nas.home.arpa: 192.168.1.10\\n"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "conditional:\\n  mapping:\\n    fritz.box: 192.168.1.1\\n"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "queryLog:\\n  type: console\\n"
+
+  - it: refuses a group without lists, such as a typo in bbe.yaml
+    template: charts/blocky/templates/config_map.yaml
+    set:
+      global.bbe.dns.blocking.clients:
+        kids-tablet: [ads, adlut]
+    asserts:
+      - failedTemplate:
+          errorPattern: 'no lists for the group "adlut", which is one of ads, adult, security'
+
+  - it: allows a domain and everything under it in every group that blocks, keeping regexes as they are
+    template: charts/blocky/templates/config_map.yaml
+    set:
+      global.bbe.dns.blocking.allowed:
+        - example.com
+        - "*.example.org"
+        - /^ok-/
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "allowlists:\\n    ads:\\n      - \\|\\n        \\*\\.example\\.com\\n        \\*\\.example\\.org\\n        /\\^ok-/\\n    security:\\n"
+
+  - it: gives Blocky the memory its lists need
+    template: charts/blocky/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 384Mi
+
+  - it: signs a certificate for the domain and everything under it with bbe's certificate authority
+    template: templates/certificates.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: metadata.name
+      value: bbe-domain
+    asserts:
+      - equal:
+          path: spec.dnsNames
+          value:
+            - lab.home.arpa
+            - "*.lab.home.arpa"
+      - equal:
+          path: spec.issuerRef.name
+          value: bbe-ca
+
+  - it: serves the domain's certificate by default
+    template: charts/traefik/templates/tlsstore.yaml
+    asserts:
+      - equal:
+          path: metadata.name
+          value: default
+      - equal:
+          path: spec.defaultCertificate.secretName
+          value: bbe-domain-tls
+
+  - it: creates the certificates after cert-manager's startup check, on upgrades too
+    template: templates/certificates.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "10"
+
+  - it: runs cert-manager's startup check on upgrades too, before the certificates
+    template: charts/cert-manager/templates/startupapicheck-job.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "1"
+
+  - it: refuses home.arpa as the domain, which browsers treat as a public suffix
+    set:
+      global.bbe.domain: home.arpa
+    asserts:
+      - failedTemplate: {}
+
+  - it: should serve the dashboard at the domain itself, with its certificate
+    template: templates/dashboard.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: kind
+      value: Ingress
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: lab.home.arpa
+      - equal:
+          path: spec.tls[0].hosts
+          value:
+            - lab.home.arpa
+
+  - it: should let Homepage answer for the domain and the probes
+    template: templates/dashboard.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HOMEPAGE_ALLOWED_HOSTS
+            value: lab.home.arpa,$(POD_IP):3000
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/gethomepage/homepage:v2.5.0
+
+  - it: should find the apps in every namespace from their Ingresses
+    template: templates/dashboard.yaml
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - equal:
+          path: data["kubernetes.yaml"]
+          value: |
+            mode: cluster
+            ingress: true
+            traefik: true
+
+  - it: should keep the dashboard's groups in the order of its settings
+    template: templates/dashboard.yaml
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - matchRegex:
+          path: data["settings.yaml"]
+          pattern: "Watch:(.|\\n)*Read:(.|\\n)*Listen:(.|\\n)*Keep:(.|\\n)*Manage:(.|\\n)*Cluster:"
+
+  - it: should give Homepage a writable config folder, starting from bbe's files
+    template: templates/dashboard.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].command[2]
+          value: cp /config-source/* /app/config/
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: config
+              mountPath: /app/config
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: config
+            emptyDir: {}
+
+  - it: should only read what Homepage needs
+    template: templates/dashboard.yaml
+    documentSelector:
+      path: kind
+      value: ClusterRole
+    asserts:
+      - equal:
+          path: rules[0].verbs
+          value: [get, list]
+      - equal:
+          path: rules[1].resources
+          value: [ingresses]
+
+  - it: should serve no dashboard when it's off
+    template: templates/dashboard.yaml
+    set:
+      bbe.dashboard.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should leave cert-manager's CRDs to the crds folder, which Helm installs first
+    templates:
+      - charts/cert-manager/templates/crd-cert-manager.io_certificates.yaml
+      - charts/cert-manager/templates/crd-cert-manager.io_issuers.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: says in its notes what Blocky blocks, and where to change it
+    template: templates/NOTES.txt
+    set:
+      global.bbe.dns.blocking.clients:
+        kids-tablet: [ads, security, adult]
+    asserts:
+      - matchRegexRaw:
+          pattern: "It blocks ads, security for every device, and other groups for 1 of them, with\nlists downloaded again every 6h"
+      - matchRegexRaw:
+          pattern: "global.bbe.dns under bbe-networking in ~/.bbe/bbe.yaml, then run bbe upgrade"

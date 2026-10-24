@@ -1,0 +1,15 @@
+authentik signs people in at https://auth.{{ .Values.global.bbe.domain }}.
+
+The first admin is `{{ .Values.bbe.auth.admin.username }}`, whose first password is:
+  kubectl get secret bbe-auth-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
+
+Admins manage people at https://auth.{{ .Values.global.bbe.domain }}/if/admin/, and `bbe configure {{ .Release.Name }}` adds
+and removes them too. Everyone changes their password at https://auth.{{ .Values.global.bbe.domain }}/if/user/.
+People in `admins` get into every app. Those in `users` get into Jellyfin, with the same password in its TV and phone
+apps, and Seerr through it.
+
+authentik's own admin, for when nobody else can sign in, is `akadmin`, with the password:
+  kubectl get secret bbe-auth-authentik -n {{ .Release.Namespace }} -o jsonpath='{.data.AUTHENTIK_BOOTSTRAP_PASSWORD}' | base64 -d
+
+authentik is being set up in the background, which takes a few minutes on a first install. To follow along:
+  kubectl logs -n {{ .Release.Namespace }} -f job/bbe-auth-setup-{{ .Release.Revision }}

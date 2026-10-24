@@ -1,0 +1,48 @@
+# Creates the music's folders on the share as the NAS user, as the share maps root away. slskd needs its download
+# folders to exist before it starts
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job can't be changed once it exists, so each revision gets its own
+  name: bbe-music-folders-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-music.labels" . | nindent 8 }}
+        app.kubernetes.io/component: folders
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- include "bbe-music.runAsUser" . | nindent 8 }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: folders
+          image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
+          command:
+            - mkdir
+            - -p
+            - {{ include "bbe-music.musicDir" . }}
+            - {{ include "bbe-music.soulsyncLidarrDir" . }}
+            - {{ include "bbe-music.soulseekDir" . }}/complete
+            - {{ include "bbe-music.soulseekDir" . }}/incomplete
+          resources:
+            {{- include "bbe-music.smallResources" . | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: share
+              mountPath: /media
+      volumes:
+        - name: share
+          persistentVolumeClaim:
+            claimName: bbe-music-share

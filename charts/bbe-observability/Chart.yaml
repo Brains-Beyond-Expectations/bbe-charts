@@ -1,0 +1,51 @@
+apiVersion: v2
+name: bbe-observability
+description: Metrics, logs and alerts for the BBE cluster, with Prometheus, Loki, Alloy and Grafana behind single sign-on
+type: application
+version: 0.0.1
+keywords:
+  - bbe
+  - observability
+  - monitoring
+  - prometheus
+  - grafana
+  - loki
+  - alerts
+home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for the metrics, the logs and Grafana
+      storageClass: longhorn
+      package: bbe-storage
+    - name: networking
+      description: Traefik and the domain's certificate, which Grafana is served with
+      package: bbe-networking
+    - name: sso
+      description: authentik, which admins sign in to Grafana with
+      package: bbe-auth
+  # node-exporter reads the nodes' own metrics from their network, processes and filesystem, and Alloy reads the pods'
+  # logs from the nodes' disks, which `baseline` doesn't allow
+  bbe/pod-security: privileged
+  # Values bbe writes into bbe.yaml with these defaults, so where alerts go is there to fill in
+  bbe/recorded-values: |
+    - bbe.observability.alerts
+  # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted, with the
+  # metrics and logs kept so far
+  bbe/uninstall: |
+    keeps:
+      - The CRDs of the Prometheus operator, such as ServiceMonitor, which Helm never deletes
+dependencies:
+  - name: kube-prometheus-stack
+    version: 92.11.0
+    repository: https://prometheus-community.github.io/helm-charts
+  - name: loki
+    version: 7.5.0
+    repository: https://grafana.github.io/helm-charts
+  - name: alloy
+    version: 1.14.2
+    repository: https://grafana.github.io/helm-charts
+  - name: metrics-server
+    version: 3.14.0
+    repository: https://kubernetes-sigs.github.io/metrics-server/

@@ -1,0 +1,97 @@
+suite: test network policies
+values:
+  - ./values/required-values.yaml
+templates:
+  - network-policy.yaml
+release:
+  name: bbe-auth
+  namespace: bbe-auth
+tests:
+  - it: should let bbe-auth's own pods reach each other, PostgreSQL included, and nothing else reach it
+    documentSelector:
+      path: metadata.name
+      value: bbe-auth
+    asserts:
+      - equal:
+          path: spec.podSelector
+          value: {}
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - podSelector: {}
+
+  - it: should let Traefik, qBittorrent's nginx and Shelfmark reach authentik's server, and Prometheus its metrics
+    documentSelector:
+      path: metadata.name
+      value: bbe-auth-server
+    asserts:
+      - equal:
+          path: spec.podSelector.matchLabels
+          value:
+            app.kubernetes.io/name: authentik
+            app.kubernetes.io/component: server
+      - equal:
+          path: spec.ingress[0]
+          value:
+            from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: bbe-networking
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: traefik
+            ports:
+              - port: http
+      - equal:
+          path: spec.ingress[1]
+          value:
+            from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: bbe-media
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: bbe-library
+            ports:
+              - port: http
+      - equal:
+          path: spec.ingress[2]
+          value:
+            from:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: bbe-observability
+            ports:
+              - port: metrics
+
+  - it: should let only bbe-media, bbe-library and bbe-misc reach the LDAP outpost
+    documentSelector:
+      path: metadata.name
+      value: bbe-auth-ldap
+    asserts:
+      - equal:
+          path: spec.podSelector.matchLabels["app.kubernetes.io/component"]
+          value: ldap
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: bbe-media
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: bbe-library
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: bbe-misc
+              ports:
+                - port: ldap
+
+  - it: should add no policies when they're off
+    set:
+      bbe.networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

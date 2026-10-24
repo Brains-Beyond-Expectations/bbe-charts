@@ -1,0 +1,38 @@
+{{- /*
+Grafana is served at grafana.<domain> with the domain's certificate, which bbe-networking makes Traefik's default. It's
+behind authentik's forward auth, for admins, and bbe-networking's dashboard lists it from its `gethomepage.dev/*`
+annotations
+*/ -}}
+{{- if .Values.bbe.observability.grafana.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.labels" . | nindent 4 }}
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: Grafana
+    gethomepage.dev/description: Metrics, logs and alerts
+    gethomepage.dev/group: Cluster
+    gethomepage.dev/icon: grafana.png
+    gethomepage.dev/pod-selector: app.kubernetes.io/name=grafana,app.kubernetes.io/instance={{ .Release.Name }}
+    # Traefik asks authentik first, which sends whoever isn't signed in to its sign-in
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-sso@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - grafana.{{ .Values.global.bbe.domain }}
+  rules:
+    - host: grafana.{{ .Values.global.bbe.domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-grafana
+                port:
+                  number: 80
+{{- end }}

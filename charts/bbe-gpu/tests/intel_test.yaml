@@ -1,0 +1,56 @@
+suite: test intel
+values:
+  - ./values/required-values.yaml
+templates:
+  - intel.yaml
+release:
+  name: bbe-gpu
+  namespace: bbe-gpu
+tests:
+  - it: should run Intel's device plugin on every amd64 node, sharing each GPU with two pods
+    asserts:
+      - equal:
+          path: kind
+          value: DaemonSet
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: intel/intel-gpu-plugin:0.37.1
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - -shared-dev-num=2
+      - equal:
+          path: spec.template.spec.nodeSelector
+          value:
+            kubernetes.io/arch: amd64
+
+  - it: should read the GPUs and register with the kubelet through host folders, without privileges of its own
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          value: [ALL]
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: kubeletsockets
+            hostPath:
+              path: /var/lib/kubelet/device-plugins
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: devfs
+            mountPath: /dev/dri
+            readOnly: true
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: should run nothing when Intel's GPUs are off
+    set:
+      bbe.gpu.intel.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

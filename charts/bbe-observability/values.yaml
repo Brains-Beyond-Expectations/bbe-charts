@@ -1,0 +1,374 @@
+# The whole package asks for about 1.2Gi of memory on a one-node cluster, and may use up to about 4Gi, most of it
+# Prometheus and Loki. node-exporter and Alloy run once more on each node added, with about 100Mi more
+
+global:
+  bbe:
+    # -- The domain the apps are named under, such as grafana.bbe.home.arpa, the same as bbe-networking's
+    domain: bbe.home.arpa
+
+bbe:
+  networkPolicy:
+    # -- Whether only the package's own pods may reach Prometheus, Alertmanager, Loki and Alloy, and only they and
+    # Traefik Grafana.
+    # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
+    enabled: true
+  observability:
+    grafana:
+      ingress:
+        # -- Whether to serve Grafana at grafana.<domain>, through bbe-networking's Traefik, for admins signed in with
+        # authentik
+        enabled: true
+    # Where Alertmanager sends alerts. Credentials, such as a bot's token or a password, go in the
+    # `bbe-observability-alerts` secret, where Alertmanager reads them from files: a key `token` there is
+    # /etc/alertmanager/secrets/bbe-observability-alerts/token
+    alerts:
+      # -- The receiver alerts are sent to, in Alertmanager's format without its name, such as
+      # `{telegram_configs: [{chat_id: 123, bot_token_file: /etc/alertmanager/secrets/bbe-observability-alerts/token}]}`.
+      # Alerts are only shown in Grafana while it's empty.
+      # See https://prometheus.io/docs/alerting/latest/configuration/#receiver
+      receiver: {}
+      # -- How often an alert that's still firing is sent again
+      repeatInterval: 12h
+    rules:
+      # -- How many days before it expires a certificate is alerted about. cert-manager renews the domain's a third
+      # of the way before it expires, so a certificate this close has failed to renew
+      certificateExpiryDays: 14
+      # -- How full a Longhorn disk may get, in percent, before it's alerted about
+      longhornDiskUsagePercent: 85
+    monitors:
+      # -- Whether to scrape Traefik, cert-manager and Blocky in bbe-networking
+      networking: true
+      # -- Whether to scrape Longhorn in bbe-storage
+      storage: true
+      # -- Whether to scrape authentik in bbe-auth
+      auth: true
+
+kube-prometheus-stack:
+  # The Prometheus, Alertmanager and operator objects are named after the package, as bbe-observability-prometheus and
+  # so on, rather than after the long chart name
+  fullnameOverride: bbe-observability
+  cleanPrometheusOperatorObjectNames: true
+
+  defaultRules:
+    rules:
+      # bbe's nodes run Linux only
+      windows: false
+  windowsMonitoring:
+    enabled: false
+
+  # Talos runs the control plane as static pods on the host network, labelled `k8s-app`, rather than kubeadm's
+  # `component`. bbe setup has them serve metrics on the node's address: the controller manager and scheduler over
+  # HTTPS on 10257 and 10259, etcd on 2381 and kube-proxy on 10249. Clusters set up before bbe-quest did don't, so
+  # those targets show as down there, with their alerts, until the nodes' config is changed the same way
+  kubeControllerManager:
+    service:
+      selector:
+        k8s-app: kube-controller-manager
+  kubeScheduler:
+    service:
+      selector:
+        k8s-app: kube-scheduler
+  # etcd runs on the control plane nodes themselves, not in a pod. The API server's pods run on the same nodes, on the
+  # host network, so the service finds those nodes' addresses through them
+  kubeEtcd:
+    service:
+      selector:
+        k8s-app: kube-apiserver
+      port: 2381
+      targetPort: 2381
+  kubeProxy:
+    service:
+      selector:
+        k8s-app: kube-proxy
+
+  prometheus:
+    prometheusSpec:
+      # Prometheus finds ServiceMonitors, PodMonitors, probes and rules in every namespace, whichever chart made them,
+      # so other packages can be monitored without depending on this one
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+      probeSelectorNilUsesHelmValues: false
+      scrapeConfigSelectorNilUsesHelmValues: false
+      retention: 15d
+      # Old metrics are dropped before the volume fills up
+      retentionSize: 8GB
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+      resources:
+        requests:
+          memory: 512Mi
+          cpu: 100m
+        limits:
+          memory: 1536Mi
+
+  alertmanager:
+    alertmanagerSpec:
+      # bbe-observability writes Alertmanager's config itself, from `bbe.observability.alerts`
+      useExistingSecret: true
+      configSecret: bbe-observability-alertmanager
+      secrets:
+        - bbe-observability-alerts
+      resources:
+        requests:
+          memory: 32Mi
+          cpu: 10m
+        limits:
+          memory: 128Mi
+
+  prometheusOperator:
+    # Its webhooks only check rules and monitors as they're made, and would need the API server to reach the operator,
+    # with jobs making certificates on every upgrade. Without them, the operator serves no TLS of its own
+    admissionWebhooks:
+      enabled: false
+    tls:
+      enabled: false
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 10m
+      limits:
+        memory: 256Mi
+
+  kube-state-metrics:
+    resources:
+      requests:
+        memory: 32Mi
+        cpu: 10m
+      limits:
+        memory: 128Mi
+
+  # bbe's nodes run Linux only, so the AIX and macOS dashboards are left out
+  nodeExporter:
+    operatingSystems:
+      aix:
+        enabled: false
+      darwin:
+        enabled: false
+  prometheus-node-exporter:
+    resources:
+      requests:
+        memory: 24Mi
+        cpu: 10m
+      limits:
+        memory: 64Mi
+
+  grafana:
+    # bbe-observability serves Grafana itself, behind authentik
+    ingress:
+      enabled: false
+    testFramework:
+      enabled: false
+    # Dashboards and preferences made in Grafana are kept on a volume. The data sources and kube-prometheus-stack's
+    # dashboards are provisioned on every start
+    persistence:
+      enabled: true
+      type: sts
+      size: 1Gi
+    # authentik signs admins in, so Grafana's own login form and basic auth are off. Its generated `admin` account, in
+    # the `bbe-observability-grafana` secret, stays, but nothing signs in with its password
+    grafana.ini:
+      server:
+        root_url: "https://grafana.{{ .Values.global.bbe.domain }}"
+      auth:
+        disable_login_form: true
+        disable_signout_menu: true
+      auth.basic:
+        enabled: false
+      # Traefik only lets admins signed in with authentik through, and passes their username, email and name on.
+      # Grafana makes an account for each the first time, as an admin
+      auth.proxy:
+        enabled: true
+        header_name: X-authentik-username
+        header_property: username
+        auto_sign_up: true
+        headers: "Email:X-authentik-email Name:X-authentik-name"
+      users:
+        auto_assign_org: true
+        auto_assign_org_role: Admin
+      analytics:
+        reporting_enabled: false
+        check_for_updates: false
+    additionalDataSources:
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://bbe-observability-loki:3100
+        editable: false
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 20m
+      limits:
+        memory: 384Mi
+    sidecar:
+      resources:
+        requests:
+          memory: 32Mi
+          cpu: 5m
+        limits:
+          memory: 128Mi
+
+# Loki keeps the pods' logs on one volume, in a single pod, with nothing else around it
+loki:
+  deploymentMode: SingleBinary
+  loki:
+    # One tenant: everything Alloy sends belongs to the cluster
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    storage:
+      type: filesystem
+    schemaConfig:
+      configs:
+        - from: "2026-01-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+    # Logs older than 15 days are deleted by the compactor
+    limits_config:
+      retention_period: 360h
+    compactor:
+      retention_enabled: true
+      delete_request_store: filesystem
+  singleBinary:
+    replicas: 1
+    persistence:
+      size: 10Gi
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 50m
+      limits:
+        memory: 1Gi
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  backend:
+    replicas: 0
+  # Alloy and Grafana reach Loki directly. The gateway, caches, canary and test only pay off on bigger clusters
+  gateway:
+    enabled: false
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
+  lokiCanary:
+    enabled: false
+  test:
+    enabled: false
+  sidecar:
+    rules:
+      enabled: false
+
+# Alloy runs on every node, and sends the logs of the pods there to Loki
+alloy:
+  controller:
+    type: daemonset
+  alloy:
+    # The pods' logs are files under /var/log/pods on each node, which only root can read
+    mounts:
+      varlog: true
+    securityContext:
+      runAsUser: 0
+      runAsNonRoot: false
+    extraEnv:
+      - name: NODE_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: spec.nodeName
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 20m
+      limits:
+        memory: 256Mi
+    configMap:
+      content: |
+        // The pods on this node, each container's log files found from its pod's UID
+        discovery.kubernetes "pods" {
+          role = "pod"
+          selectors {
+            role  = "pod"
+            field = "spec.nodeName=" + sys.env("NODE_NAME")
+          }
+        }
+
+        discovery.relabel "pods" {
+          targets = discovery.kubernetes.pods.targets
+
+          rule {
+            source_labels = ["__meta_kubernetes_namespace"]
+            target_label  = "namespace"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_name"]
+            target_label  = "pod"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_container_name"]
+            target_label  = "container"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+            target_label  = "app"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_node_name"]
+            target_label  = "node"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+            separator     = "/"
+            target_label  = "__path__"
+            replacement   = "/var/log/pods/*$1/*.log"
+          }
+        }
+
+        local.file_match "pods" {
+          path_targets = discovery.relabel.pods.output
+        }
+
+        loki.source.file "pods" {
+          targets    = local.file_match.pods.targets
+          forward_to = [loki.process.pods.receiver]
+        }
+
+        // Containerd writes each line with its time and stream first
+        loki.process "pods" {
+          stage.cri {}
+          forward_to = [loki.write.loki.receiver]
+        }
+
+        loki.write "loki" {
+          endpoint {
+            url = "http://bbe-observability-loki:3100/loki/api/v1/push"
+          }
+        }
+  # Alloy's own metrics are scraped by Prometheus
+  serviceMonitor:
+    enabled: true
+
+# metrics-server answers `kubectl top`, and Homepage's Kubernetes widgets. Talos' kubelets serve their metrics with a
+# certificate they sign themselves, unless serving certificates are turned on with something approving them, so
+# metrics-server doesn't check it. It still signs in to the kubelets with its own token
+metrics-server:
+  args:
+    - --kubelet-insecure-tls
+  resources:
+    requests:
+      memory: 32Mi
+      cpu: 10m
+    limits:
+      memory: 128Mi

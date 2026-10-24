@@ -1,0 +1,178 @@
+suite: test apps
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-auth
+  namespace: bbe-auth
+tests:
+  - it: should give authentik's server and worker bbe's settings after the chart's own
+    template: charts/authentik/templates/worker/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom[1]
+          value:
+            secretRef:
+              name: bbe-auth-authentik
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: blueprints-cm-bbe-auth-blueprints
+            mountPath: /blueprints/mounted/cm-bbe-auth-blueprints
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: should restart authentik when its secret gets a new key, which it reads on start
+    templates:
+      - charts/authentik/templates/server/deployment.yaml
+      - charts/authentik/templates/worker/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["bbe.home.arpa/authentik-secret-keys"]
+          value: "2"
+
+  - it: should serve bbe's logo and background from authentik's media folder
+    template: charts/authentik/templates/server/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: branding
+            mountPath: /media/public/branding
+            readOnly: true
+
+  - it: should use bbe-auth's PostgreSQL, not the chart's
+    template: charts/authentik/templates/secret.yaml
+    asserts:
+      - equal:
+          path: data.AUTHENTIK_POSTGRESQL__HOST
+          value: bbe-auth-postgres
+          decodeBase64: true
+      - equal:
+          path: data.AUTHENTIK_POSTGRESQL__USER
+          value: authentik
+          decodeBase64: true
+
+  - it: should serve authentik at auth.<domain>, and list it on the dashboard
+    template: templates/ingress.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: auth.lab.home.arpa
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service
+          value:
+            name: bbe-auth-server
+            port:
+              name: http
+      - equal:
+          path: metadata.annotations["gethomepage.dev/href"]
+          value: https://auth.lab.home.arpa/if/user/
+
+  - it: should run the LDAP outpost with the token the setup gives authentik
+    template: templates/ldap.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTHENTIK_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: bbe-auth-authentik
+                key: BBE_LDAP_OUTPOST_TOKEN
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/goauthentik/ldap:2026.8.4
+
+  - it: should serve LDAP on its usual port
+    template: templates/ldap.yaml
+    documentSelector:
+      path: kind
+      value: Service
+    asserts:
+      - equal:
+          path: spec.ports[0]
+          value:
+            name: ldap
+            port: 389
+            targetPort: ldap
+
+  - it: should ship bbe's blueprint and images
+    template: templates/blueprints.yaml
+    asserts:
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "mode: forward_domain"
+        documentIndex: 0
+      - exists:
+          path: binaryData["background.webp"]
+        documentIndex: 1
+
+  - it: should give Snipe-IT an LDAP account, which may search everyone and bind
+    template: templates/blueprints.yaml
+    documentIndex: 0
+    asserts:
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "username: snipeit-ldap"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "key: !Env BBE_SNIPEIT_LDAP_PASSWORD"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "search_full_directory\\n        user: !KeyOf snipeit-ldap"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "target: !KeyOf ldap-app\\n      user: !KeyOf snipeit-ldap"
+
+  - it: should give the book library an LDAP account and Shelfmark an OpenID Connect client
+    template: templates/blueprints.yaml
+    documentIndex: 0
+    asserts:
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "username: books-ldap"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "key: !Env BBE_BOOKS_LDAP_PASSWORD"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "client_secret: !Env BBE_SHELFMARK_CLIENT_SECRET"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "grant_types:\\n        - authorization_code"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: 'url: !Format \["https://shelfmark.%s/api/auth/oidc/callback", !Context domain\]'
+
+  - it: should run PostgreSQL as its own user with a read-only root, for authentik
+    template: templates/postgres.yaml
+    documentSelector:
+      path: kind
+      value: StatefulSet
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 999
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: POSTGRES_DB
+            value: authentik
+
+  - it: should refuse a first admin's name in upper case
+    set:
+      bbe.auth.admin.username: Umbo
+    asserts:
+      - failedTemplate: {}
+
+  - it: should require the first admin's email
+    set:
+      bbe.auth.admin.email: null
+    asserts:
+      - failedTemplate: {}

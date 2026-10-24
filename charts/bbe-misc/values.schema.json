@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "bbe": {
+      "type": "object",
+      "properties": {
+        "misc": {
+          "type": "object",
+          "properties": {
+            "snipeit": {
+              "type": "object",
+              "properties": {
+                "siteName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "What Snipe-IT calls itself, in its header and emails"
+                },
+                "timezone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The timezone Snipe-IT shows dates in, such as Europe/Madrid"
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$",
+                  "description": "The currency prices are in, as its three-letter code, such as EUR"
+                },
+                "admin": {
+                  "type": "object",
+                  "properties": {
+                    "username": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]{0,62}$",
+                      "description": "Snipe-IT's own admin username, in lower case. It must not be someone's username in authentik"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "setup": {
+          "type": "object",
+          "properties": {
+            "peopleSchedule": {
+              "type": "string",
+              "minLength": 1,
+              "description": "When the setup gives authentik's admins their admin rights in Snipe-IT, as a cron schedule"
+            }
+          }
+        }
+      }
+    }
+  }
+}

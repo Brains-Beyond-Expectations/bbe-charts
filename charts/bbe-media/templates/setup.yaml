@@ -1,0 +1,139 @@
+{{- if .Values.bbe.setup.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-media-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+data:
+  setup.py: |
+    {{- .Files.Get "files/setup.py" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job can't be changed once it exists, so each revision gets its own, which also runs it again
+  name: bbe-media-setup-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.bbe.setup.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-media.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup
+    spec:
+      restartPolicy: Never
+      # The setup creates the library's folders, as the NAS user like the apps
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.bbe.media.user.uid | int }}
+        runAsGroup: {{ .Values.bbe.media.user.gid | int }}
+      containers:
+        - name: setup
+          image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
+          command:
+            - python3
+            - /scripts/setup.py
+          env:
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-media-admin
+                  key: username
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-media-admin
+                  key: password
+            {{- range $app, $port := dict "sonarr" 8989 "radarr" 7878 "prowlarr" 9696 "bazarr" 6767 }}
+            - name: {{ upper $app }}_URL
+              value: http://{{ $.Release.Name }}-{{ $app }}:{{ $port }}
+            - name: {{ upper $app }}_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-media-api-keys
+                  key: {{ $app }}
+            {{- end }}
+            {{- if .Values.bbe.media.flaresolverr.enabled }}
+            - name: FLARESOLVERR_URL
+              value: http://{{ .Release.Name }}-flaresolverr:8191
+            - name: FLARESOLVERR_TIMEOUT
+              value: {{ .Values.bbe.media.flaresolverr.requestTimeout | quote }}
+            {{- end }}
+            - name: QBITTORRENT_URL
+              value: http://{{ .Release.Name }}-qbittorrent:8080
+            - name: QBITTORRENT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-media-api-keys
+                  key: qbittorrent
+            - name: SSO
+              value: {{ .Values.global.bbe.sso.enabled | quote }}
+            - name: JELLYFIN_URL
+              value: http://{{ .Release.Name }}-jellyfin:8096
+            {{- if .Values.global.bbe.sso.enabled }}
+            # Jellyfin signs people in against bbe-auth's LDAP outpost
+            - name: JELLYFIN_LDAP
+              value: {{ dict "server" "bbe-auth-ldap.bbe-auth.svc.cluster.local" "port" 389 "bindUser" "cn=jellyfin-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io" "baseDn" "dc=ldap,dc=goauthentik,dc=io" "passwordResetUrl" (printf "https://auth.%s/if/user/#/settings" .Values.global.bbe.domain) | toJson | quote }}
+            - name: JELLYFIN_LDAP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-media-ldap
+                  key: password
+            {{- end }}
+            - name: SEERR_URL
+              value: http://{{ .Release.Name }}-seerr-chart:80
+            - name: MEDIA_ROOT
+              value: /media
+            - name: JELLYFIN_TRANSCODE_DIR
+              value: /transcode
+            # The encoding settings the setup keeps Jellyfin's at: on the GPU it's given, or on the CPU
+            - name: JELLYFIN_ENCODING
+              value: {{ include "bbe-media.jellyfinEncoding" . | quote }}
+            - name: QBITTORRENT_MAX_RATIO
+              value: {{ .Values.bbe.media.seeding.maxRatio | quote }}
+            - name: QBITTORRENT_REMOVE_WHEN_DONE
+              value: {{ .Values.bbe.media.seeding.removeWhenDone | quote }}
+            {{- if .Values.qbittorrent.incomplete.enabled }}
+            - name: QBITTORRENT_INCOMPLETE_DIR
+              value: {{ .Values.qbittorrent.incomplete.mountPath | default "/incomplete" | quote }}
+            {{- end }}
+            - name: INDEXERS
+              value: {{ .Values.bbe.media.prowlarr.indexers | default list | toJson | quote }}
+            - name: BAZARR_PROVIDERS
+              value: {{ .Values.bbe.media.bazarr.providers | default list | toJson | quote }}
+            - name: BAZARR_LANGUAGES
+              value: {{ .Values.bbe.media.bazarr.languages | default list | toJson | quote }}
+            - name: INDEXER_SECRETS_DIR
+              value: /indexer-secrets
+            - name: READY_TIMEOUT
+              value: {{ .Values.bbe.setup.readyTimeout | quote }}
+          {{- with .Values.bbe.setup.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: library
+              mountPath: /media
+            - name: scripts
+              mountPath: /scripts
+            - name: indexer-secrets
+              mountPath: /indexer-secrets
+              readOnly: true
+      volumes:
+        - name: library
+          persistentVolumeClaim:
+            claimName: bbe-media-library
+        - name: scripts
+          configMap:
+            name: bbe-media-setup
+        # Written by `bbe configure`, so it only exists once an indexer needs a credential
+        - name: indexer-secrets
+          secret:
+            secretName: bbe-media-indexers
+            optional: true
+{{- end }}

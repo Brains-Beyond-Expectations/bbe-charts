@@ -1,0 +1,107 @@
+{{- /*
+What Prometheus scrapes in the other packages. The monitors live here, so those charts don't need the Prometheus
+operator's CRDs, and are scraped once this package is installed. Where a chart has no Service for its metrics, a
+PodMonitor reads them from its pods' named port
+*/ -}}
+{{- $monitors := .Values.bbe.observability.monitors }}
+{{- if $monitors.networking }}
+# Traefik serves its metrics on its pods' `metrics` port, which its Service doesn't expose
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: traefik
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.monitorLabels" . | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - bbe-networking
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cert-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.monitorLabels" . | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - bbe-networking
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+      app.kubernetes.io/component: controller
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+---
+# Blocky serves its metrics on its HTTP port, which its LoadBalancer Service exposes with DNS
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: blocky
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.monitorLabels" . | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - bbe-networking
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: blocky
+  endpoints:
+    - port: http
+      path: /metrics
+{{- end }}
+{{- if $monitors.storage }}
+---
+# Longhorn's managers serve the volumes' and disks' metrics on their API port
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: longhorn
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.monitorLabels" . | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - longhorn-system
+  selector:
+    matchLabels:
+      app: longhorn-manager
+  endpoints:
+    - port: manager
+      path: /metrics
+{{- end }}
+{{- if $monitors.auth }}
+---
+# authentik's server serves its metrics on its pods' `metrics` port. Its chart's metrics Service is off
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: authentik
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.monitorLabels" . | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - bbe-auth
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: authentik
+      app.kubernetes.io/component: server
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+{{- end }}
