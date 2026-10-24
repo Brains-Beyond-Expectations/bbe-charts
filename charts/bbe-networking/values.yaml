@@ -8,6 +8,68 @@ global:
     ingress:
       # -- The IP address for the ingress, on the same network as your nodes
       loadBalancerIP:
+    # The house's DNS, Blocky. bbe writes these into bbe.yaml with their defaults, so they're there to change
+    dns:
+      # -- Where Blocky asks for the names it doesn't block or know, encrypted with DNS-over-HTTPS. It asks the two
+      # fastest. Quad9 also refuses names it knows to be malicious
+      upstreams:
+        - https://dns.quad9.net/dns-query
+        - https://cloudflare-dns.com/dns-query
+      # -- How Blocky finds the upstreams' and the blocklists' own addresses, encrypted too. Each upstream is listed
+      # with its addresses, so nothing is asked in plain text
+      bootstrap:
+        - upstream: https://dns.quad9.net/dns-query
+          ips:
+            - 9.9.9.9
+            - 149.112.112.112
+        - upstream: https://cloudflare-dns.com/dns-query
+          ips:
+            - 1.1.1.1
+            - 1.0.0.1
+      blocking:
+        # -- The blocklists, by group, in a format Blocky reads: hosts files, or a domain, `*.domain` with
+        # everything under it, or `/regex/` per line. HaGeZi's lists are kept up to date, rarely block what they
+        # shouldn't, and are in the `*.domain` format. Only the groups some device gets are downloaded, so `adult` is
+        # there to turn on. Every list is held in memory: more than the defaults may need more for Blocky
+        # @default -- ads: HaGeZi's Multi Normal; security: HaGeZi's Threat Intelligence Feeds mini; adult: HaGeZi's NSFW
+        lists:
+          # Ads, tracking, telemetry and the worst of malware, with very few sites broken
+          ads:
+            - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/multi.txt
+          # Malware, phishing, scams and cryptojacking, from threat intelligence feeds
+          security:
+            - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/tif.mini.txt
+          # Adult sites, for the devices given this group, such as children's
+          adult:
+            - https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/nsfw.txt
+        # -- The groups every device gets, unless `clients` names it
+        groups:
+          - ads
+          - security
+        # -- Groups for some devices instead, by IP address, subnet (CIDR) or name, such as
+        # `192.168.1.50: [ads, security, adult]`. A device given no groups (`[]`) isn't blocked at all
+        clients: {}
+        # -- Domains never blocked, by any group, such as `example.com`, with everything under them
+        allowed: []
+        # -- How often the lists are downloaded again
+        refreshPeriod: 6h
+        # -- How long devices remember that a name is blocked, so unblocking one works within this time
+        blockTTL: 1m
+      # -- More names Blocky answers itself, with an address each, such as `nas.home.arpa: 192.168.1.10`. The domain
+      # is already answered with the ingress's IP
+      records: {}
+      # -- Domains asked of another DNS server, such as the router's own, like `fritz.box: 192.168.1.1`
+      forward: {}
+      # Refusing upstream answers pointing at private addresses, which a website could use to reach the house's
+      # network through a browser
+      rebindingProtection:
+        # -- Whether to refuse them
+        enabled: true
+        # -- Domains whose public DNS points at private addresses on purpose, which are let through
+        allowedDomains: []
+      # -- Where Blocky logs every query: `none`, or `console` for its output, which bbe-observability keeps in Loki.
+      # None by default, as it's who looked up what
+      queryLog: none
 
 bbe:
   metallb:
@@ -134,27 +196,15 @@ blocky:
   service:
     annotations:
       metallb.io/address-pool: blocky
+  blocky:
+    # The blocklists are held in memory: with the defaults' 390,000 domains, Blocky 0.35.0 used about 105MB, and 165MB
+    # after refreshing them
+    resources:
+      requests:
+        memory: 160Mi
+      limits:
+        memory: 384Mi
   config:
-    # Blocky's own configuration, plus the cluster's domain, which it answers with the ingress's IP
+    # Blocky's configuration, written from global.bbe.dns by bbe-networking's templates/_blocky.tpl
     yaml: |
-      upstream:
-        default:
-          - 1.1.1.1
-          - 8.8.8.8
-      customDNS:
-        mapping:
-          {{ .Values.global.bbe.domain }}: {{ .Values.global.bbe.ingress.loadBalancerIP }}
-      blocking:
-        blackLists:
-          ads:
-            - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
-        clientGroupsBlock:
-          default:
-            - ads
-      port: 53
-      httpPort: 4000
-      caching:
-        minTime: 5m
-        maxTime: 30m
-      prometheus:
-        enable: true
+      {{- include "bbe-networking.blockyConfig" . }}

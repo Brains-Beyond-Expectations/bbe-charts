@@ -8,6 +8,13 @@ Blocky answers for {{ .Values.global.bbe.domain }} and everything under it, so d
 Blocky as their DNS server, which is easiest to set in your router's DHCP settings:
   kubectl get service {{ .Release.Name }}-blocky -n {{ .Release.Namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 
+{{- with .Values.global.bbe.dns.blocking }}
+
+It blocks {{ .groups | default list | join ", " | default "nothing" }} for every device{{ if .clients }}, and other groups for {{ len .clients }} of them{{ end }}, with
+lists downloaded again every {{ .refreshPeriod }}. To allow a domain, block more, or ask other DNS servers, change
+global.bbe.dns under bbe-networking in ~/.bbe/bbe.yaml, then run bbe upgrade.
+{{- end }}
+
 The apps' certificate is signed by bbe's own certificate authority. Browsers and apps warn about it until a device
 trusts it. To save it, then add it to the device's trusted certificates:
   kubectl get secret bbe-ca -n {{ .Release.Namespace }} -o jsonpath='{.data.ca\.crt}' | base64 -d > bbe-ca.crt
