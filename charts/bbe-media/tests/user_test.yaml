@@ -23,7 +23,11 @@ tests:
       - charts/radarr/templates/deployment.yaml
       - charts/bazarr/templates/deployment.yaml
       - charts/qbittorrent/templates/deployment.yaml
-      - charts/jellyfin/templates/deployment.yaml
+      - templates/jellyfin.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+      matchMany: true
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -48,7 +52,10 @@ tests:
             value: "0"
 
   - it: should run Jellyfin from the linuxserver image, transcoding on the bounded cache
-    template: charts/jellyfin/templates/deployment.yaml
+    template: templates/jellyfin.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image

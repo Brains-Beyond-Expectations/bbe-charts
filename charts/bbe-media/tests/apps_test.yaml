@@ -67,7 +67,10 @@ tests:
           value: bbe-media-admin
 
   - it: should give Jellyfin the shared library
-    template: charts/jellyfin/templates/deployment.yaml
+    template: templates/jellyfin.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
     asserts:
       - contains:
           path: spec.template.spec.volumes

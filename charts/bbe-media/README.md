@@ -15,7 +15,6 @@ A collection of charts for BBE cluster media, connected to each other when insta
 | https://brains-beyond-expectations.github.io/bbe-charts | qbittorrent | 0.1.0 |
 | https://brains-beyond-expectations.github.io/bbe-charts | radarr | 0.4.0 |
 | https://brains-beyond-expectations.github.io/bbe-charts | sonarr | 0.4.0 |
-| https://jellyfin.github.io/jellyfin-helm | jellyfin | 3.2.0 |
 | oci://ghcr.io/seerr-team/seerr | seerr-chart | 3.9.1 |
 
 ## Values
@@ -44,6 +43,21 @@ A collection of charts for BBE cluster media, connected to each other when insta
 | bbe.media.flaresolverr.resources.requests.cpu | string | `"50m"` | The CPU to request for FlareSolverr |
 | bbe.media.flaresolverr.resources.requests.memory | string | `"256Mi"` | The memory to request for FlareSolverr, which runs Chromium |
 | bbe.media.ingress.enabled | bool | `true` | Whether to serve every app at <app>.<domain>, through bbe-networking's Traefik |
+| bbe.media.jellyfin.cacheSize | string | `"2Gi"` | The size of the volume Jellyfin transcodes to, so transcoding can't fill the node's disk |
+| bbe.media.jellyfin.configSize | string | `"3Gi"` | The size of Jellyfin's config volume, with its database, metadata and images |
+| bbe.media.jellyfin.image.repository | string | `"lscr.io/linuxserver/jellyfin"` | The Jellyfin image: linuxserver's, like the other apps, so it reads the library as the NAS user. It has Intel's and AMD's drivers for transcoding on their GPUs |
+| bbe.media.jellyfin.image.tag | string | `"12.2ubu2604-ls53"` | The Jellyfin version |
+| bbe.media.jellyfin.resources.limits.memory | string | `"4Gi"` | The memory to limit Jellyfin to |
+| bbe.media.jellyfin.resources.requests.cpu | string | `"100m"` | The CPU to request for Jellyfin |
+| bbe.media.jellyfin.resources.requests.memory | string | `"512Mi"` | The memory to request for Jellyfin |
+| bbe.media.jellyfin.transcoding.acceleration | string | `"qsv"` | How Jellyfin uses the GPU: `qsv` (Intel Quick Sync) or `vaapi` (Intel or AMD) |
+| bbe.media.jellyfin.transcoding.allowCpu | bool | `false` | Whether Jellyfin may run without a GPU, transcoding on the CPU, when no node has one to give. It still takes a GPU whenever a node has one, when installed or upgraded |
+| bbe.media.jellyfin.transcoding.av1Encoding | bool | `false` | Whether Jellyfin may encode AV1, which needs an Intel Arc GPU or Intel's 14th generation (Meteor Lake) |
+| bbe.media.jellyfin.transcoding.decodingCodecs | list | `["h264","hevc","mpeg2video","vc1","vp8","vp9"]` | The codecs the GPU decodes. The defaults suit Intel's 7th generation (Kaby Lake) and newer. Add `av1` from the 11th (Tiger Lake) |
+| bbe.media.jellyfin.transcoding.gpu | string | `"gpu.intel.com/i915"` | The GPU Jellyfin asks for, as bbe-gpu offers it |
+| bbe.media.jellyfin.transcoding.hevcEncoding | bool | `true` | Whether Jellyfin may encode HEVC as well as H.264, for the clients that play it |
+| bbe.media.jellyfin.transcoding.tenBitDecoding | bool | `true` | Whether the GPU decodes 10-bit HEVC and VP9, from Intel's 7th generation |
+| bbe.media.jellyfin.transcoding.tonemapping | bool | `false` | Whether to tone-map HDR to SDR with OpenCL, through linuxserver's OpenCL mod, which Jellyfin downloads as it starts |
 | bbe.media.nfs.mountOptions | list | `["nfsvers=4"]` | Mount options for the NFS share. NFSv4 needs no lock daemon, which Talos nodes don't run, and `nfsvers=4` uses the newest NFSv4 version the server offers, such as 4.0 on Synology NAS where 4.1 isn't offered |
 | bbe.media.nfs.path | string | `""` | The exported path of the media library on the NFS server |
 | bbe.media.nfs.server | string | `""` | The NFS server holding the media library, as a hostname or IP address |
@@ -73,20 +87,6 @@ A collection of charts for BBE cluster media, connected to each other when insta
 | global.bbe.vpn.secret | string | `"bbe-vpn"` | The Secret with a WireGuard private key for each app, one configuration each, made with port forwarding |
 | global.bbe.vpn.serverCountries | string | `""` | The countries of the servers to use, comma-separated, or any with port forwarding when empty |
 | global.bbe.vpn.serviceSubnet | string | `"10.96.0.0/12"` | The cluster's Service network, reachable outside the tunnel |
-| jellyfin.image.repository | string | `"lscr.io/linuxserver/jellyfin"` |  |
-| jellyfin.image.tag | string | `"12.2ubu2604-ls53"` |  |
-| jellyfin.jellyfin.env[0].name | string | `"PUID"` |  |
-| jellyfin.jellyfin.env[0].valueFrom.configMapKeyRef.key | string | `"PUID"` |  |
-| jellyfin.jellyfin.env[0].valueFrom.configMapKeyRef.name | string | `"bbe-media-user"` |  |
-| jellyfin.jellyfin.env[1].name | string | `"PGID"` |  |
-| jellyfin.jellyfin.env[1].valueFrom.configMapKeyRef.key | string | `"PGID"` |  |
-| jellyfin.jellyfin.env[1].valueFrom.configMapKeyRef.name | string | `"bbe-media-user"` |  |
-| jellyfin.persistence.cache.enabled | bool | `true` |  |
-| jellyfin.persistence.cache.size | string | `"2Gi"` |  |
-| jellyfin.persistence.config.size | string | `"3Gi"` |  |
-| jellyfin.persistence.media.existingClaim | string | `"bbe-media-library"` |  |
-| jellyfin.volumeMounts[0].mountPath | string | `"/transcode"` |  |
-| jellyfin.volumeMounts[0].name | string | `"cache"` |  |
 | prowlarr.prowlarr.env[0].name | string | `"PROWLARR__AUTH__APIKEY"` |  |
 | prowlarr.prowlarr.env[0].valueFrom.secretKeyRef.key | string | `"prowlarr"` |  |
 | prowlarr.prowlarr.env[0].valueFrom.secretKeyRef.name | string | `"bbe-media-api-keys"` |  |

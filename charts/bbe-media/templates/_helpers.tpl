@@ -137,3 +137,67 @@ qbittorrent-port.sh: |
   exec wget -O- -nv --retry-connrefused --tries=30 --header "Authorization: Bearer $key" \
     --post-data "json=$preferences" http://127.0.0.1:8080/api/v2/app/setPreferences
 {{- end -}}
+
+{{/*
+Whether Jellyfin transcodes on a GPU, "true" or "false". It always asks for one, unless
+bbe.media.jellyfin.transcoding.allowCpu lets it run without: then it only does when a node has one to give, at
+install or upgrade. Without allowCpu, a cluster with no node offering one is refused rather than leaving Jellyfin
+pending. Offline, as in `helm template`, no nodes are found, and the choice is left to allowCpu
+*/}}
+{{- define "bbe-media.jellyfinGpu" -}}
+{{- $transcoding := .Values.bbe.media.jellyfin.transcoding -}}
+{{- $nodes := (lookup "v1" "Node" "" "").items | default list -}}
+{{- $offered := 0 -}}
+{{- range $nodes }}
+{{- $offered = add $offered (get (.status.allocatable | default dict) $transcoding.gpu | default 0 | int) -}}
+{{- end -}}
+{{- if $transcoding.allowCpu -}}
+{{- gt (int $offered) 0 -}}
+{{- else -}}
+{{- if and $nodes (eq (int $offered) 0) -}}
+{{- fail (printf "No node offers %s for Jellyfin to transcode on. Install bbe-gpu, and give a node with a GPU Talos' i915 extension (docs/decisions/0011), or let Jellyfin transcode on the CPU with bbe.media.jellyfin.transcoding.allowCpu: true in bbe.yaml" $transcoding.gpu) -}}
+{{- end -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+Jellyfin's labels, as Jellyfin's chart set them, which the Deployment's selector can't change from
+*/}}
+{{- define "bbe-media.jellyfinSelectorLabels" -}}
+app.kubernetes.io/name: jellyfin
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{- define "bbe-media.jellyfinLabels" -}}
+{{ include "bbe-media.jellyfinSelectorLabels" . }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{/*
+Jellyfin's encoding settings, as JSON, which the setup keeps Jellyfin's at. On a GPU, it decodes and encodes there:
+QSV derives its device from VaapiDevice, the first GPU's render node, which is the one the device plugin hands a pod
+on a node with one GPU. Intel's low-power encoders need GuC firmware loading that Talos doesn't turn on. On the
+CPU, nothing is done in hardware
+*/}}
+{{- define "bbe-media.jellyfinEncoding" -}}
+{{- $transcoding := .Values.bbe.media.jellyfin.transcoding -}}
+{{- if eq (include "bbe-media.jellyfinGpu" .) "true" -}}
+{{- dict
+    "HardwareAccelerationType" $transcoding.acceleration
+    "VaapiDevice" "/dev/dri/renderD128"
+    "QsvDevice" ""
+    "EnableHardwareEncoding" true
+    "HardwareDecodingCodecs" $transcoding.decodingCodecs
+    "EnableDecodingColorDepth10Hevc" $transcoding.tenBitDecoding
+    "EnableDecodingColorDepth10Vp9" $transcoding.tenBitDecoding
+    "AllowHevcEncoding" $transcoding.hevcEncoding
+    "AllowAv1Encoding" $transcoding.av1Encoding
+    "EnableTonemapping" $transcoding.tonemapping
+    "EnableIntelLowPowerH264HwEncoder" false
+    "EnableIntelLowPowerHevcHwEncoder" false
+  | toJson -}}
+{{- else -}}
+{{- dict "HardwareAccelerationType" "none" | toJson -}}
+{{- end -}}
+{{- end -}}

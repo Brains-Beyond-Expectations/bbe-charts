@@ -22,6 +22,8 @@ MOVIES_DIR = os.path.join(MEDIA_ROOT, "movies")
 DOWNLOADS_DIR = os.path.join(MEDIA_ROOT, "downloads")
 # Where Jellyfin transcodes, a bounded volume on the node, or empty to keep Jellyfin's own default
 TRANSCODE_DIR = os.environ.get("JELLYFIN_TRANSCODE_DIR", "")
+# Jellyfin's encoding settings bbe keeps: on the GPU the pod was given, or on the CPU
+JELLYFIN_ENCODING = json.loads(os.environ.get("JELLYFIN_ENCODING", "{}"))
 # Where qBittorrent keeps downloads in progress, a volume on the node, or empty to keep them in DOWNLOADS_DIR
 INCOMPLETE_DIR = os.environ.get("QBITTORRENT_INCOMPLETE_DIR", "")
 # The ratio every torrent seeds to, 0 for no limit, and whether it's then removed with its files rather than stopped
@@ -530,12 +532,15 @@ def configure_jellyfin(jellyfin):
         jellyfin.post(f"/Library/VirtualFolders?{query}", {"LibraryOptions": {"PathInfos": [{"Path": path}]}})
         log(f"Jellyfin: added the {name} library for {path}")
 
+    wanted = dict(JELLYFIN_ENCODING)
     if TRANSCODE_DIR:
-        encoding = jellyfin.get("/System/Configuration/encoding")
-        if encoding.get("TranscodingTempPath") != TRANSCODE_DIR:
-            encoding["TranscodingTempPath"] = TRANSCODE_DIR
-            jellyfin.post("/System/Configuration/encoding", encoding)
-            log(f"Jellyfin: transcoding in {TRANSCODE_DIR}")
+        wanted["TranscodingTempPath"] = TRANSCODE_DIR
+    encoding = jellyfin.get("/System/Configuration/encoding")
+    if any(encoding.get(key) != value for key, value in wanted.items()):
+        jellyfin.post("/System/Configuration/encoding", {**encoding, **wanted})
+        acceleration = wanted.get("HardwareAccelerationType", encoding.get("HardwareAccelerationType"))
+        where = "on the CPU" if acceleration == "none" else f"on the GPU, with {acceleration}"
+        log(f"Jellyfin: transcoding {where}, in {wanted.get('TranscodingTempPath', encoding.get('TranscodingTempPath'))}")
 
 
 def jellyfin_ldap_plugin(jellyfin):

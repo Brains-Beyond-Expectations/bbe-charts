@@ -12,6 +12,7 @@ This guide takes you from a fresh BBE cluster to every app running, with your ho
 | bbe-media | Jellyfin to watch, Seerr to ask for shows and movies, and Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent to get them | `https://jellyfin.bbe.home.arpa`, … |
 | bbe-library | A book library to read and send to e-readers, and Shelfmark to find books | `https://calibre.bbe.home.arpa`, `https://shelfmark.bbe.home.arpa` |
 | bbe-music | Music Assistant to play music on the house's speakers, Lidarr to find albums, Soulseek, and SoulSync to keep a copy of your Spotify library | `https://music.bbe.home.arpa`, … |
+| bbe-gpu | The nodes' Intel GPUs, which Jellyfin transcodes on | |
 | bbe-misc | Snipe-IT, to keep track of the household's things, who has them, and their receipts and warranties | `https://snipeit.bbe.home.arpa` |
 | bbe-observability | Grafana, with the cluster's metrics and logs, and alerts when something goes wrong | `https://grafana.bbe.home.arpa` |
 
@@ -71,6 +72,7 @@ Tick the packages you want. bbe installs what each one needs first, offering to 
 | bbe-media | The NFS server and path, the NAS user's IDs, and an admin username for the apps |
 | bbe-library | The NFS server and path, and the NAS user's IDs |
 | bbe-music | The NFS server and path, and the NAS user's IDs |
+| bbe-gpu | Nothing. bbe-media installs it first |
 | bbe-misc | Nothing |
 | bbe-observability | Nothing |
 
@@ -162,6 +164,15 @@ Everyone then uses that one username and password everywhere: in the browser, in
 - **Indexers:** Prowlarr searches the sites you add, and shares them with Sonarr, Radarr and Lidarr. When you install bbe-media, bbe offers a set of public ones. Add or remove them with `bbe configure bbe-media`.
 - **Watching:** sign in to `https://jellyfin.bbe.home.arpa`, or Jellyfin's TV and phone apps, with your authentik username and password.
 - **Asking for shows and movies:** at `https://seerr.bbe.home.arpa`, with "Use your Jellyfin account".
+- **Transcoding:** Jellyfin transcodes on an Intel GPU, through bbe-gpu, so it only runs on a node with one. bbe's node image has the GPU's driver. bbe-media's install stops if no node offers a GPU. To let Jellyfin transcode on the CPU instead, set this under bbe-media's values in `~/.bbe/bbe.yaml`, then run `bbe upgrade`:
+  ```yaml
+  bbe:
+    media:
+      jellyfin:
+        transcoding:
+          allowCpu: true
+  ```
+  It still uses a GPU whenever a node offers one. The codecs Jellyfin decodes on the GPU are there too: the defaults suit Intel's 7th generation and newer. A node set up before bbe's image had the driver needs upgrading, as [decision record 0011](decisions/0011-gpu-transcoding.md) shows.
 - **Downloads:** qBittorrent seeds each torrent to a ratio of 2, then removes it. The library keeps its own copy. Change that with `bbe.media.seeding` in `bbe.yaml`.
 
 ## 7. Books

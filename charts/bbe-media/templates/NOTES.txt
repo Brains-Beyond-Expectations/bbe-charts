@@ -1,6 +1,15 @@
 {{- if .Values.bbe.media.ingress.enabled }}
 The apps are at https://<app>.{{ .Values.global.bbe.domain }}: sonarr, radarr, prowlarr, bazarr, qbittorrent, jellyfin and seerr.
 {{- end }}
+{{- $gpu := .Values.bbe.media.jellyfin.transcoding.gpu }}
+{{- if eq (include "bbe-media.jellyfinGpu" .) "true" }}
+
+Jellyfin transcodes on a GPU, so it only runs on a node offering {{ $gpu }}. If it stays pending, see which do:
+  kubectl get nodes -o custom-columns='NODE:.metadata.name,GPU:.status.allocatable.{{ $gpu | replace "." "\\." }}'
+{{- else }}
+
+Jellyfin transcodes on the CPU, as no node offered {{ $gpu }}. Once one does, bbe upgrade moves it onto a GPU.
+{{- end }}
 {{- if .Values.global.bbe.sso.enabled }}
 People sign in with their authentik account. Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent let in its admins.
 Jellyfin lets in everyone in `users` and `admins`, with the same password in its TV and phone apps, and makes admins

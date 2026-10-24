@@ -89,10 +89,11 @@ spec:
               value: http://{{ .Release.Name }}-seerr-chart:80
             - name: MEDIA_ROOT
               value: /media
-            {{- if .Values.jellyfin.persistence.cache.enabled }}
             - name: JELLYFIN_TRANSCODE_DIR
               value: /transcode
-            {{- end }}
+            # The encoding settings the setup keeps Jellyfin's at: on the GPU it's given, or on the CPU
+            - name: JELLYFIN_ENCODING
+              value: {{ include "bbe-media.jellyfinEncoding" . | quote }}
             - name: QBITTORRENT_MAX_RATIO
               value: {{ .Values.bbe.media.seeding.maxRatio | quote }}
             - name: QBITTORRENT_REMOVE_WHEN_DONE
