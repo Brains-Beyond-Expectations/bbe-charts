@@ -34,6 +34,139 @@
               "required": [
                 "loadBalancerIP"
               ]
+            },
+            "dns": {
+              "type": "object",
+              "description": "The house's DNS, Blocky",
+              "properties": {
+                "upstreams": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "Where Blocky asks for the names it doesn't block or know, such as https://dns.quad9.net/dns-query"
+                },
+                "bootstrap": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "upstream"
+                    ],
+                    "properties": {
+                      "upstream": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "ips": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "description": "How Blocky finds the upstreams' and the blocklists' own addresses"
+                },
+                "blocking": {
+                  "type": "object",
+                  "properties": {
+                    "lists": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "array",
+                          "null"
+                        ],
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "description": "The blocklists, by group: URLs, files, or lists written inline"
+                    },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "The groups every device gets, unless clients names it"
+                    },
+                    "clients": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "description": "Groups for some devices instead, by IP address, subnet (CIDR) or name"
+                    },
+                    "allowed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "Domains never blocked, with everything under them, or /regexes/"
+                    },
+                    "refreshPeriod": {
+                      "type": "string",
+                      "pattern": "^[0-9]+(ms|s|m|h)$",
+                      "description": "How often the lists are downloaded again, such as 6h"
+                    },
+                    "blockTTL": {
+                      "type": "string",
+                      "pattern": "^[0-9]+(ms|s|m|h)$",
+                      "description": "How long devices remember that a name is blocked, such as 1m"
+                    }
+                  }
+                },
+                "records": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "More names Blocky answers itself, with an address each"
+                },
+                "forward": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "Domains asked of another DNS server, such as the router's own"
+                },
+                "rebindingProtection": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "allowedDomains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                },
+                "queryLog": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "console"
+                  ],
+                  "description": "Where Blocky logs every query: none, or console for its output"
+                }
+              }
             }
           },
           "required": [

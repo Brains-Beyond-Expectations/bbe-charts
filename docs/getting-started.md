@@ -91,6 +91,32 @@ To try it on one computer first, add the names to its hosts file, all at the app
 192.168.1.241  lidarr.bbe.home.arpa slskd.bbe.home.arpa soulsync.bbe.home.arpa grafana.bbe.home.arpa snipeit.bbe.home.arpa
 ```
 
+### What Blocky blocks
+
+Blocky blocks ads, tracking, malware and phishing for every device, with [HaGeZi's](https://github.com/hagezi/dns-blocklists) lists, and asks Quad9 and Cloudflare for everything else over encrypted DNS. Its settings are under the `bbe-networking` package in `~/.bbe/bbe.yaml`, as `global.bbe.dns`. bbe writes them there with their defaults. After changing them, run `bbe upgrade`.
+
+- **A site that doesn't work:** `dig <name>` from a device shows `0.0.0.0` for a blocked name. Allow it, with everything under it:
+  ```yaml
+  global:
+    bbe:
+      dns:
+        blocking:
+          allowed:
+            - example.com
+  ```
+- **Adult sites, on children's devices:** give those devices the `adult` group as well, by IP address or subnet:
+  ```yaml
+  global:
+    bbe:
+      dns:
+        blocking:
+          clients:
+            192.168.1.50: [ads, security, adult]
+  ```
+  A device given `[]` isn't blocked at all.
+- **Names for things on your network,** such as the NAS: add them under `records`, like `nas.home.arpa: 192.168.1.10`.
+- **Devices that pick their own DNS** aren't protected: phones with Private DNS on, browsers with DNS-over-HTTPS on, and some TVs.
+
 ### The certificate
 
 The apps' certificate comes from the cluster's own certificate authority. Browsers and apps warn about it until a device trusts it. Save it with:

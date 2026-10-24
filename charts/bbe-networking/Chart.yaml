@@ -16,6 +16,9 @@ home: https://brains-beyond-expectations.github.io/bbe-charts
 annotations:
   # MetalLB's speaker needs the host network and network capabilities, which Talos's default baseline level refuses
   bbe/pod-security: privileged
+  # Values bbe writes into bbe.yaml with these defaults, so the house's DNS settings are there to change
+  bbe/recorded-values: |
+    - global.bbe.dns
 dependencies:
   - name: metallb
     repository: https://metallb.github.io/metallb
