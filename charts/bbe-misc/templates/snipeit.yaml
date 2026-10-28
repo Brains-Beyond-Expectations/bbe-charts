@@ -40,13 +40,21 @@ spec:
     spec:
       initContainers:
         # Snipe-IT migrates its database as it starts, and carries on without it if MariaDB isn't answering yet.
-        # `mariadb-admin ping` succeeds once the server answers, even when it refuses the login
+        # `mariadb-admin ping` succeeds once the server answers. It signs in as Snipe-IT, as the client trusts MariaDB's
+        # self-signed certificate only through the password it signs in with
         - name: wait-for-mariadb
           image: "{{ .Values.bbe.misc.mariadb.image.repository }}:{{ .Values.bbe.misc.mariadb.image.tag }}"
           command:
             - sh
             - -c
-            - until mariadb-admin ping --host=bbe-misc-mariadb --silent; do sleep 2; done
+            - until mariadb-admin ping --host=bbe-misc-mariadb --user=snipeit --silent; do sleep 2; done
+          env:
+            # The client's password, kept off its command line
+            - name: MYSQL_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-misc-mariadb
+                  key: password
           securityContext:
             runAsNonRoot: true
             runAsUser: 999

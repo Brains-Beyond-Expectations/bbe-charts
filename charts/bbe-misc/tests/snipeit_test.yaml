@@ -37,7 +37,15 @@ tests:
           value: mariadb:11.8.9
       - matchRegex:
           path: spec.template.spec.initContainers[0].command[2]
-          pattern: mariadb-admin ping --host=bbe-misc-mariadb
+          pattern: mariadb-admin ping --host=bbe-misc-mariadb --user=snipeit
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: MYSQL_PWD
+            valueFrom:
+              secretKeyRef:
+                name: bbe-misc-mariadb
+                key: password
 
   - it: should check /health, which answers before Snipe-IT is set up
     documentSelector:
