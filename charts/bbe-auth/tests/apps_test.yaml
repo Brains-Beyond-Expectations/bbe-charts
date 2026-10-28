@@ -89,6 +89,27 @@ tests:
           path: spec.template.spec.containers[0].image
           value: ghcr.io/goauthentik/ldap:2026.8.4
 
+  - it: should start the LDAP outpost once authentik takes its token
+    template: templates/ldap.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: wait-for-authentik
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: /api/v3/outposts/instances/
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: AUTHENTIK_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: bbe-auth-authentik
+                key: BBE_LDAP_OUTPOST_TOKEN
+
   - it: should serve LDAP on its usual port
     template: templates/ldap.yaml
     documentSelector:

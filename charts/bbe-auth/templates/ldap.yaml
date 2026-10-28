@@ -1,6 +1,7 @@
 {{- /*
 authentik's LDAP outpost, which Jellyfin signs people in against, so its TV and phone apps use the same people and
-passwords. It signs in to authentik with the token the setup gives the `bbe LDAP` outpost, so it waits until then
+passwords. It signs in to authentik with the token the setup gives the `bbe LDAP` outpost, so it starts once authentik
+takes that token
 */ -}}
 apiVersion: v1
 kind: Service
@@ -49,6 +50,34 @@ spec:
         runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        # On a first install authentik's server takes minutes to start, and the setup gives the outpost its token
+        # minutes after that. The outpost waits longer and longer between tries to fetch its configuration, so it would
+        # start long after it could. This waits until authentik gives that configuration to its token
+        - name: wait-for-authentik
+          image: "{{ .Values.bbe.ldap.image.repository }}:{{ .Values.bbe.ldap.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              until curl --silent --fail --output /dev/null --header "Authorization: Bearer $AUTHENTIK_TOKEN" \
+                  "$AUTHENTIK_HOST/api/v3/outposts/instances/"; do
+                sleep 5
+              done
+          env:
+            - name: AUTHENTIK_HOST
+              value: http://bbe-auth-server
+            - name: AUTHENTIK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-auth-authentik
+                  key: BBE_LDAP_OUTPOST_TOKEN
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
       containers:
         - name: ldap
           image: "{{ .Values.bbe.ldap.image.repository }}:{{ .Values.bbe.ldap.image.tag }}"
