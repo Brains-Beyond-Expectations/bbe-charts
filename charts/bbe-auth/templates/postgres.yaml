@@ -66,15 +66,25 @@ spec:
           ports:
             - name: postgres
               containerPort: 5432
+          # The first start creates the database before PostgreSQL answers, which on a fresh volume and little CPU takes
+          # minutes. It has up to 10 before the liveness probe can restart it
+          startupProbe:
+            exec:
+              command: ["pg_isready", "--username", "authentik", "--dbname", "authentik"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             exec:
               command: ["pg_isready", "--username", "authentik", "--dbname", "authentik"]
             periodSeconds: 10
+            timeoutSeconds: 5
           livenessProbe:
             exec:
               command: ["pg_isready", "--username", "authentik", "--dbname", "authentik"]
-            initialDelaySeconds: 30
             periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
