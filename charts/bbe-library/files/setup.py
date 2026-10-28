@@ -348,25 +348,35 @@ def configure_default_roles(calibre):
     log(f"Calibre-Web: new people get {', '.join(DEFAULT_ROLES)}")
 
 
-def ldap_members():
-    """The usernames in each of bbe's groups, from authentik's LDAP"""
-    connection = ldap.initialize(f"ldap://{LDAP_SERVER}:{LDAP_PORT}")
-    connection.set_option(ldap.OPT_NETWORK_TIMEOUT, 30)
-    try:
-        connection.simple_bind_s(LDAP_BIND_DN, LDAP_PASSWORD)
-        members = {}
-        for group in GROUPS:
-            found = connection.search_s(LDAP_BASE_DN, ldap.SCOPE_SUBTREE, f"(memberOf={group_dn(group)})", ["cn"])
-            members[group] = {entry["cn"][0].decode().lower() for dn, entry in found if dn and entry.get("cn")}
-        return members
-    except ldap.LDAPError as error:
-        raise SetupError(f"LDAP: searching authentik's groups failed: {error}")
-    finally:
-        connection.unbind_s()
+def ldap_members(deadline):
+    """The usernames in each of bbe's groups, from authentik's LDAP. On a first install its outpost starts answering
+    minutes after authentik does, so this waits for it until the deadline"""
+    waiting = False
+    while True:
+        connection = ldap.initialize(f"ldap://{LDAP_SERVER}:{LDAP_PORT}")
+        connection.set_option(ldap.OPT_NETWORK_TIMEOUT, 30)
+        try:
+            connection.simple_bind_s(LDAP_BIND_DN, LDAP_PASSWORD)
+            members = {}
+            for group in GROUPS:
+                found = connection.search_s(LDAP_BASE_DN, ldap.SCOPE_SUBTREE, f"(memberOf={group_dn(group)})", ["cn"])
+                members[group] = {entry["cn"][0].decode().lower() for dn, entry in found if dn and entry.get("cn")}
+            return members
+        except ldap.SERVER_DOWN as error:
+            if time.monotonic() > deadline:
+                raise SetupError(f"LDAP: authentik's LDAP wasn't answering after {READY_TIMEOUT} seconds: {error}")
+            if not waiting:
+                log(f"LDAP: waiting for authentik's LDAP: {error}")
+                waiting = True
+        except ldap.LDAPError as error:
+            raise SetupError(f"LDAP: searching authentik's groups failed: {error}")
+        finally:
+            connection.unbind_s()
+        time.sleep(5)
 
 
-def configure_people(calibre):
-    members = ldap_members()
+def configure_people(calibre, deadline):
+    members = ldap_members(deadline)
     configure_admins(calibre, members)
     configure_ereader_emails(calibre, members)
 
@@ -421,7 +431,7 @@ def main():
         if not calibre.sign_in(ADMIN_USERNAME, ADMIN_PASSWORD):
             log(f"Calibre-Web: {ADMIN_USERNAME} can't sign in yet, which the setup Job sets up")
             return
-        configure_people(calibre)
+        configure_people(calibre, deadline)
         return
 
     default_admin = sign_in_admin(calibre)
@@ -431,7 +441,7 @@ def main():
         configure_admin(calibre)
     configure_basics(calibre, deadline)
     configure_default_roles(calibre)
-    configure_people(calibre)
+    configure_people(calibre, deadline)
     log("The library is set up")
 
 

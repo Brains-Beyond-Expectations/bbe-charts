@@ -241,21 +241,49 @@ function admin_group(): Group
 }
 
 /**
+ * A connection to bbe-auth's LDAP, bound with Snipe-IT's account. On a first install authentik's LDAP outpost starts
+ * answering minutes after authentik does, so this waits for it as long as for the database
+ */
+function ldap_bound(): LDAP\Connection
+{
+    $deadline = time() + (int) setting('READY_TIMEOUT');
+    $waiting = false;
+    while (true) {
+        $connection = ldap_connect(setting('LDAP_URL'));
+        if (! $connection) {
+            throw new RuntimeException('LDAP: couldn\'t connect to '.setting('LDAP_URL'));
+        }
+        ldap_set_option($connection, LDAP_OPT_PROTOCOL_VERSION, 3);
+        ldap_set_option($connection, LDAP_OPT_REFERRALS, 0);
+        ldap_set_option($connection, LDAP_OPT_NETWORK_TIMEOUT, 30);
+        if (@ldap_bind($connection, setting('LDAP_BIND_DN'), setting('LDAP_PASSWORD'))) {
+            return $connection;
+        }
+        $error = ldap_error($connection);
+        // -1 is libldap's "Can't contact LDAP server". Anything else won't get better by waiting
+        $down = ldap_errno($connection) === -1;
+        ldap_unbind($connection);
+        if (! $down) {
+            throw new RuntimeException('LDAP: couldn\'t bind as '.setting('LDAP_BIND_DN').': '.$error);
+        }
+        if (time() > $deadline) {
+            throw new RuntimeException("LDAP: gave up waiting for bbe-auth's LDAP: $error");
+        }
+        if (! $waiting) {
+            log_line("LDAP: waiting for bbe-auth's LDAP: $error");
+            $waiting = true;
+        }
+        sleep(5);
+    }
+}
+
+/**
  * The usernames of authentik's `admins`, in lower case
  */
 function ldap_admins(): array
 {
-    $connection = ldap_connect(setting('LDAP_URL'));
-    if (! $connection) {
-        throw new RuntimeException('LDAP: couldn\'t connect to '.setting('LDAP_URL'));
-    }
-    ldap_set_option($connection, LDAP_OPT_PROTOCOL_VERSION, 3);
-    ldap_set_option($connection, LDAP_OPT_REFERRALS, 0);
-    ldap_set_option($connection, LDAP_OPT_NETWORK_TIMEOUT, 30);
+    $connection = ldap_bound();
     try {
-        if (! @ldap_bind($connection, setting('LDAP_BIND_DN'), setting('LDAP_PASSWORD'))) {
-            throw new RuntimeException('LDAP: couldn\'t bind as '.setting('LDAP_BIND_DN').': '.ldap_error($connection));
-        }
         $results = @ldap_search(
             $connection,
             setting('LDAP_BASE_DN'),
