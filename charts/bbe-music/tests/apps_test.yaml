@@ -257,6 +257,9 @@ tests:
     template: templates/folders.yaml
     asserts:
       - equal:
+          path: spec.backoffLimit
+          value: 10
+      - equal:
           path: spec.template.spec.containers[0].command
           value:
             - mkdir

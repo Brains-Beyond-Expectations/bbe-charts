@@ -28,13 +28,14 @@ Apps for the BBE cluster that belong to no other package, starting with Snipe-IT
 | bbe.misc.snipeit.size | string | `"2Gi"` | The size of its volume, with the files and pictures uploaded to it |
 | bbe.misc.snipeit.timezone | string | `"UTC"` | The timezone Snipe-IT shows dates in, such as `Europe/Madrid` |
 | bbe.networkPolicy.enabled | bool | `true` | Whether only Traefik and bbe-misc's own pods may reach Snipe-IT and its database. The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates |
-| bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when Snipe-IT couldn't be set up |
+| bbe.setup.backoffLimit | int | `10` | How many times the setup is retried when Snipe-IT couldn't be set up |
 | bbe.setup.enabled | bool | `true` | Whether to run the Job connecting Snipe-IT to authentik after every install and upgrade |
 | bbe.setup.peopleSchedule | string | `"*/10 * * * *"` | When the setup gives the people Snipe-IT created on their first sign-in their admin rights, as a cron schedule |
-| bbe.setup.readyTimeout | int | `900` | How long the setup waits for Snipe-IT's database to be ready, in seconds |
+| bbe.setup.readyTimeout | int | `1800` | How long the setup waits for Snipe-IT's database to be ready, in seconds |
 | bbe.setup.resources.limits.memory | string | `"256Mi"` | The amount of memory to limit the setup pod to |
 | bbe.setup.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the setup pod |
 | bbe.setup.resources.requests.memory | string | `"64Mi"` | The amount of memory to request for the setup pod |
+| bbe.setup.retryDelay | int | `300` | How long a failed setup waits before it's retried, in seconds. Kubernetes waits too, from 10 seconds at first, doubling up to 6 minutes |
 | global.bbe.domain | string | `"bbe.home.arpa"` | The domain the cluster's apps are named under, which bbe-networking answers for. Snipe-IT is at snipeit.<domain> |
 
 ----------------------------------------------

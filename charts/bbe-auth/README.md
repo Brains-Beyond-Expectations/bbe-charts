@@ -58,13 +58,14 @@ Single sign-on for the BBE cluster's apps with authentik, its PostgreSQL databas
 | bbe.postgres.resources.requests.cpu | string | `"50m"` | The CPU to request for PostgreSQL |
 | bbe.postgres.resources.requests.memory | string | `"128Mi"` | The memory to request for PostgreSQL |
 | bbe.postgres.size | string | `"2Gi"` | The size of authentik's database |
-| bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when authentik couldn't be set up |
+| bbe.setup.backoffLimit | int | `10` | How many times the setup is retried when authentik couldn't be set up |
 | bbe.setup.image.repository | string | `"python"` | The image to run the setup with, which only needs Python |
 | bbe.setup.image.tag | string | `"3.13-alpine"` | The tag of the setup image |
-| bbe.setup.readyTimeout | int | `900` | How long the setup waits for authentik to start and apply bbe's blueprint, in seconds |
+| bbe.setup.readyTimeout | int | `1800` | How long the setup waits for authentik to start and apply bbe's blueprint, in seconds |
 | bbe.setup.resources.limits.memory | string | `"128Mi"` | The amount of memory to limit the setup pod to |
 | bbe.setup.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the setup pod |
 | bbe.setup.resources.requests.memory | string | `"64Mi"` | The amount of memory to request for the setup pod |
+| bbe.setup.retryDelay | int | `300` | How long a failed setup waits before it's retried, in seconds. Kubernetes waits too, from 10 seconds at first, doubling up to 6 minutes |
 | global.bbe.domain | string | `"bbe.home.arpa"` | The domain the cluster's apps are named under, which bbe-networking answers for. authentik signs people in at auth.<domain> |
 
 ----------------------------------------------

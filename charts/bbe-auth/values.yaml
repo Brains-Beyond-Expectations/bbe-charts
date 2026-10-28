@@ -60,9 +60,12 @@ bbe:
       # -- The tag of the setup image
       tag: "3.13-alpine"
     # -- How long the setup waits for authentik to start and apply bbe's blueprint, in seconds
-    readyTimeout: 900
+    readyTimeout: 1800
     # -- How many times the setup is retried when authentik couldn't be set up
-    backoffLimit: 5
+    backoffLimit: 10
+    # -- How long a failed setup waits before it's retried, in seconds. Kubernetes waits too, from 10 seconds at first,
+    # doubling up to 6 minutes
+    retryDelay: 300
     resources:
       requests:
         # -- The amount of memory to request for the setup pod

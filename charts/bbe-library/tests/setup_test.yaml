@@ -22,8 +22,9 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].command
           value:
-            - /lsiopy/bin/python3
-            - /scripts/setup.py
+            - sh
+            - -c
+            - /lsiopy/bin/python3 /scripts/setup.py || { echo "The setup is retried in $RETRY_DELAY seconds"; sleep "$RETRY_DELAY"; exit 1; }
 
   - it: should bind to bbe-auth's LDAP with the library's own account
     documentSelector:
@@ -94,3 +95,44 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: should wait before the setup is retried, as the apps of a cluster that's only just come up may still be starting
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.backoffLimit
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value:
+            - sh
+            - -c
+            - /lsiopy/bin/python3 /scripts/setup.py || { echo "The setup is retried in $RETRY_DELAY seconds"; sleep "$RETRY_DELAY"; exit 1; }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RETRY_DELAY
+            value: "300"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: READY_TIMEOUT
+            value: "1800"
+
+  - it: should leave a failed people run to the next one, without waiting
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].command
+          value:
+            - /lsiopy/bin/python3
+            - /scripts/setup.py
+      - notContains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].env
+          content:
+            name: RETRY_DELAY
+            value: "300"
