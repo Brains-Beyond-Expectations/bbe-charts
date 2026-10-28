@@ -36,9 +36,12 @@ spec:
       containers:
         - name: setup
           image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
+          # A failed setup waits before it ends, as Kubernetes retries a Job within seconds at first, when the apps of a
+          # cluster that's only just come up may still be starting
           command:
-            - python3
-            - /scripts/setup.py
+            - sh
+            - -c
+            - python3 /scripts/setup.py || { echo "The setup is retried in $RETRY_DELAY seconds"; sleep "$RETRY_DELAY"; exit 1; }
           env:
             # authentik's server, as the setup's requests stay in the cluster, over HTTPS checked with bbe's
             # certificate authority. Plain HTTP is only used on a first install, until authentik serves bbe's
@@ -72,6 +75,8 @@ spec:
               value: {{ .Values.bbe.setup.readyTimeout | quote }}
             - name: CERTIFICATE_TIMEOUT
               value: {{ .Values.bbe.setup.certificateTimeout | quote }}
+            - name: RETRY_DELAY
+              value: {{ .Values.bbe.setup.retryDelay | quote }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

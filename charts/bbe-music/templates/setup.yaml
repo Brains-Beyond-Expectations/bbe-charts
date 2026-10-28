@@ -77,9 +77,12 @@ spec:
       containers:
         - name: setup
           image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
+          # A failed setup waits before it ends, as Kubernetes retries a Job within seconds at first, when the apps of a
+          # cluster that's only just come up may still be starting
           command:
-            - python3
-            - /scripts/setup.py
+            - sh
+            - -c
+            - python3 /scripts/setup.py || { echo "The setup is retried in $RETRY_DELAY seconds"; sleep "$RETRY_DELAY"; exit 1; }
           env:
             - name: DOMAIN
               value: {{ .Values.global.bbe.domain }}
@@ -160,6 +163,8 @@ spec:
                   key: slskd
             - name: READY_TIMEOUT
               value: {{ .Values.bbe.setup.readyTimeout | quote }}
+            - name: RETRY_DELAY
+              value: {{ .Values.bbe.setup.retryDelay | quote }}
           {{- with .Values.bbe.setup.resources }}
           resources:
             {{- toYaml . | nindent 12 }}

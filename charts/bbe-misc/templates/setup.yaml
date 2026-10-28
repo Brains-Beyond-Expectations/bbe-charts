@@ -16,9 +16,18 @@ containers:
   # Snipe-IT's own image, as the setup boots Snipe-IT's code to use its models
   - name: setup
     image: "{{ $root.Values.bbe.misc.snipeit.image.repository }}:{{ $root.Values.bbe.misc.snipeit.image.tag }}"
+    {{- if eq .mode "setup" }}
+    # A failed setup waits before it ends, as Kubernetes retries a Job within seconds at first, when the apps of a
+    # cluster that's only just come up may still be starting. The CronJob runs again on its schedule instead
+    command:
+      - sh
+      - -c
+      - php /scripts/setup.php || { echo "The setup is retried in $RETRY_DELAY seconds"; sleep "$RETRY_DELAY"; exit 1; }
+    {{- else }}
     command:
       - php
       - /scripts/setup.php
+    {{- end }}
     workingDir: /var/www/html
     env:
       {{- include "bbe-misc.snipeitEnv" $root | nindent 6 }}
@@ -28,6 +37,10 @@ containers:
         value: {{ .mode }}
       - name: READY_TIMEOUT
         value: {{ $root.Values.bbe.setup.readyTimeout | quote }}
+      {{- if eq .mode "setup" }}
+      - name: RETRY_DELAY
+        value: {{ $root.Values.bbe.setup.retryDelay | quote }}
+      {{- end }}
       - name: SITE_NAME
         value: {{ $root.Values.bbe.misc.snipeit.siteName | quote }}
       - name: CURRENCY

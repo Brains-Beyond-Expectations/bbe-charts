@@ -237,6 +237,11 @@
               "type": "integer",
               "minimum": 0,
               "description": "How many times the setup is retried when an app couldn't be set up"
+            },
+            "retryDelay": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How long a failed setup waits before it's retried, in seconds"
             }
           }
         }

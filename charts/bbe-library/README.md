@@ -44,13 +44,14 @@ A book library for the BBE cluster, with Calibre-Web-Automated to read and manag
 | bbe.library.user.gid | string | `nil` | The group ID of the NAS user |
 | bbe.library.user.uid | string | `nil` | The user ID of the NAS user |
 | bbe.networkPolicy.enabled | bool | `true` | Whether only Traefik and the library's own pods may reach the library and Shelfmark. The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates |
-| bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when the library couldn't be set up |
+| bbe.setup.backoffLimit | int | `10` | How many times the setup is retried when the library couldn't be set up |
 | bbe.setup.enabled | bool | `true` | Whether to run the Job connecting the library to authentik after every install and upgrade |
 | bbe.setup.peopleSchedule | string | `"*/10 * * * *"` | When the setup gives the people Calibre-Web created on their first sign-in their admin rights and Send to eReader address, as a cron schedule |
-| bbe.setup.readyTimeout | int | `900` | How long the setup waits for the library to start, in seconds |
+| bbe.setup.readyTimeout | int | `1800` | How long the setup waits for the library to start, in seconds |
 | bbe.setup.resources.limits.memory | string | `"256Mi"` | The amount of memory to limit the setup pod to |
 | bbe.setup.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the setup pod |
 | bbe.setup.resources.requests.memory | string | `"64Mi"` | The amount of memory to request for the setup pod |
+| bbe.setup.retryDelay | int | `300` | How long a failed setup waits before it's retried, in seconds. Kubernetes waits too, from 10 seconds at first, doubling up to 6 minutes |
 | global.bbe.domain | string | `"bbe.home.arpa"` | The domain the cluster's apps are named under, which bbe-networking answers for. The library is at calibre.<domain>, and Shelfmark at shelfmark.<domain> |
 
 ----------------------------------------------

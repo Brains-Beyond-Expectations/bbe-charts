@@ -107,9 +107,12 @@ bbe:
     # -- Whether to run the Job connecting the library to authentik after every install and upgrade
     enabled: true
     # -- How long the setup waits for the library to start, in seconds
-    readyTimeout: 900
+    readyTimeout: 1800
     # -- How many times the setup is retried when the library couldn't be set up
-    backoffLimit: 5
+    backoffLimit: 10
+    # -- How long a failed setup waits before it's retried, in seconds. Kubernetes waits too, from 10 seconds at first,
+    # doubling up to 6 minutes
+    retryDelay: 300
     # -- When the setup gives the people Calibre-Web created on their first sign-in their admin rights and Send to
     # eReader address, as a cron schedule
     peopleSchedule: "*/10 * * * *"

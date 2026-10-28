@@ -69,14 +69,15 @@ A collection of charts for BBE cluster media, connected to each other when insta
 | bbe.media.user.gid | string | `nil` | The group ID of the NAS user owning the media library share |
 | bbe.media.user.uid | string | `nil` | The user ID of the NAS user owning the media library share |
 | bbe.networkPolicy.enabled | bool | `true` | Whether only Traefik and the apps themselves may reach the apps, besides bbe-music and bbe-library reaching Prowlarr, qBittorrent's API and FlareSolverr. The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates |
-| bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when an app couldn't be set up |
+| bbe.setup.backoffLimit | int | `10` | How many times the setup is retried when an app couldn't be set up |
 | bbe.setup.enabled | bool | `true` | Whether to connect the apps to each other after every install and upgrade |
 | bbe.setup.image.repository | string | `"python"` | The image to run the setup with, which only needs Python |
 | bbe.setup.image.tag | string | `"3.13-alpine"` | The tag of the setup image |
-| bbe.setup.readyTimeout | int | `900` | How long the setup waits for the apps to start, in seconds |
+| bbe.setup.readyTimeout | int | `1800` | How long the setup waits for the apps to start, in seconds |
 | bbe.setup.resources.limits.memory | string | `"128Mi"` | The amount of memory to limit the setup pod to |
 | bbe.setup.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the setup pod |
 | bbe.setup.resources.requests.memory | string | `"64Mi"` | The amount of memory to request for the setup pod |
+| bbe.setup.retryDelay | int | `300` | How long a failed setup waits before it's retried, in seconds. Kubernetes waits too, from 10 seconds at first, doubling up to 6 minutes |
 | global.bbe.domain | string | `"bbe.home.arpa"` | The domain the apps are named under, such as sonarr.bbe.home.arpa, the same as bbe-networking's |
 | global.bbe.sso.enabled | bool | `true` | Whether people sign in with bbe-auth's authentik. The apps managing the media are behind its forward auth, for admins, and skip their own logins, which only bbe's setup and the apps' connections to each other use. Jellyfin signs people in against its LDAP, and Seerr through Jellyfin |
 | global.bbe.vpn.clusterDns | string | `"10.96.0.10"` | The cluster's DNS, which gluetun sends cluster names to. Everything else is resolved through the tunnel |
