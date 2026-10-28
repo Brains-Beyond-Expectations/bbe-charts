@@ -1,0 +1,122 @@
+suite: test setup
+values:
+  - ./values/required-values.yaml
+templates:
+  - setup.yaml
+release:
+  name: bbe-misc
+  namespace: bbe-misc
+  revision: 3
+tests:
+  - it: should run the setup on Snipe-IT's own image, as its own user
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-misc-setup-3
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: snipe/snipe-it:v8.8.3
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value:
+            - php
+            - /scripts/setup.php
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 10000
+
+  - it: should give the setup Snipe-IT's own settings, and log to its output
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DB_HOST
+            value: bbe-misc-mariadb
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOG_CHANNEL
+            value: stderr
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MODE
+            value: setup
+
+  - it: should bind to bbe-auth's LDAP with Snipe-IT's own account
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LDAP_BIND_DN
+            value: cn=snipeit-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LDAP_URL
+            value: ldap://bbe-auth-ldap.bbe-auth.svc.cluster.local:389
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LDAP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: bbe-misc-auth
+                key: ldap-password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ADMIN_EMAIL
+            value: snipeit-admin@lab.home.arpa
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PASSWORD_RESET_URL
+            value: https://auth.lab.home.arpa/if/user/#/settings
+
+  - it: should keep the admins in line every 10 minutes, as Snipe-IT creates people on their first sign-in
+    documentSelector:
+      path: kind
+      value: CronJob
+    asserts:
+      - equal:
+          path: spec.schedule
+          value: "*/10 * * * *"
+      - equal:
+          path: spec.concurrencyPolicy
+          value: Forbid
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].env
+          content:
+            name: MODE
+            value: people
+
+  - it: should ship the setup script
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - matchRegex:
+          path: data["setup.php"]
+          pattern: function ldap_settings
+      - matchRegex:
+          path: data["setup.php"]
+          pattern: function people
+
+  - it: should skip the setup when it's off
+    set:
+      bbe.setup.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

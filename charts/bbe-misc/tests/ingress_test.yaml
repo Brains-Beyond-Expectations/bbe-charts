@@ -1,0 +1,31 @@
+suite: test ingress
+values:
+  - ./values/required-values.yaml
+templates:
+  - ingress.yaml
+release:
+  name: bbe-misc
+  namespace: bbe-misc
+tests:
+  - it: should serve Snipe-IT under the domain, without forward auth, listed on the dashboard
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: snipeit.lab.home.arpa
+      - equal:
+          path: spec.tls[0].hosts[0]
+          value: snipeit.lab.home.arpa
+      - notExists:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+      - equal:
+          path: metadata.annotations["gethomepage.dev/group"]
+          value: Keep
+
+  - it: should serve nothing when the ingress is off
+    set:
+      bbe.ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

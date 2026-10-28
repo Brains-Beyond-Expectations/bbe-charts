@@ -1,0 +1,129 @@
+# -- Optional short name override for the resources
+nameOverride: ""
+# -- Optional full name override for the resources
+fullnameOverride: ""
+# -- Optional namespace override for the resources
+namespaceOverride: ""
+
+lidarr:
+  # -- Annotations to apply to the Lidarr pod
+  annotations: {}
+  # -- How many replicas of the Lidarr pod to run
+  replicas: 1
+  # -- The strategy to use for updating the Lidarr pods
+  strategyType: Recreate
+  image:
+    # -- The image repository to pull from
+    repository: lscr.io/linuxserver/lidarr
+    # -- The image tag to pull
+    tag: ""
+  securityContext:
+    # -- Whether to run Lidarr with a read-only root filesystem
+    readOnlyRootFilesystem: false
+    # -- The user ID to run Lidarr as
+    runAsUser: 0
+    # -- The group ID to run Prowlarr as
+    runAsGroup: 0
+  resources:
+    requests:
+      # -- The amount of memory to request for the Lidarr pod
+      memory: "512Mi"
+      # -- The amount of CPU to request for the Lidarr pod
+      cpu: "50m"
+    limits:
+      # -- The amount of memory to limit the Lidarr pod to
+      memory: "512Mi"
+      # -- The amount of CPU to limit the Lidarr pod to
+      cpu: ""
+  # -- The environment variables to set for the Lidarr pod
+  env: []
+  # -- The livenessProbe configuration for the Lidarr pod
+  livenessProbe:
+    failureThreshold: 5
+    httpGet:
+      path: /ping
+      port: 8686
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 10
+  # -- The readinessProbe configuration for the Lidarr pod
+  readinessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: /ping
+      port: 8686
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 1
+  # -- The startupProbe configuration for the Lidarr pod
+  startupProbe:
+    failureThreshold: 30
+    httpGet:
+      path: /ping
+      port: 8686
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    timeoutSeconds: 1
+
+service:
+  # -- Annotations to apply to the Lidarr service
+  annotations: {}
+  # -- Port to expose the Lidarr service on
+  ports:
+    - name: http
+      port: 8686
+      protocol: TCP
+  # -- The type of service to create
+  type: ClusterIP
+
+ingress:
+  # -- Whether to create an ingress for Lidarr
+  enabled: false
+  # -- Annotations to apply to the Lidarr ingress
+  annotations: {}
+  # -- The main http port to use for the Lidarr ingress
+  mainPort: 8686
+  # -- The ingress class to use for the Lidarr ingress
+  ingressClassName: ""
+  # -- Host configuration for the Lidarr ingress
+  hosts: []
+  #   - host: lidarr.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: ImplementationSpecific
+  # -- TLS configuration for the Lidarr ingress
+  tls: []
+  #   - hosts:
+  #       - lidarr.example.com
+  #     secretName: lidarr-ingress-tls
+
+config:
+  # -- Annotations to apply to the Lidarr config persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the Lidarr config
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the Lidarr config
+  existingClaim: ""
+  # -- The amount of storage to request for the Lidarr config
+  size: "1Gi"
+  # -- Storage class to use for the Lidarr config persistent volume claim
+  storageClass: ""
+  # -- The access mode to use for the Lidarr config persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the config after the Lidarr chart is uninstalled
+  retain: false
+
+media:
+  # -- Annotations to apply to the Lidarr media persistent volume claim
+  annotations: {}
+  # -- Whether to enable the creation of a persistent volume claim for the Lidarr media
+  enabled: true
+  # -- Use this attribute to reference an existing persistent volume claim to use for the Lidarr media
+  existingClaim: ""
+  # -- The amount of storage to request for the Lidarr media
+  size: "50Gi"
+  # -- The access mode to use for the Lidarr media persistent volume claim
+  accessMode: ReadWriteOnce
+  # -- Whether to keep the persistent volume claim for the media after the Lidarr chart is uninstalled
+  retain: false

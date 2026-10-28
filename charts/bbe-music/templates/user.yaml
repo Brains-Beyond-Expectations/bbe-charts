@@ -1,0 +1,11 @@
+# The NAS user the apps write the music as, read by Lidarr as PUID and PGID
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-music-user
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+data:
+  PUID: {{ .Values.bbe.music.user.uid | int | quote }}
+  PGID: {{ .Values.bbe.music.user.gid | int | quote }}

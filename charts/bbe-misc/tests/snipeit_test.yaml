@@ -1,0 +1,122 @@
+suite: test snipeit
+values:
+  - ./values/required-values.yaml
+templates:
+  - snipeit.yaml
+release:
+  name: bbe-misc
+  namespace: bbe-misc
+tests:
+  - it: should run Snipe-IT with its files on Longhorn, one pod at a time
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: snipe/snipe-it:v8.8.3
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /var/lib/snipeit
+      - equal:
+          path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
+          value: bbe-misc-snipeit
+
+  - it: should wait for MariaDB, as Snipe-IT migrates its database as it starts
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: mariadb:11.8.9
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: mariadb-admin ping --host=bbe-misc-mariadb --user=snipeit
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: MYSQL_PWD
+            valueFrom:
+              secretKeyRef:
+                name: bbe-misc-mariadb
+                key: password
+
+  - it: should check /health, which answers before Snipe-IT is set up
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.path
+          value: /health
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /health
+
+  - it: should name it under the domain, at its home name and the public one, behind Traefik
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: APP_URL
+            value: https://snipeit.lab.home.arpa
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: APP_ALLOW_INSECURE_HOSTS
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SECURE_COOKIES
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: APP_KEY
+            valueFrom:
+              secretKeyRef:
+                name: bbe-misc-snipeit
+                key: app-key
+
+  - it: should use MariaDB with its generated password
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DB_HOST
+            value: bbe-misc-mariadb
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: bbe-misc-mariadb
+                key: password
+
+  - it: should serve it on port 80
+    documentSelector:
+      path: kind
+      value: Service
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 80
+      - equal:
+          path: spec.selector["app.kubernetes.io/component"]
+          value: snipeit

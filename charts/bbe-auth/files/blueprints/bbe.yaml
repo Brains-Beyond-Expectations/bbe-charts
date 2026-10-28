@@ -1,0 +1,302 @@
+# bbe's setup of authentik: the groups, signing in to the apps behind Traefik, LDAP for Jellyfin and the book library,
+# OpenID Connect for Shelfmark, and bbe's looks.
+# The worker applies it on start, and again whenever it changes. Users are left to the setup Job and the admin UI
+version: 1
+metadata:
+  name: bbe
+  labels:
+    blueprints.goauthentik.io/description: bbe's groups, forward auth, LDAP, OpenID Connect and branding
+context:
+  domain: !Env [BBE_DOMAIN, bbe.home.arpa]
+entries:
+  # The default flows and brand this builds on, which authentik applies itself in no set order
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Authentication flow
+      required: false
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Invalidation flow
+      required: false
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider authorization flow (implicit consent)
+      required: false
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider invalidation flow
+      required: false
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Brand
+      required: false
+
+  # `admins` manage the media, the books and people in authentik. `users` watch and read: Jellyfin, Seerr through it,
+  # the book library and Shelfmark, and see what's theirs in Snipe-IT
+  - model: authentik_core.group
+    id: admins
+    identifiers:
+      name: admins
+    attrs:
+      is_superuser: false
+  - model: authentik_core.group
+    id: users
+    identifiers:
+      name: users
+
+  # Signing in to the apps behind Traefik, with one cookie for everything under the domain
+  - model: authentik_providers_proxy.proxyprovider
+    id: forward-auth
+    identifiers:
+      name: bbe apps
+    attrs:
+      mode: forward_domain
+      external_host: !Format ["https://auth.%s", !Context domain]
+      cookie_domain: !Context domain
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+  - model: authentik_core.application
+    id: forward-auth-app
+    identifiers:
+      slug: bbe-apps
+    attrs:
+      name: bbe apps
+      provider: !KeyOf forward-auth
+      meta_description: Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent
+  # Only admins get in
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf forward-auth-app
+      group: !KeyOf admins
+    attrs:
+      order: 0
+  - model: authentik_outposts.outpost
+    identifiers:
+      managed: goauthentik.io/outposts/embedded
+    attrs:
+      providers:
+        - !KeyOf forward-auth
+      config:
+        authentik_host: !Format ["https://auth.%s/", !Context domain]
+        log_level: info
+
+  # LDAP, which Jellyfin, the book library and Snipe-IT sign people in with, so their TV, phone and e-reader apps use
+  # the same people and passwords. Each binds with its own account
+  - model: authentik_core.user
+    id: jellyfin-ldap
+    identifiers:
+      username: jellyfin-ldap
+    attrs:
+      name: Jellyfin's LDAP account
+      type: service_account
+      path: bbe
+  - model: authentik_core.token
+    identifiers:
+      identifier: jellyfin-ldap-password
+    attrs:
+      user: !KeyOf jellyfin-ldap
+      intent: app_password
+      expiring: false
+      key: !Env BBE_JELLYFIN_LDAP_PASSWORD
+      description: The password Jellyfin binds to LDAP with
+  - model: authentik_core.user
+    id: books-ldap
+    identifiers:
+      username: books-ldap
+    attrs:
+      name: The book library's LDAP account
+      type: service_account
+      path: bbe
+  - model: authentik_core.token
+    identifiers:
+      identifier: books-ldap-password
+    attrs:
+      user: !KeyOf books-ldap
+      intent: app_password
+      expiring: false
+      key: !Env BBE_BOOKS_LDAP_PASSWORD
+      description: The password the book library binds to LDAP with
+  - model: authentik_core.user
+    id: snipeit-ldap
+    identifiers:
+      username: snipeit-ldap
+    attrs:
+      name: Snipe-IT's LDAP account
+      type: service_account
+      path: bbe
+  - model: authentik_core.token
+    identifiers:
+      identifier: snipeit-ldap-password
+    attrs:
+      user: !KeyOf snipeit-ldap
+      intent: app_password
+      expiring: false
+      key: !Env BBE_SNIPEIT_LDAP_PASSWORD
+      description: The password Snipe-IT binds to LDAP with
+  - model: authentik_providers_ldap.ldapprovider
+    id: ldap
+    identifiers:
+      name: bbe LDAP
+    attrs:
+      base_dn: DC=ldap,DC=goauthentik,DC=io
+      bind_mode: direct
+      search_mode: direct
+      # People sign in with only their password, without a code after it
+      mfa_support: false
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+    permissions:
+      - permission: authentik_providers_ldap.search_full_directory
+        user: !KeyOf jellyfin-ldap
+      - permission: authentik_providers_ldap.search_full_directory
+        user: !KeyOf books-ldap
+      - permission: authentik_providers_ldap.search_full_directory
+        user: !KeyOf snipeit-ldap
+  - model: authentik_core.application
+    id: ldap-app
+    identifiers:
+      slug: jellyfin
+    attrs:
+      name: Jellyfin
+      provider: !KeyOf ldap
+      meta_launch_url: !Format ["https://jellyfin.%s", !Context domain]
+      meta_description: Signs people in with LDAP, in every Jellyfin app, to the book library and to Snipe-IT
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf ldap-app
+      group: !KeyOf users
+    attrs:
+      order: 0
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf ldap-app
+      group: !KeyOf admins
+    attrs:
+      order: 1
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf ldap-app
+      user: !KeyOf jellyfin-ldap
+    attrs:
+      order: 2
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf ldap-app
+      user: !KeyOf books-ldap
+    attrs:
+      order: 3
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf ldap-app
+      user: !KeyOf snipeit-ldap
+    attrs:
+      order: 4
+  # Its token is set by the setup Job, which the outpost's own Deployment signs in with
+  - model: authentik_outposts.outpost
+    id: ldap-outpost
+    identifiers:
+      name: bbe LDAP
+    attrs:
+      type: ldap
+      service_connection: null
+      providers:
+        - !KeyOf ldap
+      config:
+        authentik_host: !Format ["https://auth.%s/", !Context domain]
+        log_level: info
+
+  # Shelfmark, the book library's search, signs people in with OpenID Connect. `admins` are its admins, from the
+  # groups claim of the profile scope
+  - model: authentik_providers_oauth2.oauth2provider
+    id: shelfmark
+    identifiers:
+      name: Shelfmark
+    attrs:
+      client_type: confidential
+      client_id: shelfmark
+      client_secret: !Env BBE_SHELFMARK_CLIENT_SECRET
+      # authentik allows none unless they're listed
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - matching_mode: strict
+          url: !Format ["https://shelfmark.%s/api/auth/oidc/callback", !Context domain]
+          redirect_uri_type: authorization
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+  - model: authentik_core.application
+    id: shelfmark-app
+    identifiers:
+      slug: shelfmark
+    attrs:
+      name: Shelfmark
+      provider: !KeyOf shelfmark
+      meta_launch_url: !Format ["https://shelfmark.%s", !Context domain]
+      meta_description: Finds and downloads books into the library
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf shelfmark-app
+      group: !KeyOf users
+    attrs:
+      order: 0
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf shelfmark-app
+      group: !KeyOf admins
+    attrs:
+      order: 1
+
+  # bbe's looks. authentik 2026.8 shows a flow's own background, not the brand's, so the flows people see get it too
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-authentication-flow
+    attrs:
+      title: Brains Beyond Expectations
+      background: branding/background.webp
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-provider-authorization-implicit-consent
+    attrs:
+      background: branding/background.webp
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-invalidation-flow
+    attrs:
+      background: branding/background.webp
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-provider-invalidation-flow
+    attrs:
+      background: branding/background.webp
+  # bbe's looks, on authentik's default brand
+  - model: authentik_brands.brand
+    identifiers:
+      domain: authentik-default
+    attrs:
+      branding_title: Brains Beyond Expectations
+      branding_logo: branding/brain.webp
+      branding_favicon: branding/brain.webp
+      branding_default_flow_background: branding/background.webp
+      # The banner's magenta, violet and cyan, through the PatternFly 4 and 5 variables authentik builds on
+      branding_custom_css: |
+        :root {
+          --pf-global--primary-color--100: #d946ef;
+          --pf-global--primary-color--200: #7c3aed;
+          --pf-global--link--Color: #22d3ee;
+          --pf-global--link--Color--hover: #d946ef;
+          --pf-v5-global--primary-color--100: #d946ef;
+          --pf-v5-global--primary-color--200: #7c3aed;
+          --pf-v5-global--link--Color: #22d3ee;
+          --pf-v5-global--link--Color--hover: #d946ef;
+        }

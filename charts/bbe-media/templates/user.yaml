@@ -1,0 +1,11 @@
+# The NAS user the apps write the media library as, read by each app as PUID and PGID
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-media-user
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+data:
+  PUID: {{ .Values.bbe.media.user.uid | int | quote }}
+  PGID: {{ .Values.bbe.media.user.gid | int | quote }}

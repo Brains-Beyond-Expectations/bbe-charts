@@ -48,7 +48,10 @@ Create the env for the container
 {{- $defaultEnv = append $defaultEnv (dict "name" "TZ" "value" "UTC") -}}
 {{- $defaultEnv = append $defaultEnv (dict "name" "PUID" "value" (printf "%v" .Values.qbittorrent.securityContext.runAsUser)) -}}
 {{- $defaultEnv = append $defaultEnv (dict "name" "PGID" "value" (printf "%v" .Values.qbittorrent.securityContext.runAsGroup)) -}}
-{{- $envVars = concat $envVars $defaultEnv -}}
+{{- /* The defaults only fill in what the values leave out, as the last of two variables with one name wins */ -}}
+{{- $names := list -}}
+{{- range $envVars }}{{- $names = append $names .name -}}{{- end -}}
+{{- range $defaultEnv }}{{- if not (has .name $names) }}{{- $envVars = append $envVars . -}}{{- end }}{{- end -}}
 {{ toYaml $envVars }}
 {{- end -}}
 
@@ -91,5 +94,16 @@ Create the annotations for media PVC
 {{- .Values.media.existingClaim }}
 {{- else }}
 {{- printf "%s-media" (include "qbittorrent.fullname" .) -}}
+{{- end }}
+{{- end }}
+
+{{/*
+The claim for downloads in progress
+*/}}
+{{- define "qbittorrent.incompleteClaimName" -}}
+{{- if .Values.incomplete.existingClaim }}
+{{- .Values.incomplete.existingClaim }}
+{{- else }}
+{{- printf "%s-incomplete" (include "qbittorrent.fullname" .) -}}
 {{- end }}
 {{- end }}

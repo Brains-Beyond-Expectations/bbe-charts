@@ -126,9 +126,14 @@
               "value": {
                 "type": "string",
                 "description": "The value of the environment variable"
+              },
+              "valueFrom": {
+                "type": "object",
+                "description": "Where to read the value of the environment variable from, such as a secret"
               }
             },
-            "required": ["name", "value"]
+            "required": ["name"],
+            "oneOf": [{ "required": ["value"] }, { "required": ["valueFrom"] }]
           }
         }
       },

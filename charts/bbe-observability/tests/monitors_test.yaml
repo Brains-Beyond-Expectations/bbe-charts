@@ -1,0 +1,147 @@
+suite: test monitors
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-observability
+  namespace: bbe-observability
+tests:
+  - it: should scrape Traefik from its pods' metrics port, which its Service doesn't expose
+    template: templates/monitors.yaml
+    documentSelector:
+      path: metadata.name
+      value: traefik
+    asserts:
+      - isKind:
+          of: PodMonitor
+      - equal:
+          path: spec.namespaceSelector.matchNames
+          value:
+            - bbe-networking
+      - equal:
+          path: spec.podMetricsEndpoints[0].port
+          value: metrics
+
+  - it: should scrape cert-manager and Blocky in bbe-networking
+    template: templates/monitors.yaml
+    documentSelector:
+      path: kind
+      value: ServiceMonitor
+      matchMany: true
+    asserts:
+      - equal:
+          path: spec.namespaceSelector.matchNames[0]
+          value: bbe-networking
+        documentSelector:
+          path: metadata.name
+          value: cert-manager
+      - equal:
+          path: spec.endpoints[0].port
+          value: http-metrics
+        documentSelector:
+          path: metadata.name
+          value: cert-manager
+      - equal:
+          path: spec.endpoints[0].port
+          value: http
+        documentSelector:
+          path: metadata.name
+          value: blocky
+
+  - it: should scrape Longhorn's managers in longhorn-system
+    template: templates/monitors.yaml
+    documentSelector:
+      path: metadata.name
+      value: longhorn
+    asserts:
+      - equal:
+          path: spec.namespaceSelector.matchNames
+          value:
+            - longhorn-system
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app: longhorn-manager
+      - equal:
+          path: spec.endpoints[0].port
+          value: manager
+
+  - it: should scrape authentik's server from its pods' metrics port
+    template: templates/monitors.yaml
+    documentSelector:
+      path: metadata.name
+      value: authentik
+    asserts:
+      - isKind:
+          of: PodMonitor
+      - equal:
+          path: spec.namespaceSelector.matchNames
+          value:
+            - bbe-auth
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: authentik
+            app.kubernetes.io/component: server
+
+  - it: should leave out the packages that aren't monitored
+    template: templates/monitors.yaml
+    set:
+      bbe.observability.monitors.networking: false
+      bbe.observability.monitors.storage: false
+      bbe.observability.monitors.auth: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should have Prometheus find monitors and rules in every namespace, whichever chart made them
+    template: charts/kube-prometheus-stack/templates/prometheus/prometheus.yaml
+    asserts:
+      - equal:
+          path: spec.serviceMonitorSelector
+          value: {}
+      - equal:
+          path: spec.serviceMonitorNamespaceSelector
+          value: {}
+      - equal:
+          path: spec.podMonitorSelector
+          value: {}
+      - equal:
+          path: spec.ruleSelector
+          value: {}
+
+  - it: should find etcd's metrics on the control plane nodes, through the API server's pods
+    template: charts/kube-prometheus-stack/templates/exporters/kube-etcd/service.yaml
+    asserts:
+      - equal:
+          path: spec.selector
+          value:
+            k8s-app: kube-apiserver
+      - equal:
+          path: spec.ports[0].port
+          value: 2381
+
+  - it: should find Talos' controller manager and scheduler by their k8s-app label
+    templates:
+      - charts/kube-prometheus-stack/templates/exporters/kube-controller-manager/service.yaml
+      - charts/kube-prometheus-stack/templates/exporters/kube-scheduler/service.yaml
+    asserts:
+      - matchRegex:
+          path: spec.selector["k8s-app"]
+          pattern: ^kube-(controller-manager|scheduler)$
+
+  - it: should send each node's pod logs to Loki
+    template: charts/alloy/templates/configmap.yaml
+    asserts:
+      - matchRegex:
+          path: data["config.alloy"]
+          pattern: 'field = "spec.nodeName=" \+ sys.env\("NODE_NAME"\)'
+      - matchRegex:
+          path: data["config.alloy"]
+          pattern: url = "http://bbe-observability-loki:3100/loki/api/v1/push"
+
+  - it: should have metrics-server accept the kubelets' own certificates
+    template: charts/metrics-server/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --kubelet-insecure-tls

@@ -1,0 +1,19 @@
+apiVersion: v2
+name: bbe-gpu
+description: Gives the BBE cluster's apps the nodes' GPUs, starting with Intel's, for Jellyfin to transcode on
+type: application
+version: 0.0.1
+keywords:
+  - bbe
+  - gpu
+  - intel
+  - transcoding
+home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # The device plugin reads the nodes' GPUs and registers them with the kubelet through host folders, which
+  # `baseline` doesn't allow
+  bbe/pod-security: privileged
+  # What `bbe uninstall` leaves, shown when it asks to confirm. Pods using a GPU keep theirs until they're restarted,
+  # and can't be scheduled again
+  bbe/uninstall: |
+    keeps: []

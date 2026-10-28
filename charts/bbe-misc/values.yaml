@@ -1,0 +1,78 @@
+global:
+  bbe:
+    # -- The domain the cluster's apps are named under, which bbe-networking answers for. Snipe-IT is at
+    # snipeit.<domain>
+    domain: bbe.home.arpa
+
+bbe:
+  networkPolicy:
+    # -- Whether only Traefik and bbe-misc's own pods may reach Snipe-IT and its database.
+    # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
+    enabled: true
+  misc:
+    snipeit:
+      image:
+        # -- The Snipe-IT image
+        repository: snipe/snipe-it
+        # -- The Snipe-IT version
+        tag: v8.8.3
+      # -- What Snipe-IT calls itself, in its header and emails
+      siteName: Snipe-IT
+      # -- The timezone Snipe-IT shows dates in, such as `Europe/Madrid`
+      timezone: UTC
+      # -- The currency prices are in, such as `EUR`
+      currency: USD
+      # -- The size of its volume, with the files and pictures uploaded to it
+      size: 2Gi
+      resources:
+        requests:
+          # -- The memory to request for Snipe-IT
+          memory: 256Mi
+          # -- The CPU to request for Snipe-IT
+          cpu: 50m
+        limits:
+          # -- The memory to limit Snipe-IT to
+          memory: 1Gi
+      # Snipe-IT's own admin, who signs in without authentik when it can't help. bbe's setup creates it
+      admin:
+        # -- Snipe-IT's own admin username. It must not be someone's username in authentik
+        username: snipeit-admin
+    mariadb:
+      image:
+        # -- The MariaDB image
+        repository: mariadb
+        # -- The MariaDB version, a long-term support release
+        tag: 11.8.9
+      # -- The size of Snipe-IT's database volume
+      size: 2Gi
+      resources:
+        requests:
+          # -- The memory to request for MariaDB
+          memory: 256Mi
+          # -- The CPU to request for MariaDB. Its first start gives up if its setup server isn't answering within 30
+          # seconds, which less CPU on a busy node makes likely
+          cpu: 100m
+        limits:
+          # -- The memory to limit MariaDB to
+          memory: 1Gi
+  ingress:
+    # -- Whether to serve Snipe-IT at snipeit.<domain> through bbe-networking's Traefik
+    enabled: true
+  setup:
+    # -- Whether to run the Job connecting Snipe-IT to authentik after every install and upgrade
+    enabled: true
+    # -- How long the setup waits for Snipe-IT's database to be ready, in seconds
+    readyTimeout: 900
+    # -- How many times the setup is retried when Snipe-IT couldn't be set up
+    backoffLimit: 5
+    # -- When the setup gives the people Snipe-IT created on their first sign-in their admin rights, as a cron schedule
+    peopleSchedule: "*/10 * * * *"
+    resources:
+      requests:
+        # -- The amount of memory to request for the setup pod
+        memory: "64Mi"
+        # -- The amount of CPU to request for the setup pod
+        cpu: "50m"
+      limits:
+        # -- The amount of memory to limit the setup pod to
+        memory: "256Mi"

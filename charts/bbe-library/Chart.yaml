@@ -1,0 +1,36 @@
+apiVersion: v2
+name: bbe-library
+description: A book library for the BBE cluster, with Calibre-Web-Automated to read and manage it and Shelfmark to find books
+type: application
+version: 0.0.1
+keywords:
+  - bbe
+  - books
+  - ebooks
+  - calibre-web
+  - shelfmark
+home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for the apps' config volumes
+      storageClass: longhorn
+      package: bbe-storage
+    - name: networking
+      description: Traefik and the domain's certificate, which the apps are served with
+      package: bbe-networking
+    - name: sso
+      description: authentik, which people sign in to the apps with
+      package: bbe-auth
+    - name: media
+      description: Prowlarr and qBittorrent, which Shelfmark searches and downloads with
+      package: bbe-media
+  # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it behaves alike
+  bbe/recorded-values: |
+    - bbe.library.shelfmark.requests
+    - bbe.setup.peopleSchedule
+  # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
+  bbe/uninstall: |
+    keeps:
+      - The books on the NFS share, which only lose their link to the cluster

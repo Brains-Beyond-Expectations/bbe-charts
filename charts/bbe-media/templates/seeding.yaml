@@ -1,0 +1,98 @@
+{{- $seeding := .Values.bbe.media.seeding }}
+{{- if and $seeding.removeWhenDone $seeding.maxRatio }}
+# Removes the torrents qBittorrent stopped at the ratio, with their files: Sonarr and Radarr hardlinked what they
+# imported, and Shelfmark and SoulSync copied theirs, so the library keeps its own
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-media-seeding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+data:
+  remove-seeded.py: |
+    import json, os, urllib.parse, urllib.request
+
+    url = os.environ["QBITTORRENT_URL"]
+    headers = {"Authorization": f"Bearer {os.environ['QBITTORRENT_API_KEY']}"}
+    ratio = float(os.environ["MAX_RATIO"])
+
+    def call(path, form=None):
+        data = urllib.parse.urlencode(form).encode() if form is not None else None
+        request = urllib.request.Request(url + path, data=data, headers=headers)
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return response.read()
+
+    torrents = json.loads(call("/api/v2/torrents/info?filter=completed"))
+    done = [t for t in torrents if t["state"] in ("stoppedUP", "pausedUP") and t["ratio"] >= ratio]
+    for torrent in done:
+        print(f"Removing {torrent['name']}, seeded to {torrent['ratio']:.2f}", flush=True)
+    if done:
+        call("/api/v2/torrents/delete", {"hashes": "|".join(t["hash"] for t in done), "deleteFiles": "true"})
+    print(f"Removed {len(done)} torrent(s)", flush=True)
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bbe-media-seeding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+spec:
+  schedule: {{ $seeding.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            {{- include "bbe-media.labels" . | nindent 12 }}
+            app.kubernetes.io/component: seeding
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: remove-seeded
+              image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
+              command:
+                - python3
+                - /scripts/remove-seeded.py
+              env:
+                - name: QBITTORRENT_URL
+                  value: http://{{ .Release.Name }}-qbittorrent:8080
+                - name: QBITTORRENT_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: bbe-media-api-keys
+                      key: qbittorrent
+                - name: MAX_RATIO
+                  value: {{ $seeding.maxRatio | quote }}
+              resources:
+                requests:
+                  memory: 32Mi
+                  cpu: 10m
+                limits:
+                  memory: 64Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: scripts
+              configMap:
+                name: bbe-media-seeding
+{{- end }}

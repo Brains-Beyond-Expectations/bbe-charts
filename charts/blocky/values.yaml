@@ -100,7 +100,8 @@ metrics:
 config:
   # -- Annotations to apply to the Blocky ConfigMap
   annotations: {}
-  # -- The configuration for Blocky
+  # -- The configuration for Blocky. It's rendered as a template, so a parent chart can fill in its own values
+  # through `.Values.global`
   yaml: |
     upstream:
       default:
