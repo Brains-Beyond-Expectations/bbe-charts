@@ -13,9 +13,18 @@ containers:
   # Calibre-Web-Automated's own image, for the python-ldap in its Python
   - name: setup
     image: "{{ $root.Values.bbe.library.calibre.image.repository }}:{{ $root.Values.bbe.library.calibre.image.tag }}"
+    {{- if eq .mode "setup" }}
+    # A failed setup waits before it ends, as Kubernetes retries a Job within seconds at first, when the apps of a
+    # cluster that's only just come up may still be starting. The CronJob runs again on its schedule instead
+    command:
+      - sh
+      - -c
+      - /lsiopy/bin/python3 /scripts/setup.py || { echo "The setup is retried in $RETRY_DELAY seconds"; sleep "$RETRY_DELAY"; exit 1; }
+    {{- else }}
     command:
       - /lsiopy/bin/python3
       - /scripts/setup.py
+    {{- end }}
     env:
       - name: MODE
         value: {{ .mode }}
@@ -49,6 +58,10 @@ containers:
             key: ldap-password
       - name: READY_TIMEOUT
         value: {{ $root.Values.bbe.setup.readyTimeout | quote }}
+      {{- if eq .mode "setup" }}
+      - name: RETRY_DELAY
+        value: {{ $root.Values.bbe.setup.retryDelay | quote }}
+      {{- end }}
     {{- with $root.Values.bbe.setup.resources }}
     resources:
       {{- toYaml . | nindent 6 }}

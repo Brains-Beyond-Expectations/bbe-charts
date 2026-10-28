@@ -25,7 +25,7 @@ tests:
           value: bbe-media-setup-3
       - equal:
           path: spec.backoffLimit
-          value: 5
+          value: 10
       - equal:
           path: spec.template.spec.restartPolicy
           value: Never
@@ -71,7 +71,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: READY_TIMEOUT
-            value: "900"
+            value: "1800"
 
   - it: should tell the setup where qBittorrent keeps downloads in progress
     template: templates/setup.yaml
@@ -176,3 +176,41 @@ tests:
           content:
             name: BAZARR_LANGUAGES
             value: '["en"]'
+
+  - it: should wait before the setup is retried, as the apps of a cluster that's only just come up may still be starting
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - equal:
+          path: spec.backoffLimit
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value:
+            - sh
+            - -c
+            - python3 /scripts/setup.py || { echo "The setup is retried in $RETRY_DELAY seconds"; sleep "$RETRY_DELAY"; exit 1; }
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RETRY_DELAY
+            value: "300"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: READY_TIMEOUT
+            value: "1800"
+
+  - it: should wait as long as set before the setup is retried
+    set:
+      bbe.setup.retryDelay: 60
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: RETRY_DELAY
+            value: "60"

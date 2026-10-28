@@ -9,7 +9,7 @@ metadata:
   labels:
     {{- include "bbe-music.labels" . | nindent 4 }}
 spec:
-  backoffLimit: 5
+  backoffLimit: {{ .Values.bbe.setup.backoffLimit }}
   template:
     metadata:
       labels:

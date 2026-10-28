@@ -50,14 +50,15 @@ A music library for the BBE cluster, with Lidarr to find albums, slskd for Souls
 | bbe.music.user.gid | string | `nil` | The group ID of the NAS user |
 | bbe.music.user.uid | string | `nil` | The user ID of the NAS user |
 | bbe.networkPolicy.enabled | bool | `true` | Whether only Traefik and the apps themselves may reach the apps, besides bbe-media's Prowlarr reaching Lidarr, and Soulseek peers reaching slskd without the VPN. The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates |
-| bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when the apps couldn't be set up |
+| bbe.setup.backoffLimit | int | `10` | How many times the setup is retried when the apps couldn't be set up |
 | bbe.setup.enabled | bool | `true` | Whether to run the Job connecting the apps after every install and upgrade |
 | bbe.setup.image.repository | string | `"python"` | The image to run the setup with, which only needs Python |
 | bbe.setup.image.tag | string | `"3.13-alpine"` | The tag of the setup image |
-| bbe.setup.readyTimeout | int | `900` | How long the setup waits for the apps to start, in seconds |
+| bbe.setup.readyTimeout | int | `1800` | How long the setup waits for the apps to start, in seconds |
 | bbe.setup.resources.limits.memory | string | `"128Mi"` | The amount of memory to limit the setup pod to |
 | bbe.setup.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the setup pod |
 | bbe.setup.resources.requests.memory | string | `"64Mi"` | The amount of memory to request for the setup pod |
+| bbe.setup.retryDelay | int | `300` | How long a failed setup waits before it's retried, in seconds. Kubernetes waits too, from 10 seconds at first, doubling up to 6 minutes |
 | global.bbe.domain | string | `"bbe.home.arpa"` | The domain the cluster's apps are named under, which bbe-networking answers for. Music Assistant is at music.<domain>, and Lidarr, slskd and SoulSync at their own names |
 | global.bbe.sso.enabled | bool | `true` | Whether Lidarr, slskd and SoulSync sign people in with bbe-auth's authentik, letting in its `admins` |
 | global.bbe.vpn.clusterDns | string | `"10.96.0.10"` | The cluster's DNS, which gluetun sends cluster names to. Everything else is resolved through the tunnel |
