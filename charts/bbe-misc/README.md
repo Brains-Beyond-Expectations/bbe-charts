@@ -14,7 +14,7 @@ Apps for the BBE cluster that belong to no other package, starting with Snipe-IT
 | bbe.misc.mariadb.image.repository | string | `"mariadb"` | The MariaDB image |
 | bbe.misc.mariadb.image.tag | string | `"11.8.9"` | The MariaDB version, a long-term support release |
 | bbe.misc.mariadb.resources.limits.memory | string | `"1Gi"` | The memory to limit MariaDB to |
-| bbe.misc.mariadb.resources.requests.cpu | string | `"50m"` | The CPU to request for MariaDB |
+| bbe.misc.mariadb.resources.requests.cpu | string | `"100m"` | The CPU to request for MariaDB. Its first start gives up if its setup server isn't answering within 30 seconds, which less CPU on a busy node makes likely |
 | bbe.misc.mariadb.resources.requests.memory | string | `"256Mi"` | The memory to request for MariaDB |
 | bbe.misc.mariadb.size | string | `"2Gi"` | The size of Snipe-IT's database volume |
 | bbe.misc.snipeit.admin.username | string | `"snipeit-admin"` | Snipe-IT's own admin username. It must not be someone's username in authentik |

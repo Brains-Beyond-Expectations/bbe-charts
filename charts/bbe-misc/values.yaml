@@ -49,8 +49,9 @@ bbe:
         requests:
           # -- The memory to request for MariaDB
           memory: 256Mi
-          # -- The CPU to request for MariaDB
-          cpu: 50m
+          # -- The CPU to request for MariaDB. Its first start gives up if its setup server isn't answering within 30
+          # seconds, which less CPU on a busy node makes likely
+          cpu: 100m
         limits:
           # -- The memory to limit MariaDB to
           memory: 1Gi

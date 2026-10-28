@@ -56,3 +56,23 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].readinessProbe.exec.command
           value: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 60
+
+  - it: should start over when its first start didn't create Snipe-IT's database
+    documentSelector:
+      path: kind
+      value: StatefulSet
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: discard-unfinished-setup
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: '\[ -d /var/lib/mysql/mysql \] && \[ ! -d /var/lib/mysql/snipeit \]'
+      - contains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /var/lib/mysql
