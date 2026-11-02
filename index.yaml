@@ -1353,6 +1353,25 @@ entries:
     version: 0.1.0
   prowlarr:
   - apiVersion: v2
+    appVersion: 2.7.0
+    created: "2026-11-02T01:00:46.768501345Z"
+    description: Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs
+      base stack to integrate with your various PVR apps.
+    digest: 3496d2103e726cb48b3ad785211ecbb7f8eb7964f08597f8a45d2a55f384fde5
+    home: https://brains-beyond-expectations.github.io/bbe-charts
+    icon: https://avatars.githubusercontent.com/u/73049443
+    keywords:
+    - prowlarr
+    - indexer
+    - proxy
+    name: prowlarr
+    sources:
+    - https://github.com/Prowlarr/Prowlarr
+    type: application
+    urls:
+    - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/prowlarr-0.3.2/prowlarr-0.3.2.tgz
+    version: 0.3.2
+  - apiVersion: v2
     appVersion: 2.6.5
     created: "2026-09-17T00:15:47.109757644Z"
     description: Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs
@@ -2358,4 +2377,4 @@ entries:
     urls:
     - https://github.com/Brains-Beyond-Expectations/bbe-charts/releases/download/sonarr-0.1.0/sonarr-0.1.0.tgz
     version: 0.1.0
-generated: "2026-10-21T22:55:35.680681731Z"
+generated: "2026-11-02T01:00:46.76717726Z"
