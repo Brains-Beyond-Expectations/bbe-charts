@@ -1,0 +1,128 @@
+{{- $soulsync := .Values.bbe.music.soulsync }}
+# SoulSync mirrors a Spotify library track by track: liked songs, playlists and followed artists, from Soulseek through
+# slskd and torrents through bbe-media, into its own folder with an M3U per playlist. Its settings, database and caches
+# are on Longhorn, as SQLite on NFS breaks
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-music-soulsync-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: {{ $soulsync.dataSize }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-soulsync
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+    app.kubernetes.io/component: soulsync
+spec:
+  replicas: 1
+  # Its database and queues are its own
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: soulsync
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-music.labels" . | nindent 8 }}
+        app.kubernetes.io/component: soulsync
+    spec:
+      containers:
+        # It starts as root and runs as the NAS user from PUID and PGID. Its image only runs as uid 1000 otherwise
+        - name: soulsync
+          image: "{{ $soulsync.image.repository }}:{{ $soulsync.image.tag }}"
+          envFrom:
+            - configMapRef:
+                name: bbe-music-user
+          env:
+            - name: SOULSYNC_IN_DOCKER
+              value: "true"
+            - name: UMASK
+              value: "002"
+          ports:
+            - name: http
+              containerPort: 8008
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          {{- with $soulsync.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            {{- range list "config" "data" "logs" "storage" "Staging" "Stream" "MusicVideos" "scripts" "downloads" }}
+            - name: data
+              mountPath: /app/{{ . }}
+              subPath: {{ . }}
+            {{- end }}
+            # Where slskd downloads, qBittorrent's downloads, and the folder it writes the mirror to
+            - name: share
+              mountPath: /media
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: bbe-music-soulsync-data
+        - name: share
+          persistentVolumeClaim:
+            claimName: bbe-music-share
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-soulsync
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+    app.kubernetes.io/component: soulsync
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: soulsync
+  ports:
+    - name: http
+      port: 8008
+      targetPort: http
+---
+{{- $key := (lookup "v1" "Secret" .Release.Namespace "bbe-music-soulsync-key").data | default dict }}
+# SoulSync's API key, which it makes itself: the setup asks for its first one and keeps it here
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bbe-music-soulsync-key
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+type: Opaque
+{{- with $key }}
+data:
+  {{- toYaml . | nindent 2 }}
+{{- end }}

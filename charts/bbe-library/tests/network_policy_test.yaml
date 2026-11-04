@@ -1,0 +1,36 @@
+suite: test network policies
+values:
+  - ./values/required-values.yaml
+templates:
+  - network-policy.yaml
+release:
+  name: bbe-library
+  namespace: bbe-library
+tests:
+  - it: should let only the apps themselves and Traefik reach the apps
+    documentSelector:
+      path: metadata.name
+      value: bbe-library
+    asserts:
+      - equal:
+          path: spec.podSelector
+          value: {}
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - podSelector: {}
+            - from:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: bbe-networking
+                  podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: traefik
+
+  - it: should add no policies when they're off
+    set:
+      bbe.networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

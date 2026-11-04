@@ -1,0 +1,15 @@
+The books are at https://calibre.{{ .Values.global.bbe.domain }}, and Shelfmark finds more at
+https://shelfmark.{{ .Values.global.bbe.domain }}.
+
+People in authentik's `users` and `admins` groups sign in to both with their authentik password. In the library,
+`admins` are its admins, from bbe's setup on every install and upgrade. New people may download, read and keep shelves.
+
+E-readers and their apps sign in with the same username and password:
+  OPDS feed:   https://calibre.{{ .Values.global.bbe.domain }}/opds
+  Kobo sync:   each person makes their Kobo link in their profile at https://calibre.{{ .Values.global.bbe.domain }}/me
+
+Books Shelfmark downloads, and books dropped in `books-ingest/` on the share, are added to the library and removed from
+`books-ingest/` by themselves. The library itself is in `books/`.
+
+The library's own admin, for when authentik can't help, is {{ .Values.bbe.admin.username }}. Its password:
+  kubectl get secret bbe-library-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d

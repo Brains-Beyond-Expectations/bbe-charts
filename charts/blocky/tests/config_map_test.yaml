@@ -38,3 +38,18 @@ tests:
               maxTime: 30m
             prometheus:
               enable: true
+
+  - it: renders the configuration as a template, with the global values a parent chart passes
+    set:
+      global.bbe.domain: bbe.home.arpa
+      config.yaml: |
+        customDNS:
+          mapping:
+            {{ .Values.global.bbe.domain }}: 192.168.1.241
+    asserts:
+      - equal:
+          path: data["config.yml"]
+          value: |
+            customDNS:
+              mapping:
+                bbe.home.arpa: 192.168.1.241

@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "bbe"
+  ],
+  "properties": {
+    "bbe": {
+      "type": "object",
+      "required": [
+        "ai"
+      ],
+      "properties": {
+        "networkPolicy": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "ai": {
+          "type": "object",
+          "required": [
+            "loadBalancerIP",
+            "homeAssistantIP"
+          ],
+          "properties": {
+            "loadBalancerIP": {
+              "type": "string",
+              "pattern": "^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$",
+              "description": "A free IP address on your LAN for Home Assistant to reach the models at, outside your router's DHCP range"
+            },
+            "homeAssistantIP": {
+              "type": "string",
+              "pattern": "^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$",
+              "description": "The IP address of the machine running Home Assistant, the only one let in"
+            },
+            "allowFrom": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])/([0-9]|[12][0-9]|3[0-2])$"
+              }
+            },
+            "dataSize": {
+              "type": "string",
+              "minLength": 1
+            },
+            "speechToText": {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "library": {
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "faster-whisper",
+                    "transformers",
+                    "sherpa",
+                    "onnx-asr",
+                    "qwen3-asr"
+                  ]
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "textToSpeech": {
+              "type": "object",
+              "properties": {
+                "voice": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "ollama": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "contextLength": {
+                  "type": "integer",
+                  "minimum": 2048
+                },
+                "kvCacheType": {
+                  "type": "string",
+                  "enum": [
+                    "f16",
+                    "q8_0",
+                    "q4_0"
+                  ]
+                }
+              }
+            },
+            "chat": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "dataSize": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "global": {
+      "type": "object",
+      "properties": {
+        "bbe": {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

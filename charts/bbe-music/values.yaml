@@ -1,0 +1,174 @@
+global:
+  bbe:
+    # -- The domain the cluster's apps are named under, which bbe-networking answers for. Music Assistant is at
+    # music.<domain>, and Lidarr, slskd and SoulSync at their own names
+    domain: bbe.home.arpa
+    sso:
+      # -- Whether Lidarr, slskd and SoulSync sign people in with bbe-auth's authentik, letting in its `admins`
+      enabled: true
+    # A VPN every byte of slskd's internet traffic goes through, with gluetun, and a kill switch: with the tunnel down
+    # nothing but the cluster is reachable. Its WireGuard private key is the `slskd` one in bbe-media's `bbe-vpn` Secret
+    vpn:
+      # -- Whether slskd's traffic goes through the VPN. Needs bbe-media's `bbe-vpn` Secret
+      enabled: false
+      # -- The gluetun image
+      image: qmcgaw/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027
+      # -- The VPN provider, as gluetun names it. Its port forwarding lets Soulseek peers reach slskd through the VPN
+      provider: protonvpn
+      # -- The countries of the servers to use, comma-separated, or any with port forwarding when empty
+      serverCountries: ""
+      # -- bbe-media's Secret with a WireGuard private key for each app, which bbe-music copies slskd's from
+      secret: bbe-vpn
+      # -- The cluster's pod network, reachable outside the tunnel
+      podSubnet: 10.244.0.0/16
+      # -- The cluster's Service network, reachable outside the tunnel
+      serviceSubnet: 10.96.0.0/12
+      # -- The cluster's DNS, which gluetun sends cluster names to. Everything else is resolved through the tunnel
+      clusterDns: 10.96.0.10
+
+bbe:
+  networkPolicy:
+    # -- Whether only Traefik and the apps themselves may reach the apps, besides bbe-media's Prowlarr reaching Lidarr,
+    # and Soulseek peers reaching slskd without the VPN.
+    # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
+    enabled: true
+  music:
+    nfs:
+      # -- The NFS server holding the music, as a hostname or IP address. Best bbe-media's, as Lidarr then finds
+      # qBittorrent's downloads where qBittorrent left them, and hardlinks them
+      server: ""
+      # -- The exported path holding the music on the NFS server. Best bbe-media's share, as the music gets folders of
+      # its own
+      path: ""
+      # -- Mount options for the NFS share. NFSv4 needs no lock daemon, which Talos nodes don't run, and `nfsvers=4`
+      # uses the newest NFSv4 version the server offers
+      mountOptions:
+        - nfsvers=4
+    # -- The size of the share. NFS doesn't enforce it, but Kubernetes needs one
+    size: 1Ti
+    # The NAS user the apps write the music as, so nothing is written there as root and the share can map root away.
+    # Best bbe-media's, as Lidarr moves qBittorrent's downloads. Its IDs are shown by `id <user>` on the NAS
+    user:
+      # -- The user ID of the NAS user
+      uid:
+      # -- The group ID of the NAS user
+      gid:
+    # -- The ratio SoulSync's torrents seed to before qBittorrent removes them, like bbe-media's
+    # `bbe.media.seeding.maxRatio`, or 0 for SoulSync's own default
+    seedRatio: 2
+    lidarr:
+      # -- The quality profile Lidarr gets new artists with: `Any`, `Lossless` or `Standard`
+      qualityProfile: Any
+      # -- The metadata profile Lidarr gets new artists with: `Standard` or `None`
+      metadataProfile: Standard
+    musicAssistant:
+      image:
+        # -- The Music Assistant server image
+        repository: ghcr.io/music-assistant/server
+        # -- The Music Assistant version. Stable and beta mustn't share one data volume
+        tag: "2.10.7"
+      # -- The size of its data volume, with its settings, database and artwork cache
+      dataSize: 5Gi
+      resources:
+        requests:
+          # -- The memory to request for Music Assistant
+          memory: 512Mi
+          # -- The CPU to request for Music Assistant
+          cpu: 100m
+        limits:
+          # -- The memory to limit Music Assistant to. Its docs ask for 2Gi at least
+          memory: 2Gi
+    slskd:
+      image:
+        # -- The slskd image, a Soulseek client with a web interface and API
+        repository: slskd/slskd
+        # -- The slskd version
+        tag: "0.26.1"
+      # -- Without the VPN, an IP address on your LAN for Soulseek peers to reach slskd at, which MetalLB announces.
+      # Forward the listen port on your router to it. Left empty, slskd only reaches peers whose own port is open
+      loadBalancerIP: ""
+      # -- The port slskd listens on for Soulseek peers, the same on the router and the address above. With the VPN,
+      # the port it forwards is used instead
+      listenPort: 50300
+      # -- How many uploads at once. Soulseek expects people to share, and slskd shares the music folder
+      uploadSlots: 4
+      # -- The upload speed limit, in KiB/s, or 0 for none
+      uploadSpeedLimit: 2048
+      # -- The size of its data volume, with its database and search history
+      dataSize: 2Gi
+      resources:
+        requests:
+          # -- The memory to request for slskd
+          memory: 256Mi
+          # -- The CPU to request for slskd
+          cpu: 50m
+        limits:
+          # -- The memory to limit slskd to
+          memory: 1Gi
+    soulsync:
+      image:
+        # -- The SoulSync image, which mirrors a Spotify library track by track from Soulseek and torrents
+        repository: boulderbadgedad/soulsync
+        # -- The SoulSync version. It releases every few days, so it's pinned
+        tag: "3.5.7"
+      # -- The size of its data volume, with its settings, database and image cache
+      dataSize: 5Gi
+      resources:
+        requests:
+          # -- The memory to request for SoulSync
+          memory: 512Mi
+          # -- The CPU to request for SoulSync
+          cpu: 100m
+        limits:
+          # -- The memory to limit SoulSync to
+          memory: 2Gi
+  # Music Assistant's own admin, who manages its people and players. It can't sign people in with authentik yet
+  admin:
+    # -- Music Assistant's admin username
+    username: music-admin
+  ingress:
+    # -- Whether to serve the apps at their names under the domain through bbe-networking's Traefik
+    enabled: true
+  setup:
+    # -- Whether to run the Job connecting the apps after every install and upgrade
+    enabled: true
+    image:
+      # -- The image to run the setup with, which only needs Python
+      repository: python
+      # -- The tag of the setup image
+      tag: "3.13-alpine"
+    # -- How long the setup waits for the apps to start, in seconds
+    readyTimeout: 900
+    # -- How many times the setup is retried when the apps couldn't be set up
+    backoffLimit: 5
+    resources:
+      requests:
+        # -- The amount of memory to request for the setup pod
+        memory: "64Mi"
+        # -- The amount of CPU to request for the setup pod
+        cpu: "50m"
+      limits:
+        # -- The amount of memory to limit the setup pod to
+        memory: "128Mi"
+
+# Lidarr, reading and writing the music as the NAS user, with its API key from bbe's secret
+lidarr:
+  lidarr:
+    env:
+      - name: LIDARR__AUTH__APIKEY
+        valueFrom:
+          secretKeyRef:
+            name: bbe-music-api-keys
+            key: lidarr
+      - name: PUID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-music-user
+            key: PUID
+      - name: PGID
+        valueFrom:
+          configMapKeyRef:
+            name: bbe-music-user
+            key: PGID
+  media:
+    existingClaim: bbe-music-share

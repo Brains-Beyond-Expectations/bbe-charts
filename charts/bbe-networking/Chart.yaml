@@ -9,17 +9,26 @@ keywords:
   - dns
   - adblock
   - blocky
+  - ingress
+  - traefik
+  - certificates
 home: https://brains-beyond-expectations.github.io/bbe-charts
 annotations:
   # MetalLB's speaker needs the host network and network capabilities, which Talos's default baseline level refuses
   bbe/pod-security: privileged
+  # Values bbe writes into bbe.yaml with these defaults, so the house's DNS settings are there to change
+  bbe/recorded-values: |
+    - global.bbe.dns
 dependencies:
   - name: metallb
     repository: https://metallb.github.io/metallb
     version: 0.14.9
-  - name: ingress-nginx
-    repository: https://kubernetes.github.io/ingress-nginx
-    version: 4.12.1
+  - name: traefik
+    repository: https://traefik.github.io/charts
+    version: 41.7.1
+  - name: cert-manager
+    repository: https://charts.jetstack.io
+    version: v1.21.2
   - name: blocky
     repository: https://brains-beyond-expectations.github.io/bbe-charts
-    version: 1.1.1
+    version: 1.2.0

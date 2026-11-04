@@ -1,0 +1,79 @@
+{{- /*
+Alerts for what's particular to a BBE cluster. kube-prometheus-stack's own rules already alert on nodes going down,
+filesystems filling up, pods crash looping and volumes filling up
+*/ -}}
+{{- $rules := .Values.bbe.observability.rules }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-bbe
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.monitorLabels" . | nindent 4 }}
+spec:
+  groups:
+    - name: bbe.longhorn
+      rules:
+        # Longhorn's robustness is 2 when a volume has fewer copies than it should, and 3 when it has none it can use
+        - alert: LonghornVolumeDegraded
+          expr: longhorn_volume_robustness == 2
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn volume {{ "{{ $labels.volume }}" }} is degraded
+            description: >-
+              The volume of {{ "{{ $labels.pvc }}" }} in {{ "{{ $labels.pvc_namespace }}" }} has fewer copies than it
+              should. Longhorn rebuilds them when a node with room for them is up.
+        - alert: LonghornVolumeFaulted
+          expr: longhorn_volume_robustness == 3
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Longhorn volume {{ "{{ $labels.volume }}" }} is faulted
+            description: >-
+              The volume of {{ "{{ $labels.pvc }}" }} in {{ "{{ $labels.pvc_namespace }}" }} has no copy Longhorn can
+              use, so its app can't read or write it.
+        - alert: LonghornDiskAlmostFull
+          expr: >-
+            100 * longhorn_disk_usage_bytes / longhorn_disk_capacity_bytes > {{ $rules.longhornDiskUsagePercent }}
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Longhorn's disk on {{ "{{ $labels.node }}" }} is almost full
+            description: >-
+              Longhorn's disk on {{ "{{ $labels.node }}" }} is {{ "{{ $value | humanize }}" }}% full. New volumes, and
+              volumes growing, need room on it.
+        - alert: LonghornNodeDown
+          expr: longhorn_node_status{condition="ready"} == 0
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Longhorn node {{ "{{ $labels.node }}" }} isn't ready
+            description: The volumes with copies on {{ "{{ $labels.node }}" }} can't use them.
+    - name: bbe.certificates
+      rules:
+        - alert: CertificateExpiringSoon
+          expr: >-
+            (certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 < {{ $rules.certificateExpiryDays }}
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Certificate {{ "{{ $labels.name }}" }} expires soon
+            description: >-
+              The certificate {{ "{{ $labels.name }}" }} in {{ "{{ $labels.namespace }}" }} expires in
+              {{ "{{ $value | humanize }}" }} days, and cert-manager hasn't renewed it.
+        - alert: CertificateNotReady
+          expr: certmanager_certificate_ready_status{condition="False"} == 1
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: Certificate {{ "{{ $labels.name }}" }} isn't ready
+            description: >-
+              cert-manager couldn't issue the certificate {{ "{{ $labels.name }}" }} in
+              {{ "{{ $labels.namespace }}" }}, so the apps may be served without it.

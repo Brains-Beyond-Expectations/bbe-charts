@@ -1,6 +1,6 @@
 apiVersion: v2
 name: bbe-media
-description: A collection of charts for BBE cluster media
+description: A collection of charts for BBE cluster media, connected to each other when installed
 type: application
 version: 0.2.0
 keywords:
@@ -12,23 +12,102 @@ keywords:
   - radarr
   - bazarr
   - prowlarr
+  - qbittorrent
 home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for the apps' config volumes
+      storageClass: longhorn
+      package: bbe-storage
+    - name: networking
+      description: Traefik and the domain's certificate, which the apps are served with
+      package: bbe-networking
+    - name: sso
+      description: authentik, which people sign in to the apps with
+      package: bbe-auth
+    - name: gpu
+      description: The nodes' GPUs, which Jellyfin transcodes on
+      package: bbe-gpu
+  # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it seeds, solves challenges and
+  # transcodes alike
+  bbe/recorded-values: |
+    - bbe.media.seeding
+    - bbe.media.flaresolverr.concurrency
+    - global.bbe.vpn
+    - bbe.media.jellyfin.transcoding
+  # gluetun, when the VPN is on, changes qBittorrent's pod network, which `baseline` doesn't allow
+  bbe/pod-security: privileged
+  # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
+  bbe/uninstall: |
+    keeps:
+      - The media library on the NFS share, which only loses its link to the cluster
+  # Lists `bbe configure` adds to and removes from, with credentials kept in a secret instead of bbe.yaml
+  bbe/settings: |
+    - name: indexers
+      description: The indexers Prowlarr searches, and shares with Sonarr and Radarr
+      values: bbe.media.prowlarr.indexers
+      secret: bbe-media-indexers
+      catalog:
+        type: prowlarr-indexers
+        service: bbe-media-prowlarr
+        port: 9696
+        apiKey:
+          secret: bbe-media-api-keys
+          key: prowlarr
+      # Public indexers needing no login, which bbe offers to add when the list isn't set yet. FlareSolverr gets the
+      # ones Cloudflare challenges past it
+      suggested:
+        - name: 1337x
+          definition: 1337x
+        - name: The Pirate Bay
+          definition: thepiratebay
+        - name: EZTV
+          definition: eztv
+        - name: YTS
+          definition: yts
+        - name: LimeTorrents
+          definition: limetorrents
+        - name: Knaben
+          definition: Knaben
+        - name: TorrentDownload
+          definition: torrentdownload
+        - name: Uindex
+          definition: uindex
+        - name: kickasstorrents.to
+          definition: kickasstorrents-to
+    - name: subtitle providers
+      description: The subtitle providers Bazarr searches. Removing one here doesn't turn it off in Bazarr
+      values: bbe.media.bazarr.providers
+      fields:
+        - name: name
+          label: Provider
+          description: Its name in Bazarr, such as gestdown, for a provider needing no account
+          pattern: "^[a-z0-9_]+$"
+          unique: true
+      # Providers needing no account. The ones needing one, such as OpenSubtitles.com, are turned on in Bazarr
+      suggested:
+        - name: gestdown
+        - name: tvsubtitles
+        - name: yifysubtitles
+        - name: supersubtitles
 dependencies:
   - name: bazarr
-    version: 0.1.1
+    version: 0.4.0
     repository: https://brains-beyond-expectations.github.io/bbe-charts
-  - name: jellyfin
-    version: 2.3.0
-    repository: https://jellyfin.github.io/jellyfin-helm
-  - name: jellyseerr-chart
-    version: 2.3.3
-    repository: oci://ghcr.io/fallenbagel/jellyseerr
+  - name: seerr-chart
+    version: 3.9.1
+    repository: oci://ghcr.io/seerr-team/seerr
   - name: prowlarr
-    version: 0.1.3
+    version: 0.4.0
+    repository: https://brains-beyond-expectations.github.io/bbe-charts
+  - name: qbittorrent
+    version: 0.1.0
     repository: https://brains-beyond-expectations.github.io/bbe-charts
   - name: radarr
-    version: 0.1.2
+    version: 0.4.0
     repository: https://brains-beyond-expectations.github.io/bbe-charts
   - name: sonarr
-    version: 0.1.2
+    version: 0.4.0
     repository: https://brains-beyond-expectations.github.io/bbe-charts

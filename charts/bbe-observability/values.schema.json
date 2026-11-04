@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "global",
+    "bbe"
+  ],
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "bbe": {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+              "description": "The domain the cluster's apps are named under, the same as bbe-networking's"
+            }
+          },
+          "required": [
+            "domain"
+          ]
+        }
+      },
+      "required": [
+        "bbe"
+      ]
+    },
+    "bbe": {
+      "type": "object",
+      "properties": {
+        "observability": {
+          "type": "object",
+          "properties": {
+            "grafana": {
+              "type": "object",
+              "properties": {
+                "ingress": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            },
+            "alerts": {
+              "type": "object",
+              "properties": {
+                "receiver": {
+                  "type": "object",
+                  "description": "The receiver alerts are sent to, in Alertmanager's format without its name"
+                },
+                "repeatInterval": {
+                  "type": "string",
+                  "pattern": "^([0-9]+(ms|s|m|h|d|w|y))+$",
+                  "description": "How often an alert that's still firing is sent again, such as 12h"
+                }
+              }
+            },
+            "rules": {
+              "type": "object",
+              "properties": {
+                "certificateExpiryDays": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "longhornDiskUsagePercent": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                }
+              }
+            },
+            "monitors": {
+              "type": "object",
+              "properties": {
+                "networking": {
+                  "type": "boolean"
+                },
+                "storage": {
+                  "type": "boolean"
+                },
+                "auth": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

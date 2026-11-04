@@ -1,0 +1,19 @@
+{{- $shelfmark := .Values.bbe.library.shelfmark }}
+{{- if or $shelfmark.hardcoverApiKey $shelfmark.directDownload.annasArchiveDonatorKey }}
+# The keys Shelfmark is given in the values, for Hardcover and Anna's Archive
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bbe-library-shelfmark
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+type: Opaque
+data:
+  {{- with $shelfmark.hardcoverApiKey }}
+  hardcover-api-key: {{ . | b64enc }}
+  {{- end }}
+  {{- with $shelfmark.directDownload.annasArchiveDonatorKey }}
+  aa-donator-key: {{ . | b64enc }}
+  {{- end }}
+{{- end }}

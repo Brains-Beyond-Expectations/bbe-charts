@@ -1,0 +1,110 @@
+suite: test network policies
+values:
+  - ./values/required-values.yaml
+templates:
+  - network-policy.yaml
+release:
+  name: bbe-ai
+  namespace: bbe-ai
+tests:
+  - it: should let only Home Assistant reach the models, at their ports, and Open WebUI Ollama
+    documentSelector:
+      path: metadata.name
+      value: bbe-ai
+    asserts:
+      - equal:
+          path: spec.podSelector
+          value:
+            matchLabels:
+              app.kubernetes.io/instance: bbe-ai
+              app.kubernetes.io/component: models
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - ipBlock:
+                    cidr: 192.168.1.50/32
+              ports:
+                - port: speech-to-text
+                - port: text-to-speech
+                - port: ollama
+            - from:
+                - podSelector:
+                    matchLabels:
+                      app.kubernetes.io/instance: bbe-ai
+                      app.kubernetes.io/component: open-webui
+              ports:
+                - port: ollama
+
+  - it: should let only Traefik reach Open WebUI
+    documentSelector:
+      path: metadata.name
+      value: bbe-ai-open-webui
+    asserts:
+      - equal:
+          path: spec.podSelector
+          value:
+            matchLabels:
+              app.kubernetes.io/instance: bbe-ai
+              app.kubernetes.io/component: open-webui
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: bbe-networking
+                  podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: traefik
+              ports:
+                - port: http
+
+  - it: should let in the other addresses allowed
+    documentSelector:
+      path: metadata.name
+      value: bbe-ai
+    set:
+      bbe.ai.allowFrom:
+        - 192.168.1.20/32
+    asserts:
+      - equal:
+          path: spec.ingress[0].from
+          value:
+            - ipBlock:
+                cidr: 192.168.1.50/32
+            - ipBlock:
+                cidr: 192.168.1.20/32
+
+  - it: should leave Ollama's port, and Open WebUI, out without Ollama
+    set:
+      bbe.ai.ollama.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - ipBlock:
+                    cidr: 192.168.1.50/32
+              ports:
+                - port: speech-to-text
+                - port: text-to-speech
+
+  - it: should leave Open WebUI out without it
+    set:
+      bbe.ai.chat.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.ingress
+          count: 1
+
+  - it: should let anything in when NetworkPolicies are off
+    set:
+      bbe.networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

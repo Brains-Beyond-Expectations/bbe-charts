@@ -6,6 +6,8 @@ metadata:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
+  # Only the service naming this pool gets its address
+  autoAssign: false
   addresses:
     - {{ include "bbe-networking.addresses" (.Values.bbe.metallb.blocky.ipAddressPool) }}
 ---

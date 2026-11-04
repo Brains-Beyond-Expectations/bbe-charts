@@ -1,0 +1,87 @@
+{{- /*
+Intel's GPU device plugin, from Intel's own manifest (deployments/gpu_plugin/base). It runs on every amd64 node, and
+only offers `gpu.intel.com/i915` on those with an Intel GPU and Talos' i915 driver. A pod asking for one is only
+scheduled on such a node, and gets its /dev/dri devices, without running privileged itself
+*/ -}}
+{{- with .Values.bbe.gpu.intel }}
+{{- if .enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $.Release.Name }}-intel
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "bbe-gpu.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: intel
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: intel
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-gpu.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: intel
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      containers:
+        - name: intel-gpu-plugin
+          image: "{{ .image.repository }}:{{ .image.tag }}"
+          args:
+            - -shared-dev-num={{ .sharedDevNum }}
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          {{- with .resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: devfs
+              mountPath: /dev/dri
+              readOnly: true
+            - name: sysfsdrm
+              mountPath: /sys/class/drm
+              readOnly: true
+            - name: kubeletsockets
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: cdipath
+              mountPath: /var/run/cdi
+      volumes:
+        - name: devfs
+          hostPath:
+            path: /dev/dri
+        - name: sysfsdrm
+          hostPath:
+            path: /sys/class/drm
+        - name: kubeletsockets
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: cdipath
+          hostPath:
+            path: /var/run/cdi
+            type: DirectoryOrCreate
+{{- end }}
+{{- end }}

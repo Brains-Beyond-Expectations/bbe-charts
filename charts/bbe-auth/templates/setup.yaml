@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-auth-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+data:
+  setup.py: |
+    {{- .Files.Get "files/setup.py" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job can't be changed once it exists, so each revision gets its own, which also runs it again
+  name: bbe-auth-setup-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.bbe.setup.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-auth.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: setup
+          image: "{{ .Values.bbe.setup.image.repository }}:{{ .Values.bbe.setup.image.tag }}"
+          command:
+            - python3
+            - /scripts/setup.py
+          env:
+            # authentik's server, as the setup's requests stay in the cluster
+            - name: AUTHENTIK_URL
+              value: http://bbe-auth-server
+            - name: AUTHENTIK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-auth-authentik
+                  key: AUTHENTIK_BOOTSTRAP_TOKEN
+            - name: LDAP_OUTPOST_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-auth-authentik
+                  key: BBE_LDAP_OUTPOST_TOKEN
+            - name: BLUEPRINT_FILE
+              value: /blueprints/bbe.yaml
+            - name: USERS
+              value: {{ include "bbe-auth.users" . | quote }}
+            - name: USER_PASSWORDS_DIR
+              value: /user-passwords
+            - name: READY_TIMEOUT
+              value: {{ .Values.bbe.setup.readyTimeout | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          {{- with .Values.bbe.setup.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: blueprints
+              mountPath: /blueprints
+              readOnly: true
+            - name: user-passwords
+              mountPath: /user-passwords
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: bbe-auth-setup
+        # The same blueprint the worker applies, whose hash tells the setup when it's applied
+        - name: blueprints
+          configMap:
+            name: bbe-auth-blueprints
+        - name: user-passwords
+          projected:
+            sources:
+              - secret:
+                  name: bbe-auth-admin
+                  items:
+                    - key: password
+                      path: first-admin
+              # Written by `bbe configure`, so it only exists once a user is added there
+              - secret:
+                  name: bbe-auth-users
+                  optional: true

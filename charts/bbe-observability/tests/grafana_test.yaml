@@ -1,0 +1,83 @@
+suite: test grafana
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-observability
+  namespace: bbe-observability
+tests:
+  - it: should serve Grafana at grafana.<domain> behind authentik, and list it on the dashboard
+    template: templates/ingress.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: grafana.lab.home.arpa
+      - equal:
+          path: spec.tls
+          value:
+            - hosts:
+                - grafana.lab.home.arpa
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service
+          value:
+            name: bbe-observability-grafana
+            port:
+              number: 80
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-observability-sso@kubernetescrd
+      - equal:
+          path: metadata.annotations["gethomepage.dev/group"]
+          value: Cluster
+      - equal:
+          path: metadata.annotations["gethomepage.dev/pod-selector"]
+          value: app.kubernetes.io/name=grafana,app.kubernetes.io/instance=bbe-observability
+
+  - it: should leave Grafana without an address when its ingress is off
+    templates:
+      - templates/ingress.yaml
+      - templates/sso.yaml
+    set:
+      bbe.observability.grafana.ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should ask authentik about every request, and pass on who's signed in
+    template: templates/sso.yaml
+    asserts:
+      - equal:
+          path: spec.forwardAuth.address
+          value: http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+      - contains:
+          path: spec.forwardAuth.authResponseHeaders
+          content: X-authentik-username
+      - contains:
+          path: spec.forwardAuth.authResponseHeaders
+          content: X-authentik-email
+
+  - it: should sign admins in from authentik's headers, without Grafana's own login form
+    template: charts/kube-prometheus-stack/charts/grafana/templates/configmap.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - matchRegex:
+          path: data["grafana.ini"]
+          pattern: "\\[auth.proxy\\]\\nauto_sign_up = true\\nenabled = true\\nheader_name = X-authentik-username"
+      - matchRegex:
+          path: data["grafana.ini"]
+          pattern: "disable_login_form = true"
+      - matchRegex:
+          path: data["grafana.ini"]
+          pattern: "auto_assign_org_role = Admin"
+      - matchRegex:
+          path: data["grafana.ini"]
+          pattern: "root_url = https://grafana.lab.home.arpa"
+
+  - it: should give Grafana Loki as a data source, next to Prometheus
+    template: charts/kube-prometheus-stack/templates/grafana/configmaps-datasources.yaml
+    asserts:
+      - matchRegex:
+          path: data["datasource.yaml"]
+          pattern: "url: http://bbe-observability-loki:3100"

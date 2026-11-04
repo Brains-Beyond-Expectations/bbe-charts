@@ -1,0 +1,22 @@
+bbe:
+  gpu:
+    intel:
+      # -- Whether to offer the nodes' Intel GPUs to the apps, as `gpu.intel.com/i915`. Talos needs its `i915`
+      # extension, which bbe's amd64 node image has
+      enabled: true
+      image:
+        # -- Intel's GPU device plugin
+        repository: intel/intel-gpu-plugin
+        # -- The device plugin's version
+        tag: 0.37.1
+      # -- How many pods may share one GPU at a time. Jellyfin takes one, and a restart briefly needs a second
+      sharedDevNum: 2
+      resources:
+        requests:
+          # -- The memory to request for the device plugin on each node
+          memory: 45Mi
+          # -- The CPU to request for the device plugin on each node
+          cpu: 10m
+        limits:
+          # -- The memory to limit the device plugin to
+          memory: 115Mi

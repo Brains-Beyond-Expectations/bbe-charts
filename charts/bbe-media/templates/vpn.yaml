@@ -1,0 +1,34 @@
+{{- if .Values.global.bbe.vpn.enabled }}
+{{- if not (lookup "v1" "Secret" .Release.Namespace .Values.global.bbe.vpn.secret) }}
+{{- /* Without the cluster, as in a dry run, there's nothing to check */ -}}
+{{- if (lookup "v1" "Namespace" "" "kube-system") }}
+{{- fail (printf "The VPN is on, but the %s Secret with the WireGuard private keys isn't in the %s namespace. Make it with: kubectl create secret generic %s -n %s --from-literal=qbittorrent=<key> --from-literal=slskd=<key>" .Values.global.bbe.vpn.secret .Release.Namespace .Values.global.bbe.vpn.secret .Release.Namespace) }}
+{{- end }}
+{{- end }}
+# What gluetun reads besides its key: its last firewall rules, and how it gives qBittorrent the forwarded port
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-media-vpn
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+data:
+  {{- include "bbe.gluetunRules" . | nindent 2 }}
+  {{- include "bbe.qbittorrentPortScript" . | nindent 2 }}
+---
+{{- $vpn := (lookup "v1" "Secret" .Release.Namespace "bbe-media-vpn").data | default dict }}
+{{- $apiKey := get $vpn "control-api-key" | default (randAlphaNum 32 | b64enc) }}
+# The key the pod reaches gluetun's control server with, generated on the first install
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bbe-media-vpn
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+type: Opaque
+data:
+  control-api-key: {{ $apiKey }}
+  control-role: {{ dict "auth" "apikey" "apikey" ($apiKey | b64dec) | toJson | b64enc }}
+{{- end }}

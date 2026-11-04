@@ -1,0 +1,29 @@
+suite: test jellyfin without a GPU
+values:
+  - ./values/required-values.yaml
+templates:
+  - jellyfin.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should refuse a cluster where no node offers a GPU, unless the CPU is allowed
+    kubernetesProvider:
+      scheme:
+        "v1/Node":
+          gvr:
+            version: "v1"
+            resource: "nodes"
+          namespaced: false
+      objects:
+        - apiVersion: v1
+          kind: Node
+          metadata:
+            name: without-gpu
+          status:
+            allocatable:
+              cpu: "4"
+              memory: 16Gi
+    asserts:
+      - failedTemplate:
+          errorPattern: "No node offers gpu.intel.com/i915 for Jellyfin to transcode on.*allowCpu: true in bbe.yaml"

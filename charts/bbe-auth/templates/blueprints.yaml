@@ -1,0 +1,26 @@
+{{- /*
+bbe's blueprint, which authentik's worker applies: the groups, forward auth, LDAP for Jellyfin and bbe's looks. It
+reads the domain and the LDAP account's password from the bbe-auth-authentik secret, through the worker's environment
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-auth-blueprints
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+data:
+  bbe.yaml: |
+    {{- .Files.Get "files/blueprints/bbe.yaml" | nindent 4 }}
+---
+# bbe's logo and sign-in background, which authentik's server serves from its media folder
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-auth-branding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+binaryData:
+  brain.webp: {{ .Files.Get "files/branding/brain.webp" | b64enc }}
+  background.webp: {{ .Files.Get "files/branding/background.webp" | b64enc }}

@@ -1,0 +1,111 @@
+global:
+  bbe:
+    # -- The domain the cluster's apps are named under, which bbe-networking answers for. Open WebUI is at ai.<domain>
+    domain: bbe.home.arpa
+
+bbe:
+  networkPolicy:
+    # -- Whether only Home Assistant, `bbe.ai.allowFrom` and Open WebUI may reach the models, and only Traefik Open
+    # WebUI. Wyoming and Ollama have no sign-in, so anything that reaches them can use them.
+    # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
+    enabled: true
+  ai:
+    # -- A free IP address on your LAN for Home Assistant to reach the models at, outside your router's DHCP range,
+    # which MetalLB announces. Speech-to-text is on port 10300, text-to-speech on 10200 and Ollama on 11434
+    loadBalancerIP: ""
+    # -- The IP address of the machine running Home Assistant, the only one let in
+    homeAssistantIP: ""
+    # -- More addresses let in, as CIDRs, such as `192.168.1.20/32` for a computer to try the models from
+    allowFrom: []
+    # -- The size of the volume holding the downloaded models. Parakeet is ~0.7Gi, a Piper voice ~0.1Gi and a 4B model
+    # ~2.5Gi, and downloads keep a cache of their own next to them
+    dataSize: 15Gi
+    speechToText:
+      image:
+        # -- The Wyoming speech-to-text server, with faster-whisper, NVIDIA's Parakeet and other backends
+        repository: rhasspy/wyoming-whisper
+        # -- The server's version
+        tag: 3.8.1
+      # -- The language spoken to it. Home Assistant's pipeline is offered only the languages the model transcribes
+      language: en
+      # -- The backend: `auto` picks one per language, which is Parakeet through sherpa-onnx for English.
+      # `faster-whisper` with the model `base.en` is lighter, and can be biased toward Home Assistant's names
+      library: auto
+      # -- The model: `auto` picks the backend's default, which is `sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8` for
+      # English
+      model: auto
+      resources:
+        requests:
+          # -- The memory to request for speech-to-text
+          memory: 1Gi
+          # -- The CPU to request for speech-to-text
+          cpu: 100m
+        limits:
+          # -- The memory to limit speech-to-text to
+          memory: 2Gi
+    textToSpeech:
+      image:
+        # -- The Wyoming text-to-speech server, with Piper
+        repository: rhasspy/wyoming-piper
+        # -- The server's version
+        tag: 2.5.2
+      # -- The voice it speaks with by default. Home Assistant can pick another per pipeline, which is downloaded the first
+      # time it's used. See https://rhasspy.github.io/piper-samples
+      voice: en_US-lessac-medium
+      resources:
+        requests:
+          # -- The memory to request for text-to-speech
+          memory: 128Mi
+          # -- The CPU to request for text-to-speech
+          cpu: 50m
+        limits:
+          # -- The memory to limit text-to-speech to
+          memory: 512Mi
+    ollama:
+      # -- Whether to run an LLM for Home Assistant to talk to. Off, Home Assistant's own conversation agent handles what's
+      # said, and the speech runs on any node
+      enabled: true
+      image:
+        # -- Ollama, which runs the LLM and serves it to Home Assistant's Ollama integration
+        repository: ollama/ollama
+        # -- Ollama's version
+        tag: 0.40.14
+      # -- The model it downloads, from https://ollama.com/library, which it needs to call Home Assistant's tools.
+      # `qwen3:1.7b` fits an 8 GB node. `qwen3:4b-instruct`, Home Assistant's default, answers better and needs 4Gi
+      model: qwen3:1.7b
+      # -- The context it's loaded with, in tokens, unless a request asks for another. Home Assistant asks for its own
+      # "Context window size", 8192 by default, and the memory below has to hold it
+      contextLength: 8192
+      # -- How the context is stored: `q8_0` takes half the memory of `f16`, with flash attention
+      kvCacheType: q8_0
+      resources:
+        requests:
+          # -- The memory to request for Ollama. The model and its context have to fit, so the pod only runs on a node
+          # with that much to spare
+          memory: 2560Mi
+          # -- The CPU to request for Ollama. It uses every core while it answers
+          cpu: 500m
+        limits:
+          # -- The memory to limit Ollama to, the same as requested, so it never takes memory the node's other apps rely
+          # on
+          memory: 2560Mi
+    chat:
+      # -- Whether to serve Open WebUI at ai.<domain>, to chat with Ollama's model in the browser. People sign in with
+      # authentik: `users` chat, and `admins` manage it. Only with Ollama
+      enabled: true
+      image:
+        # -- Open WebUI, without the models it bundles for searching documents, which it downloads when it needs them
+        repository: ghcr.io/open-webui/open-webui
+        # -- Open WebUI's version
+        tag: 0.13.0-slim
+      # -- The size of its data volume, with its database, the chats and its downloaded models
+      dataSize: 5Gi
+      resources:
+        requests:
+          # -- The memory to request for Open WebUI
+          memory: 768Mi
+          # -- The CPU to request for Open WebUI
+          cpu: 100m
+        limits:
+          # -- The memory to limit Open WebUI to. Searching documents loads a model of its own
+          memory: 2Gi

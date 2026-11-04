@@ -1,0 +1,116 @@
+suite: test volume for downloads in progress
+values:
+  - ./values/required-values.yaml
+release:
+  name: test
+  namespace: test
+tests:
+  - it: has no volume for downloads in progress by default
+    templates:
+      - incomplete.yaml
+      - deployment.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: incomplete.yaml
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: incomplete
+            mountPath: /incomplete
+        template: deployment.yaml
+
+  - it: creates the volume when enabled
+    template: incomplete.yaml
+    set:
+      incomplete.enabled: true
+      incomplete.size: 9Gi
+      incomplete.storageClass: longhorn
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: test-qbittorrent-incomplete
+      - equal:
+          path: spec.storageClassName
+          value: longhorn
+      - equal:
+          path: spec.accessModes[0]
+          value: ReadWriteOnce
+      - equal:
+          path: spec.resources.requests.storage
+          value: 9Gi
+
+  - it: mounts the volume when enabled
+    template: deployment.yaml
+    set:
+      incomplete.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: incomplete
+            mountPath: /incomplete
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: incomplete
+            persistentVolumeClaim:
+              claimName: test-qbittorrent-incomplete
+
+  - it: can mount it elsewhere, from an existing claim
+    templates:
+      - incomplete.yaml
+      - deployment.yaml
+    set:
+      incomplete.enabled: true
+      incomplete.existingClaim: scratch
+      incomplete.mountPath: /scratch
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: incomplete.yaml
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: incomplete
+            mountPath: /scratch
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: incomplete
+            persistentVolumeClaim:
+              claimName: scratch
+        template: deployment.yaml
+
+  - it: hands the volume to the user qBittorrent runs as before it starts
+    template: deployment.yaml
+    set:
+      incomplete.enabled: true
+      qbittorrent.env:
+        - name: PUID
+          value: "1031"
+        - name: PGID
+          value: "100"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[?(@.name == "incomplete-owner")].command[2]
+          value: chown "$PUID:$PGID" "$INCOMPLETE_DIR"
+      - contains:
+          path: spec.template.spec.initContainers[?(@.name == "incomplete-owner")].env
+          content:
+            name: PUID
+            value: "1031"
+      - contains:
+          path: spec.template.spec.initContainers[?(@.name == "incomplete-owner")].volumeMounts
+          content:
+            name: incomplete
+            mountPath: /incomplete
+
+  - it: has no init container for it when disabled
+    template: deployment.yaml
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers

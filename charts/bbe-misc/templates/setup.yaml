@@ -1,0 +1,135 @@
+{{- /*
+The setup's pod, for the Job setting Snipe-IT up and the CronJob keeping its admins in line. `mode` is the script's
+MODE, `root` the chart's context
+*/ -}}
+{{- define "bbe-misc.setupPod" -}}
+{{- $root := .root -}}
+restartPolicy: Never
+# Snipe-IT's own user, who owns the image's code and the storage folder Laravel writes its caches to
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10000
+  runAsGroup: 50
+  seccompProfile:
+    type: RuntimeDefault
+containers:
+  # Snipe-IT's own image, as the setup boots Snipe-IT's code to use its models
+  - name: setup
+    image: "{{ $root.Values.bbe.misc.snipeit.image.repository }}:{{ $root.Values.bbe.misc.snipeit.image.tag }}"
+    command:
+      - php
+      - /scripts/setup.php
+    workingDir: /var/www/html
+    env:
+      {{- include "bbe-misc.snipeitEnv" $root | nindent 6 }}
+      - name: LOG_CHANNEL
+        value: stderr
+      - name: MODE
+        value: {{ .mode }}
+      - name: READY_TIMEOUT
+        value: {{ $root.Values.bbe.setup.readyTimeout | quote }}
+      - name: SITE_NAME
+        value: {{ $root.Values.bbe.misc.snipeit.siteName | quote }}
+      - name: CURRENCY
+        value: {{ $root.Values.bbe.misc.snipeit.currency | quote }}
+      - name: ADMIN_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: bbe-misc-admin
+            key: username
+      - name: ADMIN_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: bbe-misc-admin
+            key: password
+      - name: ADMIN_EMAIL
+        value: {{ $root.Values.bbe.misc.snipeit.admin.username }}@{{ $root.Values.global.bbe.domain }}
+      # bbe-auth's LDAP outpost, which Snipe-IT binds to with its own account
+      - name: LDAP_URL
+        value: ldap://bbe-auth-ldap.bbe-auth.svc.cluster.local:389
+      - name: LDAP_BASE_DN
+        value: {{ include "bbe-misc.ldapBaseDn" $root }}
+      - name: LDAP_BIND_DN
+        value: cn=snipeit-ldap,ou=users,{{ include "bbe-misc.ldapBaseDn" $root }}
+      - name: LDAP_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: bbe-misc-auth
+            key: ldap-password
+      # Where people change their password, as authentik's LDAP can't
+      - name: PASSWORD_RESET_URL
+        value: https://auth.{{ $root.Values.global.bbe.domain }}/if/user/#/settings
+    {{- with $root.Values.bbe.setup.resources }}
+    resources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    # Laravel writes its caches in the image's storage folder
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    volumeMounts:
+      - name: scripts
+        mountPath: /scripts
+        readOnly: true
+volumes:
+  - name: scripts
+    configMap:
+      name: bbe-misc-setup
+{{- end -}}
+
+{{- if .Values.bbe.setup.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbe-misc-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+data:
+  setup.php: |
+    {{- .Files.Get "files/setup.php" | nindent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job can't be changed once it exists, so each revision gets its own, which also runs it again
+  name: bbe-misc-setup-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.bbe.setup.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-misc.labels" . | nindent 8 }}
+        app.kubernetes.io/component: setup
+    spec:
+      {{- include "bbe-misc.setupPod" (dict "root" . "mode" "setup") | nindent 6 }}
+---
+# Snipe-IT creates people on their first sign-in, so this gives authentik's admins their admin rights
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bbe-misc-people
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.bbe.setup.peopleSchedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            {{- include "bbe-misc.labels" . | nindent 12 }}
+            app.kubernetes.io/component: people
+        spec:
+          {{- include "bbe-misc.setupPod" (dict "root" . "mode" "people") | nindent 10 }}
+{{- end }}

@@ -1,0 +1,45 @@
+{{- /*
+The music's share, mounted whole, as bbe-media mounts its own. The share's own folder may let nobody but its owner in,
+and root is mapped away, so the kubelet couldn't mount folders in it. Only the NAS user goes into it
+*/ -}}
+{{- $nfs := .Values.bbe.music.nfs }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ printf "%s-bbe-music-share" .Release.Namespace | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .Values.bbe.music.size }}
+  accessModes:
+    - ReadWriteMany
+  # Removing the volume never removes the music on the NFS server
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  {{- with $nfs.mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  claimRef:
+    namespace: {{ .Release.Namespace }}
+    name: bbe-music-share
+  nfs:
+    server: {{ $nfs.server }}
+    path: {{ $nfs.path }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bbe-music-share
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-music.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: {{ printf "%s-bbe-music-share" .Release.Namespace | trunc 63 | trimSuffix "-" }}
+  resources:
+    requests:
+      storage: {{ .Values.bbe.music.size }}

@@ -1,0 +1,56 @@
+{{- /*
+Every app is served at <app>.<domain> with the domain's certificate, which bbe-networking makes Traefik's default. The
+apps managing the media are behind authentik's forward auth. Jellyfin signs people in against authentik's LDAP
+itself, so its TV and phone apps keep working, and Seerr signs in through Jellyfin. bbe-networking's dashboard lists
+them from their `gethomepage.dev/*` annotations
+*/ -}}
+{{- if .Values.bbe.media.ingress.enabled }}
+{{- $domain := .Values.global.bbe.domain }}
+{{- $apps := list
+    (dict "app" "jellyfin" "service" "jellyfin" "port" 8096 "label" "jellyfin" "name" "Jellyfin" "group" "Watch" "description" "Watch the library")
+    (dict "app" "seerr" "service" "seerr-chart" "port" 80 "label" "seerr-chart" "name" "Seerr" "group" "Watch" "description" "Ask for shows and movies")
+    (dict "app" "sonarr" "service" "sonarr" "port" 8989 "label" "sonarr" "name" "Sonarr" "group" "Manage" "description" "Shows" "sso" true)
+    (dict "app" "radarr" "service" "radarr" "port" 7878 "label" "radarr" "name" "Radarr" "group" "Manage" "description" "Movies" "sso" true)
+    (dict "app" "prowlarr" "service" "prowlarr" "port" 9696 "label" "prowlarr" "name" "Prowlarr" "group" "Manage" "description" "Indexers" "sso" true)
+    (dict "app" "bazarr" "service" "bazarr" "port" 6767 "label" "bazarr" "name" "Bazarr" "group" "Manage" "description" "Subtitles" "sso" true)
+    (dict "app" "qbittorrent" "service" "qbittorrent" "port" 8080 "label" "qbittorrent" "name" "qBittorrent" "group" "Manage" "description" "Downloads" "sso" true)
+}}
+{{- range $apps }}
+{{- $sso := and $.Values.global.bbe.sso.enabled (hasKey . "sso") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $.Release.Name }}-{{ .app }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" $ | nindent 4 }}
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: {{ .name }}
+    gethomepage.dev/description: {{ .description }}
+    gethomepage.dev/group: {{ .group }}
+    gethomepage.dev/icon: {{ .app }}.png
+    gethomepage.dev/pod-selector: app.kubernetes.io/name={{ .label }},app.kubernetes.io/instance={{ $.Release.Name }}
+    {{- if $sso }}
+    # Traefik asks authentik first, which sends whoever isn't signed in to its sign-in
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $.Release.Namespace }}-sso@kubernetescrd
+    {{- end }}
+spec:
+  tls:
+    - hosts:
+        - {{ .app }}.{{ $domain }}
+  rules:
+    - host: {{ .app }}.{{ $domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $.Release.Name }}-{{ .service }}
+                port:
+                  # qBittorrent is reached through the nginx in its pod, which checks with authentik
+                  number: {{ ternary 4180 .port (and $sso (eq .app "qbittorrent")) }}
+{{- end }}
+{{- end }}
