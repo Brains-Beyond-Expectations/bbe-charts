@@ -35,6 +35,10 @@ flowchart TD
     Q4{Where does the LLM run?}
     Q4 -->|chosen| A4[On the CPU of a node<br/>with the memory to spare]
     Q4 -.->|later| B4[On the Intel GPU]
+
+    Q5{How does the household chat with it?}
+    Q5 -->|chosen| A5[Open WebUI at ai.domain,<br/>signing in with OpenID Connect]
+    Q5 -.->|rejected| B5[Behind forward auth]
 ```
 
 ## Decisions
@@ -70,19 +74,35 @@ Rejected: **a pod each.** That needs an address each, three to keep free, or tra
 
 The pod is offered no GPU. An HD 620 shares the CPU's memory, which is what limits an LLM, so it would gain little, and Jellyfin uses it. Ollama's Vulkan support could try it later, through bbe-gpu.
 
+### 5. Open WebUI chats with the LLM at ai.<domain>, for users and admins
+
+Ollama has no web interface, and no sign-in. Open WebUI 0.13.0 (`bbe.ai.chat`), the slim image without its bundled document models, chats with Ollama's model at `https://ai.<domain>`.
+- **Signing in:** with authentik over OpenID Connect, like Shelfmark. bbe-auth's blueprint adds the `open-webui` client for `users` and `admins`, and its secret (`BBE_OPEN_WEBUI_CLIENT_SECRET`), which bbe-ai copies. Its own login form and passwords are off.
+- **Roles:** from authentik's `groups` claim, on every sign-in. `admins` are its admins, `users` its users, and anyone else is turned away. Every user may chat with the model.
+- **Reaching authentik:** like Shelfmark, at `auth.<domain>` through Traefik, trusting bbe's certificate authority.
+- **Its own pod,** in front of Ollama, which it reaches through the models' Service, so it restarts without them. The NetworkPolicies let only Traefik reach it, and only it reach Ollama from the cluster.
+- **Running as a user:** its image is built for root, so everything it writes goes to its volume, its static files included.
+
+bbe-ai refuses to install it while bbe-auth has no client for it yet, saying to upgrade bbe-auth first.
+
+Rejected: **forward auth, like Grafana.** It's for `admins` only, and Open WebUI would trust a header for who's signed in.
+
 ## Consequences
 
 - **Answers from the LLM take seconds**, mostly reading the prompt. Exposing fewer entities to the assistant keeps that short. Commands Home Assistant understands itself don't wait for it.
 - **The first question after a restart** waits for the model to load.
 - **On a cluster without a node with Ollama's memory to spare,** the pod waits in Pending, the speech with it, until the model is smaller, the memory freed, or Ollama is turned off.
 - **Changing the model** downloads the new one next to the old, which stays on the volume.
+- **The very first person to sign in to Open WebUI is made its admin,** whatever their group, until a second person signs in.
+- **Open WebUI takes ~1 GB more,** and more while it searches documents, with a model it downloads then.
 - **The root filesystems aren't read-only.** The images write caches outside the volume, which hasn't been checked.
-- **Not run on a cluster yet:**
-  - the servers running as a user, on a fresh volume;
+- **Not checked on a cluster yet:**
   - the speech's memory and how long it takes on these CPUs, which the requests are a guess at;
   - Home Assistant reaching them through MetalLB and the NetworkPolicy;
-  - how long the LLM takes to answer.
+  - how long the LLM takes to answer;
+  - Open WebUI running as a user, signing people in with authentik, and chatting with Ollama.
 
   Verified:
-  - the chart renders, and its tests pass, with and without Ollama;
-  - installing is refused without the two addresses.
+  - the chart renders, and its tests pass, with and without Ollama and Open WebUI;
+  - installing is refused without the two addresses, and Open WebUI before bbe-auth has its client;
+  - on the cluster, the models run as a user, and a dry run of bbe-auth's upgrade only adds Open WebUI's client secret.

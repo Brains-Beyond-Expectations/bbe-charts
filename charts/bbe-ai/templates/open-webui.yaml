@@ -1,0 +1,254 @@
+{{- if include "bbe-ai.chatEnabled" . }}
+{{- $chat := .Values.bbe.ai.chat }}
+{{- $domain := .Values.global.bbe.domain }}
+{{- $traefik := lookup "v1" "Service" "bbe-networking" "bbe-networking-traefik" }}
+{{- $traefikIp := "" }}
+{{- with $traefik }}
+{{- $traefikIp = (first (.status.loadBalancer.ingress | default (list dict))).ip | default .spec.clusterIP }}
+{{- end }}
+# Open WebUI's database, the chats, and what it downloads, on Longhorn
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-open-webui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: {{ $chat.dataSize }}
+---
+# Open WebUI chats with Ollama's model in the browser. It runs apart from the models, so it can restart, and run on
+# another node, without them
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-open-webui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: open-webui
+spec:
+  replicas: 1
+  # Its database is SQLite, on a volume on one node
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "bbe-ai.chatSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-ai.labels" . | nindent 8 }}
+        app.kubernetes.io/component: open-webui
+    spec:
+      automountServiceAccountToken: false
+      # The image is built to run as root. It runs as a user here, writing only to its volume
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if $traefikIp }}
+      # It fetches authentik's sign-in settings and tokens at authentik's own address, which pods don't resolve, and
+      # which authentik names in the tokens it gives out
+      hostAliases:
+        - ip: {{ $traefikIp }}
+          hostnames:
+            - auth.{{ $domain }}
+      {{- end }}
+      initContainers:
+        # Python's certificates with bbe's certificate authority added, which authentik's certificate is signed by
+        - name: certificates
+          image: "{{ $chat.image.repository }}:{{ $chat.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              bundle=$(python3 -c 'import certifi; print(certifi.where())' 2>/dev/null || echo /etc/ssl/certs/ca-certificates.crt)
+              cat "$bundle" > /certificates/ca-bundle.crt
+              if [ -f /bbe-ca/ca.crt ]; then cat /bbe-ca/ca.crt >> /certificates/ca-bundle.crt; fi
+          securityContext:
+            {{- include "bbe-ai.containerSecurityContext" . | nindent 12 }}
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 10m
+            limits:
+              memory: 128Mi
+          volumeMounts:
+            - name: certificates
+              mountPath: /certificates
+            - name: bbe-ca
+              mountPath: /bbe-ca
+              readOnly: true
+      containers:
+        - name: open-webui
+          image: "{{ $chat.image.repository }}:{{ $chat.image.tag }}"
+          env:
+            # Everything it writes goes to its volume: the image's own folders belong to root
+            - name: DATA_DIR
+              value: /app/backend/data
+            - name: STATIC_DIR
+              value: /app/backend/data/static
+            - name: HOME
+              value: /app/backend/data
+            - name: WEBUI_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-open-webui
+                  key: secret-key
+            - name: WEBUI_URL
+              value: https://ai.{{ $domain }}
+            - name: REQUESTS_CA_BUNDLE
+              value: /certificates/ca-bundle.crt
+            - name: SSL_CERT_FILE
+              value: /certificates/ca-bundle.crt
+            # The model is Ollama's, which every user may chat with
+            - name: OLLAMA_BASE_URL
+              value: "http://{{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ include "bbe-ai.ollamaPort" . }}"
+            - name: ENABLE_OPENAI_API
+              value: "false"
+            - name: BYPASS_MODEL_ACCESS_CONTROL
+              value: "true"
+            - name: ENABLE_VERSION_UPDATE_CHECK
+              value: "false"
+            # Signing in: authentik only, so there's no moment without a login before an admin exists
+            - name: ENABLE_LOGIN_FORM
+              value: "false"
+            - name: ENABLE_PASSWORD_AUTH
+              value: "false"
+            - name: ENABLE_SIGNUP
+              value: "false"
+            - name: ENABLE_OAUTH_SIGNUP
+              value: "true"
+            - name: OAUTH_PROVIDER_NAME
+              value: authentik
+            - name: OPENID_PROVIDER_URL
+              value: https://auth.{{ $domain }}/application/o/open-webui/.well-known/openid-configuration
+            - name: OPENID_REDIRECT_URI
+              value: https://ai.{{ $domain }}/oauth/oidc/callback
+            - name: OAUTH_CLIENT_ID
+              value: open-webui
+            - name: OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-auth
+                  key: open-webui-client-secret
+            - name: OAUTH_SCOPES
+              value: openid email profile
+            # authentik's groups decide each sign-in: `admins` are its admins, `users` its users, and nobody else gets
+            # in. The very first person to sign in is made an admin regardless, until a second one does
+            - name: ENABLE_OAUTH_ROLE_MANAGEMENT
+              value: "true"
+            - name: OAUTH_ROLES_CLAIM
+              value: groups
+            - name: OAUTH_ALLOWED_ROLES
+              value: users,admins
+            - name: OAUTH_ADMIN_ROLES
+              value: admins
+            - name: DEFAULT_USER_ROLE
+              value: user
+          ports:
+            - name: http
+              containerPort: 8080
+          # It sets up its database first, which takes a while the first time
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            {{- include "bbe-ai.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml $chat.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/backend/data
+            - name: certificates
+              mountPath: /certificates
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-open-webui
+        - name: certificates
+          emptyDir:
+            sizeLimit: 16Mi
+        - name: bbe-ca
+          configMap:
+            name: {{ .Release.Name }}-ca
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-open-webui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: open-webui
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "bbe-ai.chatSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+{{- /*
+Open WebUI is served at ai.<domain> with the domain's certificate, which bbe-networking makes Traefik's default. It isn't
+behind authentik's forward auth, which only lets admins through: it signs people in with authentik itself.
+bbe-networking's dashboard lists it from its `gethomepage.dev/*` annotations
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-open-webui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: Open WebUI
+    gethomepage.dev/description: Chat with the cluster's LLM
+    gethomepage.dev/group: Ask
+    gethomepage.dev/icon: open-webui.png
+    gethomepage.dev/pod-selector: app.kubernetes.io/component=open-webui,app.kubernetes.io/instance={{ .Release.Name }}
+spec:
+  tls:
+    - hosts:
+        - ai.{{ $domain }}
+  rules:
+    - host: ai.{{ $domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-open-webui
+                port:
+                  number: 8080
+{{- end }}

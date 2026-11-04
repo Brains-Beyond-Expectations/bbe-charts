@@ -18,6 +18,12 @@ to read.
 
 The LLM runs on the CPU, and only on a node with {{ $ai.ollama.resources.requests.memory }} of memory to spare. The first question after a
 restart also waits for the model to load.
+{{- if include "bbe-ai.chatEnabled" . }}
+
+Open WebUI chats with it in the browser at https://ai.{{ .Values.global.bbe.domain }}, for authentik's users and admins, each with
+their own chats. authentik's admins are its admins too, except the very first person to sign in, who's made one
+until a second person signs in.
+{{- end }}
 {{- else }}
 Then, in Settings → Voice assistants, make an assistant using them, with Home Assistant as its conversation agent.
 {{- end }}

@@ -1,8 +1,10 @@
 {{- if .Values.bbe.networkPolicy.enabled }}
 {{- $ai := .Values.bbe.ai }}
+{{- $chat := include "bbe-ai.chatEnabled" . }}
 {{- /*
-Wyoming and Ollama have no sign-in, so anything reaching them can use them. Only Home Assistant, and the addresses in
-allowFrom, reach the models, and only at their ports
+Wyoming and Ollama have no sign-in, so anything reaching them can use them. Only Home Assistant, the addresses in
+allowFrom, and Open WebUI reach the models, and only at their ports. Policies add up: a pod accepts what any policy
+selecting it allows
 */ -}}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -12,7 +14,9 @@ metadata:
   labels:
     {{- include "bbe-ai.labels" . | nindent 4 }}
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      {{- include "bbe-ai.selectorLabels" . | nindent 6 }}
   policyTypes:
     - Ingress
   ingress:
@@ -29,4 +33,40 @@ spec:
         {{- if $ai.ollama.enabled }}
         - port: ollama
         {{- end }}
+    {{- if $chat }}
+    # Open WebUI, chatting with Ollama's model
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "bbe-ai.chatSelectorLabels" . | nindent 14 }}
+      ports:
+        - port: ollama
+    {{- end }}
+{{- if $chat }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-open-webui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "bbe-ai.chatSelectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Traefik, serving it at ai.<domain>
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-networking
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: http
+{{- end }}
 {{- end }}

@@ -1,7 +1,12 @@
+global:
+  bbe:
+    # -- The domain the cluster's apps are named under, which bbe-networking answers for. Open WebUI is at ai.<domain>
+    domain: bbe.home.arpa
+
 bbe:
   networkPolicy:
-    # -- Whether only Home Assistant, and `bbe.ai.allowFrom`, may reach the models. Wyoming and Ollama have no sign-in,
-    # so anything that reaches them can use them.
+    # -- Whether only Home Assistant, `bbe.ai.allowFrom` and Open WebUI may reach the models, and only Traefik Open
+    # WebUI. Wyoming and Ollama have no sign-in, so anything that reaches them can use them.
     # The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates
     enabled: true
   ai:
@@ -84,3 +89,23 @@ bbe:
           # -- The memory to limit Ollama to, the same as requested, so it never takes memory the node's other apps rely
           # on
           memory: 2560Mi
+    chat:
+      # -- Whether to serve Open WebUI at ai.<domain>, to chat with Ollama's model in the browser. People sign in with
+      # authentik: `users` chat, and `admins` manage it. Only with Ollama
+      enabled: true
+      image:
+        # -- Open WebUI, without the models it bundles for searching documents, which it downloads when it needs them
+        repository: ghcr.io/open-webui/open-webui
+        # -- Open WebUI's version
+        tag: 0.13.0-slim
+      # -- The size of its data volume, with its database, the chats and its downloaded models
+      dataSize: 5Gi
+      resources:
+        requests:
+          # -- The memory to request for Open WebUI
+          memory: 768Mi
+          # -- The CPU to request for Open WebUI
+          cpu: 100m
+        limits:
+          # -- The memory to limit Open WebUI to. Searching documents loads a model of its own
+          memory: 2Gi

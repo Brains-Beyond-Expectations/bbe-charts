@@ -15,7 +15,7 @@ This guide takes you from a fresh BBE cluster to every app running, with your ho
 | bbe-gpu | The nodes' Intel GPUs, which Jellyfin transcodes on | |
 | bbe-misc | Snipe-IT, to keep track of the household's things, who has them, and their receipts and warranties | `https://snipeit.bbe.home.arpa` |
 | bbe-observability | Grafana, with the cluster's metrics and logs, and alerts when something goes wrong | `https://grafana.bbe.home.arpa` |
-| bbe-ai | Speech-to-text, text-to-speech and a small LLM for Home Assistant's voice assistant | An address of its own, for Home Assistant |
+| bbe-ai | Speech-to-text, text-to-speech and a small LLM for Home Assistant's voice assistant, and Open WebUI to chat with the LLM | `https://ai.bbe.home.arpa`, and an address of its own for Home Assistant |
 
 `bbe.home.arpa` is the default domain. You can choose another one under `home.arpa` when you install bbe-networking.
 
@@ -296,7 +296,7 @@ Snipe-IT keeps track of what the household has, who has it, and its receipts and
 
 ## 12. Home Assistant's voice assistant
 
-bbe-ai runs what Home Assistant needs to hear, answer and speak, on the cluster's CPUs: speech-to-text (Parakeet), text-to-speech (Piper) and a small LLM (Ollama). Home Assistant itself runs elsewhere, and reaches them at bbe-ai's address. Nothing leaves your network.
+bbe-ai runs what Home Assistant needs to hear, answer and speak, on the cluster's CPUs: speech-to-text (Parakeet), text-to-speech (Piper) and a small LLM (Ollama). Home Assistant itself runs elsewhere, and reaches them at bbe-ai's address. Nothing leaves your network. Open WebUI chats with the same LLM in the browser.
 
 - **Connecting Home Assistant:** `bbe install` shows the steps once it's installed, and `bbe upgrade` again. Add the Wyoming Protocol integration twice, at ports `10300` and `10200`, and the Ollama integration at `http://<address>:11434`. Then make a voice assistant using them, with **"Prefer handling commands locally"** on.
 - **Who reaches it:** only Home Assistant's address. To try the models from a computer too, add its address under bbe-ai's values in `~/.bbe/bbe.yaml`, then run `bbe upgrade`:
@@ -317,7 +317,8 @@ bbe-ai runs what Home Assistant needs to hear, answer and speak, on the cluster'
           limits: {memory: 4Gi}
   ```
   The pod waits in Pending if no node has the memory to spare: `kubectl describe pod -n bbe-ai` says so.
-- **Without the LLM:** set `bbe.ai.ollama.enabled: false`, and Home Assistant's own conversation agent understands what's said. It knows Home Assistant's commands, but can't answer anything else.
+- **Chatting with the LLM in the browser:** at `https://ai.bbe.home.arpa`, with Open WebUI, for `users` and `admins`, each with their own chats. `admins` are its admins too, but the very first person to sign in is made one, until a second person signs in. Ollama has no password of its own, so nothing else is needed.
+- **Without the LLM:** set `bbe.ai.ollama.enabled: false`, and Home Assistant's own conversation agent understands what's said. It knows Home Assistant's commands, but can't answer anything else. Open WebUI goes with it.
 
 ## Keeping things up to date
 

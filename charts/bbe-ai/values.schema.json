@@ -103,6 +103,32 @@
                   ]
                 }
               }
+            },
+            "chat": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "dataSize": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "global": {
+      "type": "object",
+      "properties": {
+        "bbe": {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "minLength": 1
             }
           }
         }

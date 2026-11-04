@@ -37,3 +37,15 @@ capabilities:
   drop:
     - ALL
 {{- end -}}
+
+{{/*
+Open WebUI only runs with Ollama, the model it chats with
+*/}}
+{{- define "bbe-ai.chatEnabled" -}}
+{{- if and .Values.bbe.ai.chat.enabled .Values.bbe.ai.ollama.enabled }}true{{ end -}}
+{{- end -}}
+
+{{- define "bbe-ai.chatSelectorLabels" -}}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: open-webui
+{{- end -}}

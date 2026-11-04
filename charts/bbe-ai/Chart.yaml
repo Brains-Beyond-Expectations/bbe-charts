@@ -1,6 +1,6 @@
 apiVersion: v2
 name: bbe-ai
-description: A voice assistant's speech and language models for Home Assistant, run on the BBE cluster's CPUs, with speech-to-text and text-to-speech over Wyoming and a small LLM in Ollama
+description: A voice assistant's speech and language models for Home Assistant, run on the BBE cluster's CPUs, with speech-to-text and text-to-speech over Wyoming, a small LLM in Ollama, and Open WebUI to chat with it
 type: application
 version: 0.0.1
 keywords:
@@ -19,8 +19,11 @@ annotations:
       storageClass: longhorn
       package: bbe-storage
     - name: networking
-      description: MetalLB, which announces the address Home Assistant reaches the models at
+      description: MetalLB, which announces the address Home Assistant reaches the models at, and Traefik, which serves Open WebUI
       package: bbe-networking
+    - name: sso
+      description: authentik, which people sign in to Open WebUI with
+      package: bbe-auth
   # The pod runs as a user, with no capabilities and nothing from the host
   bbe/pod-security: restricted
   # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it runs the same models
@@ -30,8 +33,10 @@ annotations:
     - bbe.ai.ollama.enabled
     - bbe.ai.ollama.model
     - bbe.ai.ollama.resources
+    - bbe.ai.chat.enabled
   # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted, the downloaded
   # models included
   bbe/uninstall: |
     keeps:
       - Home Assistant's Wyoming and Ollama integrations, which stop working until they're removed or pointed elsewhere
+      - Open WebUI's application in authentik, which nobody can sign in to without Open WebUI
