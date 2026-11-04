@@ -1,0 +1,54 @@
+suite: test network policy
+values:
+  - ./values/required-values.yaml
+templates:
+  - network-policy.yaml
+release:
+  name: bbe-ai
+  namespace: bbe-ai
+tests:
+  - it: should let only Home Assistant reach the models, at their ports
+    asserts:
+      - equal:
+          path: spec.podSelector
+          value: {}
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - ipBlock:
+                    cidr: 192.168.1.50/32
+              ports:
+                - port: speech-to-text
+                - port: text-to-speech
+                - port: ollama
+
+  - it: should let in the other addresses allowed
+    set:
+      bbe.ai.allowFrom:
+        - 192.168.1.20/32
+    asserts:
+      - equal:
+          path: spec.ingress[0].from
+          value:
+            - ipBlock:
+                cidr: 192.168.1.50/32
+            - ipBlock:
+                cidr: 192.168.1.20/32
+
+  - it: should leave Ollama's port out without Ollama
+    set:
+      bbe.ai.ollama.enabled: false
+    asserts:
+      - equal:
+          path: spec.ingress[0].ports
+          value:
+            - port: speech-to-text
+            - port: text-to-speech
+
+  - it: should let anything in when NetworkPolicies are off
+    set:
+      bbe.networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

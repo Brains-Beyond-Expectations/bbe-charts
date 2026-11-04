@@ -15,6 +15,7 @@ This guide takes you from a fresh BBE cluster to every app running, with your ho
 | bbe-gpu | The nodes' Intel GPUs, which Jellyfin transcodes on | |
 | bbe-misc | Snipe-IT, to keep track of the household's things, who has them, and their receipts and warranties | `https://snipeit.bbe.home.arpa` |
 | bbe-observability | Grafana, with the cluster's metrics and logs, and alerts when something goes wrong | `https://grafana.bbe.home.arpa` |
+| bbe-ai | Speech-to-text, text-to-speech and a small LLM for Home Assistant's voice assistant | An address of its own, for Home Assistant |
 
 `bbe.home.arpa` is the default domain. You can choose another one under `home.arpa` when you install bbe-networking.
 
@@ -33,7 +34,8 @@ You'll need:
 The cluster serves its apps and its DNS at addresses of their own on your network, which MetalLB announces:
 - one for the **apps** (Traefik), for example `192.168.1.241`;
 - one for the **DNS server** (Blocky), for example `192.168.1.240`;
-- optionally a third for **Soulseek** without a VPN (step 9).
+- optionally a third for **Soulseek** without a VPN (step 9);
+- optionally one for **Home Assistant's voice assistant** (step 12).
 
 Pick addresses on the same network as your nodes, **outside your router's DHCP range**, so nothing else gets them. bbe asks for them when it installs bbe-networking.
 
@@ -75,6 +77,7 @@ Tick the packages you want. bbe installs what each one needs first, offering to 
 | bbe-gpu | Nothing. bbe-media installs it first |
 | bbe-misc | Nothing |
 | bbe-observability | Nothing |
+| bbe-ai | An address for Home Assistant to reach the models at, from step 1, and Home Assistant's own address |
 
 Each package prints notes when it's installed, with its addresses and how to get its passwords. They're shown again whenever it's upgraded. Each also sets itself up in the background for a few minutes after a first install.
 
@@ -290,6 +293,31 @@ Snipe-IT keeps track of what the household has, who has it, and its receipts and
   kubectl get secret bbe-misc-admin -n bbe-misc -o jsonpath='{.data.password}' | base64 -d
   ```
 - **Email:** Snipe-IT sends none yet, as no mail server is set up.
+
+## 12. Home Assistant's voice assistant
+
+bbe-ai runs what Home Assistant needs to hear, answer and speak, on the cluster's CPUs: speech-to-text (Parakeet), text-to-speech (Piper) and a small LLM (Ollama). Home Assistant itself runs elsewhere, and reaches them at bbe-ai's address. Nothing leaves your network.
+
+- **Connecting Home Assistant:** `bbe install` shows the steps once it's installed, and `bbe upgrade` again. Add the Wyoming Protocol integration twice, at ports `10300` and `10200`, and the Ollama integration at `http://<address>:11434`. Then make a voice assistant using them, with **"Prefer handling commands locally"** on.
+- **Who reaches it:** only Home Assistant's address. To try the models from a computer too, add its address under bbe-ai's values in `~/.bbe/bbe.yaml`, then run `bbe upgrade`:
+  ```yaml
+  bbe:
+    ai:
+      allowFrom:
+        - 192.168.1.20/32
+  ```
+- **The LLM's size:** it's `qwen3:1.7b` by default, which fits an 8 GB node. On a node with more memory to spare, `qwen3:4b-instruct` answers better:
+  ```yaml
+  bbe:
+    ai:
+      ollama:
+        model: qwen3:4b-instruct
+        resources:
+          requests: {memory: 4Gi, cpu: 500m}
+          limits: {memory: 4Gi}
+  ```
+  The pod waits in Pending if no node has the memory to spare: `kubectl describe pod -n bbe-ai` says so.
+- **Without the LLM:** set `bbe.ai.ollama.enabled: false`, and Home Assistant's own conversation agent understands what's said. It knows Home Assistant's commands, but can't answer anything else.
 
 ## Keeping things up to date
 

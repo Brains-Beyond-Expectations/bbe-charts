@@ -1,0 +1,290 @@
+{{- $ai := .Values.bbe.ai }}
+{{- $stt := $ai.speechToText }}
+{{- $tts := $ai.textToSpeech }}
+{{- $ollama := $ai.ollama }}
+# The models, downloaded once onto Longhorn, each server's in a folder of its own
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: {{ $ai.dataSize }}
+---
+# Speech-to-text, text-to-speech and the LLM run in one pod, so one Service gives Home Assistant one address for all of
+# them while keeping its own address, which only Home Assistant's are let in from. MetalLB only shares an address
+# between Services keeping the client's address if they select the same pods. They also run one after the other for
+# each thing said, so on one node they don't compete for its CPU
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: models
+spec:
+  replicas: 1
+  # The volume is on one node, and two copies would each load the models into memory
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "bbe-ai.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-ai.labels" . | nindent 8 }}
+        app.kubernetes.io/component: models
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Each server downloads into its own folder, which the user they run as has to be able to create
+        - name: folders
+          image: "{{ $tts.image.repository }}:{{ $tts.image.tag }}"
+          command:
+            - mkdir
+            - -p
+            - /data/speech-to-text
+            - /data/text-to-speech
+            {{- if $ollama.enabled }}
+            - /data/ollama
+            {{- end }}
+          securityContext:
+            {{- include "bbe-ai.containerSecurityContext" . | nindent 12 }}
+          resources:
+            requests:
+              memory: 16Mi
+              cpu: 10m
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        {{- if $ollama.enabled }}
+        # Ollama only downloads a model when asked, so the model is downloaded here, before Ollama serves it. One already
+        # downloaded is kept as it is, so restarting needs no internet. Models downloaded before, or from Home
+        # Assistant, stay on the volume
+        - name: ollama-model
+          image: "{{ $ollama.image.repository }}:{{ $ollama.image.tag }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              ollama serve &
+              until ollama list >/dev/null 2>&1; do sleep 1; done
+              if ollama show "$MODEL" >/dev/null 2>&1; then
+                echo "$MODEL is downloaded"
+              else
+                ollama pull "$MODEL"
+              fi
+          env:
+            - name: MODEL
+              value: {{ include "bbe-ai.ollamaModel" . | quote }}
+            - name: OLLAMA_HOST
+              value: "127.0.0.1:11434"
+            - name: HOME
+              value: /data/ollama
+            - name: OLLAMA_MODELS
+              value: /data/ollama/models
+            - name: OLLAMA_NO_CLOUD
+              value: "1"
+          securityContext:
+            {{- include "bbe-ai.containerSecurityContext" . | nindent 12 }}
+          resources:
+            requests:
+              memory: 64Mi
+              cpu: 50m
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        {{- end }}
+      containers:
+        - name: speech-to-text
+          image: "{{ $stt.image.repository }}:{{ $stt.image.tag }}"
+          # The image's script doesn't hand the server signals, so it would only stop when killed
+          workingDir: /usr/src
+          command:
+            - /usr/src/.venv/bin/python3
+            - -m
+            - wyoming_faster_whisper
+          args:
+            - --uri
+            - "tcp://0.0.0.0:{{ include "bbe-ai.speechToTextPort" . }}"
+            - --data-dir
+            - /data/speech-to-text
+            - --device
+            - cpu
+            - --language
+            - {{ $stt.language | quote }}
+            - --stt-library
+            - {{ $stt.library | quote }}
+            - --model
+            - {{ $stt.model | quote }}
+          env:
+            # The libraries' caches, which the image points at the volume's root, and the home the user has none of
+            - name: HF_HOME
+              value: /data/speech-to-text
+            - name: XDG_CACHE_HOME
+              value: /data/speech-to-text
+            - name: MODELSCOPE_CACHE
+              value: /data/speech-to-text/modelscope
+            - name: HOME
+              value: /data/speech-to-text
+          ports:
+            - name: speech-to-text
+              containerPort: {{ include "bbe-ai.speechToTextPort" . }}
+          # It only listens once its model is loaded, downloaded the first time
+          startupProbe:
+            tcpSocket:
+              port: speech-to-text
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            tcpSocket:
+              port: speech-to-text
+            periodSeconds: 10
+          # Its own check asks it to describe itself, which a stuck server doesn't answer. It transcribes on the same
+          # loop, so a check can wait behind a long command
+          livenessProbe:
+            exec:
+              command:
+                - /usr/src/.venv/bin/python3
+                - -m
+                - wyoming_faster_whisper.health_check
+            periodSeconds: 30
+            timeoutSeconds: 20
+            failureThreshold: 3
+          securityContext:
+            {{- include "bbe-ai.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml $stt.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        - name: text-to-speech
+          image: "{{ $tts.image.repository }}:{{ $tts.image.tag }}"
+          workingDir: /usr/src
+          command:
+            - /usr/src/.venv/bin/python3
+            - -m
+            - wyoming_piper
+          args:
+            - --uri
+            - "tcp://0.0.0.0:{{ include "bbe-ai.textToSpeechPort" . }}"
+            - --data-dir
+            - /data/text-to-speech
+            - --download-dir
+            - /data/text-to-speech
+            - --voice
+            - {{ $tts.voice | quote }}
+          env:
+            - name: HOME
+              value: /data/text-to-speech
+          ports:
+            - name: text-to-speech
+              containerPort: {{ include "bbe-ai.textToSpeechPort" . }}
+          startupProbe:
+            tcpSocket:
+              port: text-to-speech
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: text-to-speech
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - /usr/src/.venv/bin/python3
+                - -m
+                - wyoming_piper.health_check
+            periodSeconds: 30
+            timeoutSeconds: 20
+            failureThreshold: 3
+          securityContext:
+            {{- include "bbe-ai.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml $tts.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        {{- if $ollama.enabled }}
+        - name: ollama
+          image: "{{ $ollama.image.repository }}:{{ $ollama.image.tag }}"
+          args:
+            - serve
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:{{ include "bbe-ai.ollamaPort" . }}"
+            - name: HOME
+              value: /data/ollama
+            - name: OLLAMA_MODELS
+              value: /data/ollama/models
+            # The model stays loaded, so only the first request after a restart waits for it
+            - name: OLLAMA_KEEP_ALIVE
+              value: "-1"
+            - name: OLLAMA_CONTEXT_LENGTH
+              value: {{ $ollama.contextLength | quote }}
+            - name: OLLAMA_FLASH_ATTENTION
+              value: "1"
+            - name: OLLAMA_KV_CACHE_TYPE
+              value: {{ $ollama.kvCacheType | quote }}
+            # One conversation and one model at a time, which is all the memory is sized for
+            - name: OLLAMA_NUM_PARALLEL
+              value: "1"
+            - name: OLLAMA_MAX_LOADED_MODELS
+              value: "1"
+            # Everything stays on the cluster: no models run on ollama.com, and no web search
+            - name: OLLAMA_NO_CLOUD
+              value: "1"
+          ports:
+            - name: ollama
+              containerPort: {{ include "bbe-ai.ollamaPort" . }}
+          startupProbe:
+            httpGet:
+              path: /
+              port: ollama
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /
+              port: ollama
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: ollama
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            {{- include "bbe-ai.containerSecurityContext" . | nindent 12 }}
+          resources:
+            {{- toYaml $ollama.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-data

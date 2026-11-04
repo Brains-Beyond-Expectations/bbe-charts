@@ -1,0 +1,37 @@
+apiVersion: v2
+name: bbe-ai
+description: A voice assistant's speech and language models for Home Assistant, run on the BBE cluster's CPUs, with speech-to-text and text-to-speech over Wyoming and a small LLM in Ollama
+type: application
+version: 0.0.1
+keywords:
+  - bbe
+  - ai
+  - home-assistant
+  - wyoming
+  - ollama
+  - voice
+home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for the downloaded models
+      storageClass: longhorn
+      package: bbe-storage
+    - name: networking
+      description: MetalLB, which announces the address Home Assistant reaches the models at
+      package: bbe-networking
+  # The pod runs as a user, with no capabilities and nothing from the host
+  bbe/pod-security: restricted
+  # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it runs the same models
+  bbe/recorded-values: |
+    - bbe.ai.speechToText.model
+    - bbe.ai.textToSpeech.voice
+    - bbe.ai.ollama.enabled
+    - bbe.ai.ollama.model
+    - bbe.ai.ollama.resources
+  # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted, the downloaded
+  # models included
+  bbe/uninstall: |
+    keeps:
+      - Home Assistant's Wyoming and Ollama integrations, which stop working until they're removed or pointed elsewhere

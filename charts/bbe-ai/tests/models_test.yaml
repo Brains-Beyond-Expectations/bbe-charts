@@ -1,0 +1,250 @@
+suite: test models
+values:
+  - ./values/required-values.yaml
+templates:
+  - models.yaml
+release:
+  name: bbe-ai
+  namespace: bbe-ai
+tests:
+  - it: should keep the downloaded models on Longhorn
+    documentSelector:
+      path: kind
+      value: PersistentVolumeClaim
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-ai-data
+      - equal:
+          path: spec.storageClassName
+          value: longhorn
+      - equal:
+          path: spec.resources.requests.storage
+          value: 15Gi
+
+  - it: should run speech-to-text, text-to-speech and Ollama in one pod, replaced rather than doubled
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 3
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: speech-to-text
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: text-to-speech
+      - equal:
+          path: spec.template.spec.containers[2].name
+          value: ollama
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 2
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: folders
+      - equal:
+          path: spec.template.spec.initContainers[1].name
+          value: ollama-model
+
+  - it: should run as a user, with no capabilities, as `restricted` asks
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext
+          value:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+      # Checked on each container
+      - equal:
+          path: spec.template.spec.containers[*].securityContext
+          value: &restricted
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+      - equal:
+          path: spec.template.spec.initContainers[*].securityContext
+          value: *restricted
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: should transcribe English with the server's choice of model, into its own folder
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: rhasspy/wyoming-whisper:3.8.1
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - --uri
+            - tcp://0.0.0.0:10300
+            - --data-dir
+            - /data/speech-to-text
+            - --device
+            - cpu
+            - --language
+            - en
+            - --stt-library
+            - auto
+            - --model
+            - auto
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HF_HOME
+            value: /data/speech-to-text
+
+  - it: should transcribe with faster-whisper's base.en when asked
+    documentSelector:
+      path: kind
+      value: Deployment
+    set:
+      bbe.ai.speechToText.library: faster-whisper
+      bbe.ai.speechToText.model: base.en
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args[9]
+          value: faster-whisper
+      - equal:
+          path: spec.template.spec.containers[0].args[11]
+          value: base.en
+
+  - it: should speak with the voice set, downloading it into its own folder
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: rhasspy/wyoming-piper:2.5.2
+      - equal:
+          path: spec.template.spec.containers[1].args
+          value:
+            - --uri
+            - tcp://0.0.0.0:10200
+            - --data-dir
+            - /data/text-to-speech
+            - --download-dir
+            - /data/text-to-speech
+            - --voice
+            - en_US-lessac-medium
+
+  - it: should keep Ollama's model loaded, one conversation at a time, and nothing on ollama.com
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[2].image
+          value: ollama/ollama:0.40.14
+      - equal:
+          path: spec.template.spec.containers[2].env
+          value:
+            - name: OLLAMA_HOST
+              value: 0.0.0.0:11434
+            - name: HOME
+              value: /data/ollama
+            - name: OLLAMA_MODELS
+              value: /data/ollama/models
+            - name: OLLAMA_KEEP_ALIVE
+              value: "-1"
+            - name: OLLAMA_CONTEXT_LENGTH
+              value: "8192"
+            - name: OLLAMA_FLASH_ATTENTION
+              value: "1"
+            - name: OLLAMA_KV_CACHE_TYPE
+              value: q8_0
+            - name: OLLAMA_NUM_PARALLEL
+              value: "1"
+            - name: OLLAMA_MAX_LOADED_MODELS
+              value: "1"
+            - name: OLLAMA_NO_CLOUD
+              value: "1"
+
+  - it: should give Ollama the memory it asks for, and no more
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[2].resources
+          value:
+            requests:
+              memory: 2560Mi
+              cpu: 500m
+            limits:
+              memory: 2560Mi
+
+  - it: should download the model before Ollama serves it
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[1].env
+          content:
+            name: MODEL
+            value: qwen3:1.7b
+      - matchRegex:
+          path: spec.template.spec.initContainers[1].command[2]
+          pattern: ollama show "\$MODEL" >/dev/null 2>&1
+      - matchRegex:
+          path: spec.template.spec.initContainers[1].command[2]
+          pattern: ollama pull "\$MODEL"
+      - equal:
+          path: spec.template.spec.initContainers[0].command
+          value: [mkdir, -p, /data/speech-to-text, /data/text-to-speech, /data/ollama]
+
+  - it: should name a model without a tag as Ollama lists it
+    documentSelector:
+      path: kind
+      value: Deployment
+    set:
+      bbe.ai.ollama.model: llama3.2
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[1].env
+          content:
+            name: MODEL
+            value: llama3.2:latest
+
+  - it: should run only the speech without Ollama
+    documentSelector:
+      path: kind
+      value: Deployment
+    set:
+      bbe.ai.ollama.enabled: false
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 2
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: speech-to-text
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: text-to-speech
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 1
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: folders
+      - equal:
+          path: spec.template.spec.initContainers[0].command
+          value: [mkdir, -p, /data/speech-to-text, /data/text-to-speech]

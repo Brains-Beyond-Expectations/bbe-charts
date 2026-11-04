@@ -1,0 +1,32 @@
+{{- if .Values.bbe.networkPolicy.enabled }}
+{{- $ai := .Values.bbe.ai }}
+{{- /*
+Wyoming and Ollama have no sign-in, so anything reaching them can use them. Only Home Assistant, and the addresses in
+allowFrom, reach the models, and only at their ports
+*/ -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ $ai.homeAssistantIP }}/32
+        {{- range $ai.allowFrom }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - port: speech-to-text
+        - port: text-to-speech
+        {{- if $ai.ollama.enabled }}
+        - port: ollama
+        {{- end }}
+{{- end }}

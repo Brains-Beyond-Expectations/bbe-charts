@@ -1,4 +1,8 @@
 charts:
+  - name: bbe-ai
+    # Reads the restricted pod security level, the prerequisites naming only a package, the values it records, and
+    # what uninstalling keeps
+    min-bbe-cli: 1.7.0
   - name: bbe-gpu
     # Reads what uninstalling keeps
     min-bbe-cli: 1.7.0
