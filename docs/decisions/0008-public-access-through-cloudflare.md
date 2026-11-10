@@ -96,7 +96,7 @@ Rejected: **forwarding a port to Traefik.** Every app, and every app's bugs, wou
 | App | Published? | Behind Access? |
 |---|---|---|
 | Jellyfin | Yes | No, so its TV and phone apps work (decision 4) |
-| Calibre-Web-Automated | Yes | Yes. E-readers syncing with it, or reading its OPDS catalogue, can't get through Access, so they sync at home or over Tailscale |
+| Calibre-Web-Automated | Yes | Yes. E-readers syncing with it, or reading its OPDS catalogue, can't get through Access, so they sync at home |
 | Music Assistant | Yes | Yes |
 | authentik (`auth`) | Yes, as the sign-in | No, Access sends people to it (decision 4) |
 | Seerr, Shelfmark, Snipe-IT, Open WebUI | No | Through Tailscale |
@@ -107,8 +107,7 @@ Nothing is published by default. An app opts in with a setting naming its public
 
 Streaming Jellyfin and Music Assistant through Cloudflare goes against its terms (Context). It's the household's streaming, so a small share of traffic, but Cloudflare can still limit the account.
 - **At home**, the public names go straight to Traefik (decision 12), so nothing streams through Cloudflare.
-- **Music Assistant and Calibre-Web, on Tailscale,** go through Tailscale, as its DNS sends their public names to Blocky ([0013](0013-remote-access-through-tailscale.md), decision 3).
-- **Jellyfin, away from home, always goes through Cloudflare,** with Tailscale on or not. It's left out of Tailscale's DNS (0013, decision 3), so its streams away from home are the share Cloudflare's terms are about.
+- **Away from home, the three apps always go through Cloudflare,** with Tailscale on or not. They're kept out of Tailscale ([0013](0013-remote-access-through-tailscale.md), decision 3), so their streams away from home are the share Cloudflare's terms are about.
 
 ### 3. A public domain, with apps one level below it
 
@@ -244,7 +243,7 @@ Rejected:
 - **Terraform.** Its state can only be encrypted by the backend it's stored in, so it would have to stay out of git, on one machine.
 - **Routes in `bbe-tunnel`'s values (a locally managed tunnel).** It would split what's public between the chart and OpenTofu, which still has to create the DNS records and Access applications.
 - **A configuration each installation writes itself.** Every installation would rewrite the same resources, and fixes to them wouldn't reach anyone.
-- **A configuration and state for each of Cloudflare and Tailscale.** Two passphrases to keep, and two applies for a change that touches both, such as publishing an app whose public name Tailscale's DNS also sends to Blocky.
+- **A configuration and state for each of Cloudflare and Tailscale.** Two passphrases to keep, two states to commit, and two applies to run.
 
 ### 10. On install, you choose who runs OpenTofu
 
@@ -309,7 +308,7 @@ A TV or phone set up with `jellyfin.<public domain>` keeps that name wherever it
 
 **Each published app's Ingress gets its public host as a second host**, on the house's entrypoint, beside its routers on `public` (decision 8). It's the same app, signed in to the same way, except that Access isn't in front at home. That's the same as its `bbe.home.arpa` name, where Access never was. An app behind forward auth needs authentik's provider for the public domain too (Consequences).
 
-Devices on Tailscale get the same for every published host but Jellyfin's, as Tailscale's DNS sends them to Blocky ([0013](0013-remote-access-through-tailscale.md), decision 3). Away from home, Jellyfin's public name goes through Cloudflare.
+Devices on Tailscale don't: away from home, every public name goes through Cloudflare, Tailscale on or not ([0013](0013-remote-access-through-tailscale.md), decision 3).
 
 Rejected:
 - **Going out through Cloudflare.** It's what happens without this. It's slower, it streams through Cloudflare, and an app's at-home use would be in Cloudflare's logs and the audit trail.
@@ -318,10 +317,10 @@ Rejected:
 
 ## Consequences
 
-- **Streaming through Cloudflare goes against its terms.** Jellyfin away from home always does, and Music Assistant on devices without Tailscale (decision 2). If Cloudflare limits the account, Jellyfin can't be reached from outside, and Music Assistant only through Tailscale.
+- **Streaming through Cloudflare goes against its terms.** Jellyfin and Music Assistant always do away from home, as they're kept out of Tailscale (decision 2). If Cloudflare limits the account, none of the three apps can be reached from outside.
 - **Cloudflare sees all traffic to the published apps** that goes through it, decrypted.
 - **authentik's and Jellyfin's sign-ins are on the internet.** Both have to be kept up to date, as a flaw in either is a flaw in the way in. Everyone in `users` can sign in to Jellyfin from the allowed countries.
-- **E-readers can't sync with Calibre-Web through Access.** Away from home, they sync over Tailscale where they can run it, or when they're back home.
+- **E-readers can't sync with Calibre-Web through Access.** Away from home they can't sync at all, as Calibre-Web is kept out of Tailscale. They sync when they're back home.
 - **The published apps have two names**: `bbe.home.arpa`, and the public one, which works at home too (decision 12). Each one needs routers for both, and a forward auth provider for the public domain where it's behind forward auth, such as Music Assistant.
 - **`global.bbe.public` is shared by several packages,** so bbe has to give the same value to each, and upgrade bbe-networking when an app is published.
 - **A Cloudflare token that can edit the zone's DNS is in the cluster,** for cert-manager to renew the certificate. Anyone who can read Secrets in `bbe-networking` can change the domain's records. It can't touch the tunnel, Access or the rules. Turning `global.bbe.public.local` off removes it.

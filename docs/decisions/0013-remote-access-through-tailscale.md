@@ -4,7 +4,7 @@
 
 ## Context
 
-[0008](0008-public-access-through-cloudflare.md) publishes three apps through Cloudflare, for devices that can't run a VPN: Jellyfin, Calibre-Web-Automated and Music Assistant. Every other app, from Seerr to the Servarr apps and Grafana, is only for the house's network, and "the VPN" from outside, which nothing had chosen yet.
+[0008](0008-public-access-through-cloudflare.md) publishes three apps through Cloudflare, for devices that can't run a VPN: Jellyfin, Calibre-Web-Automated and Music Assistant. Those three stay out of the VPN: away from home they're only reached through Cloudflare. Every other app, from Seerr to the Servarr apps and Grafana, is only for the house's network, and "the VPN" from outside, which nothing had chosen yet.
 
 What that access must have:
 - **No open ports on the router**, as for 0008.
@@ -56,8 +56,8 @@ flowchart TD
     Q3 -.->|rejected| C3[A device of its own,<br/>outside the cluster]
 
     A1 --> Q4{How are the names found?}
-    Q4 -->|chosen| A4[Split DNS: bbe.home.arpa and<br/>the published hosts but Jellyfin's to Blocky]
-    Q4 -.->|rejected| C4[Jellyfin's public name to Blocky:<br/>Jellyfin goes through Cloudflare]
+    Q4 -->|chosen| A4[Split DNS: bbe.home.arpa to Blocky]
+    Q4 -.->|rejected| C4[The published apps' public names to Blocky:<br/>they go through Cloudflare]
     Q4 -->|setting, off by default| B4[Blocky for every name,<br/>blocking ads away from home]
 
     A1 --> Q5{How is it managed?}
@@ -109,12 +109,9 @@ Split DNS, for every device on the tailnet:
 | Names | Asked of |
 |---|---|
 | `bbe.home.arpa` and everything under it | Blocky's address |
-| Each host 0008 publishes, such as `music.<public domain>`, when it's answered at home (0008, decision 12), except Jellyfin's | Blocky's address |
-| Everything else, Jellyfin's public name included | The device's own DNS, as without Tailscale |
+| Everything else, the public names 0008 publishes included | The device's own DNS, as without Tailscale |
 
-The published hosts go to Blocky too, so a phone or laptop that knows Music Assistant or Calibre-Web by its public name reaches it through Tailscale, not through Cloudflare.
-
-**Jellyfin doesn't go through Tailscale.** Away from home, its public name resolves to Cloudflare, Tailscale on or not, and Jellyfin is reached through the tunnel (0008, decision 2). Its `bbe.home.arpa` name isn't meant to be used over Tailscale either, but nothing enforces that (Consequences).
+**The apps 0008 publishes don't go through Tailscale.** Away from home, Jellyfin, Calibre-Web-Automated and Music Assistant are reached by their public names, through Cloudflare, Tailscale on or not (0008, decision 2). Their `bbe.home.arpa` names aren't meant to be used over Tailscale either, but nothing enforces that (Consequences).
 
 If the router is down, only the house's names stop resolving. Everything else on the device works as before.
 
@@ -168,9 +165,9 @@ A device that keeps Tailscale on at home still works. It reaches Traefik and Blo
 - **Apps see the router's pod as the client,** not the device on the tailnet, as the router opens its own connections. authentik still records who signed in. There's no record of which device reached which app through Tailscale on the free plan.
 - **The tailnet's policy file and DNS settings belong to bbe.** Changes made in Tailscale's admin console are undone by the next apply.
 - **The auth key expires,** at most 90 days after OpenTofu creates it. The router's devices keep their state and don't need it again. A replica that loses its state can't join until the key is created again, by the next apply.
-- **Jellyfin's `bbe.home.arpa` name still answers through Tailscale.** The router reaches Traefik, which serves every app on one address, and Tailscale's policy can only allow or refuse addresses and ports, not names. Keeping Jellyfin off Tailscale relies on devices using its public name away from home. Enforcing it would take a rule on Jellyfin's router in Traefik refusing the router's pods, which isn't decided here.
+- **The published apps' `bbe.home.arpa` names still answer through Tailscale.** The router reaches Traefik, which serves every app on one address, and Tailscale's policy can only allow or refuse addresses and ports, not names. Keeping Jellyfin, Calibre-Web and Music Assistant off Tailscale relies on devices using their public names away from home. Enforcing it would take a rule on their routers in Traefik refusing the router's pods, which isn't decided here.
 - **The nodes, and the Talos and Kubernetes APIs, aren't reachable through Tailscale.** Managing the cluster from outside isn't part of this.
-- **Userspace mode is slower than the kernel's.** If streaming through Tailscale is too slow, the router can move to the kernel's mode, which needs `NET_ADMIN` and a `privileged` namespace.
+- **Userspace mode is slower than the kernel's.** Nothing is meant to stream through it, as the apps that stream are kept out of Tailscale. If it's still too slow, the router can move to the kernel's mode, which needs `NET_ADMIN` and a `privileged` namespace.
 - **`bbe-observability` gets a PodMonitor for the router's metrics**, as for the other packages ([0006](0006-observability.md), decision 3).
 - **Not built or verified.**
   - **Checked on 2026-11-10,** against Tailscale's documentation and the provider's changelog: userspace subnet routing, containerboot's variables, high availability, and the provider's resources.
@@ -180,4 +177,4 @@ A device that keeps Tailscale on at home still works. It reaches Traefik and Blo
     - the OAuth client's scopes for the policy file, DNS and tagged keys;
     - `tailscale_dns_configuration`'s fields;
     - the metrics containerboot serves;
-    - how fast userspace routing streams from Jellyfin.
+    - how much userspace routing slows the apps down.
