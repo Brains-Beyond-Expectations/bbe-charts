@@ -1,10 +1,10 @@
 # 0008: Reaching apps from outside through Cloudflare
 
-**Status:** proposed, 2026-10-23
+**Status:** proposed, 2026-10-23; revised 2026-11-10
 
 ## Context
 
-The apps are only reachable on the house's network, at `<app>.bbe.home.arpa` ([0002](0002-single-sign-on.md), decision 6). Devices that can run a VPN reach them from outside through it. Some can't, such as a TV away from home or a computer that doesn't allow one. From those, the cluster's owner, and nobody else, should still reach the apps, without opening the house to the internet.
+The apps are only reachable on the house's network, at `<app>.bbe.home.arpa` ([0002](0002-single-sign-on.md), decision 6). Devices that can run Tailscale reach every app from outside through it ([0013](0013-remote-access-through-tailscale.md)). Some can't, such as a TV away from home or a computer that doesn't allow a VPN. From those, the household should still reach the apps they watch, read and listen with, without opening the house to the internet.
 
 What that access must have:
 - **No open ports on the router**, and nothing on the internet that reaches the cluster directly.
@@ -14,6 +14,7 @@ What that access must have:
 - **IP blocking**, for addresses that abuse it.
 - **Managed as code:** what's public, who's allowed in and what's blocked are all in git and reviewed. Nothing is configured by hand.
 - **Free:** no paid plans or services for now.
+- **At home, the public names stay at home:** a device that only knows an app's public name, such as a TV, shouldn't go out to Cloudflare and back to reach it from the sofa.
 
 Things that shaped what follows, checked against Cloudflare's and OpenTofu's documentation on 2026-10-23:
 - **Cloudflare Tunnel connects outbound from the cluster.** The router keeps every port closed, and Cloudflare's edge is the only thing on the internet.
@@ -24,9 +25,9 @@ Things that shaped what follows, checked against Cloudflare's and OpenTofu's doc
   - **WAF custom rules:** 5.
   - **Custom IP lists:** 1 list, with 10,000 items.
 - **Cloudflare Access is free for up to 50 users.** It keeps its sign-in logs for 24 hours on the Free plan. Exporting Cloudflare's logs with Logpush needs a contract or Enterprise plan.
-- **Access signs people in through a browser.** Jellyfin's TV and phone apps can't get through it.
-- **Universal SSL only covers the domain and one level below it**, so `seerr.example.org` is covered and `seerr.bbe.example.org` isn't.
-- **Cloudflare's provider** is at 5.28.1, in OpenTofu's registry as well as Terraform's. It manages tunnels and their routing, DNS, Access, WAF rulesets and lists.
+- **Access signs people in through a browser.** Jellyfin's TV and phone apps can't get through it, and neither can e-readers syncing with Calibre-Web.
+- **Universal SSL only covers the domain and one level below it**, so `jellyfin.example.org` is covered and `jellyfin.bbe.example.org` isn't.
+- **Cloudflare's provider** is at 5.28.1, in OpenTofu's registry as well as Terraform's. It manages tunnels and their routing, DNS, Access, WAF rulesets and lists, and API tokens (`cloudflare_api_token`, whose policies' `resources` are wrapped in `jsonencode()` since 5.13).
 - **OpenTofu (1.13.2) encrypts its state and plans itself,** with the local backend too.
   - **How:** AES-GCM, with a key derived from a passphrase of at least 16 characters (PBKDF2).
   - **The passphrase** can come from a variable, so it doesn't have to be in any file.
@@ -34,18 +35,23 @@ Things that shaped what follows, checked against Cloudflare's and OpenTofu's doc
 - **`bbe-observability` sends every pod's output to Loki**, through Alloy, and keeps it for 15 days on a 10Gi volume ([0006](0006-observability.md)). Alloy labels each line with its namespace, pod, container and app. Loki's compactor deletes by age, per stream if asked, but never by size.
 - **NetworkPolicies are enforced** on clusters set up since bbe-quest#56 ([0007](0007-network-policies.md)).
 
+Checked on 2026-11-10, for the public names at home (decision 12):
+- **cert-manager's Cloudflare DNS-01 solver** writes the `_acme-challenge` TXT record with an API token from a Secret. The token needs `Zone - DNS - Edit` and `Zone - Zone - Read`, as cert-manager looks the zone up by name first.
+- **A wildcard certificate needs DNS-01**, and doesn't cover the domain itself, which is listed beside it.
+- **Traefik's default TLS store** takes a list of `certificates` besides its `defaultCertificate`, and picks one by the name the client asks for (SNI). Only the store named `default` is used.
+
 ## Decision tree
 
 ```mermaid
 flowchart TD
     Q1{How are the apps reached from outside?}
-    Q1 -->|chosen, from devices that can| A1[The VPN]
+    Q1 -->|chosen, from devices that can| A1[Tailscale, 0013]
     Q1 -->|chosen, from devices that can't| B1[A Cloudflare Tunnel, Free plan]
     Q1 -.->|rejected| C1[A port forwarded<br/>to Traefik]
 
     B1 --> Q2{Which apps?}
-    Q2 -->|chosen| A2[The apps people use: Jellyfin, Seerr,<br/>the book library, Shelfmark, Music Assistant, Snipe-IT]
-    Q2 -.->|rejected| B2[The apps that manage the media,<br/>the dashboard, Blocky]
+    Q2 -->|chosen| A2[Jellyfin, Calibre-Web-Automated<br/>and Music Assistant]
+    Q2 -.->|rejected| B2[Everything else:<br/>through Tailscale only]
 
     B1 --> Q3{Who signs people in?}
     Q3 -->|chosen| A3[Cloudflare Access,<br/>with authentik as its identity provider]
@@ -61,49 +67,56 @@ flowchart TD
     Q7 -.->|rejected| B7[Shortened automatically<br/>when space runs low]
 
     B1 --> Q5{How is it managed?}
-    Q5 -->|chosen| A5[OpenTofu for Cloudflare, with encrypted state,<br/>a bbe package for cloudflared]
+    Q5 -->|chosen| A5[OpenTofu for Cloudflare and Tailscale,<br/>with encrypted state,<br/>a bbe package for cloudflared]
     Q5 -.->|rejected| D5[Terraform: its state<br/>can't be committed]
     Q5 -.->|rejected| B5[The tunnel's routes<br/>in the chart's values]
 
     A5 --> Q6{Who runs OpenTofu?}
     Q6 -->|chosen, asked on install| A6[bbe runs it]
     Q6 -->|chosen, asked on install| B6[You run what bbe writes]
-    Q6 -->|chosen, asked on install| C6[Nobody: steps by hand<br/>in Cloudflare's dashboard]
+    Q6 -.->|rejected| C6[Nobody: steps by hand<br/>in Cloudflare's dashboard]
+
+    B1 --> Q8{At home, where do the public names go?}
+    Q8 -->|chosen, on by default| A8[Straight to Traefik:<br/>Blocky answers them, and Traefik serves<br/>a Let's Encrypt certificate for them]
+    Q8 -.->|rejected| B8[Out to Cloudflare<br/>and back through the tunnel]
 ```
 
 ## Decisions
 
-### 1. A tunnel for devices that can't use the VPN, and nothing else is opened
+### 1. A tunnel for devices that can't use Tailscale, and nothing else is opened
 
-The VPN stays how devices that can run one reach everything from outside. The tunnel only publishes the apps that are opted in (decision 2), to the owner (decision 4). The router forwards no ports, and UPnP is off.
+Tailscale is how devices that can run it reach everything from outside ([0013](0013-remote-access-through-tailscale.md)). The tunnel only publishes the apps that are opted in (decision 2). The router forwards no ports, and UPnP is off.
 
 Everything runs on Cloudflare's Free plan. Each decision says what that limits.
 
 Rejected: **forwarding a port to Traefik.** Every app, and every app's bugs, would be reachable by anyone, with nothing in front to rate limit or block. Moving the cluster's address would also mean changing the DNS.
 
-### 2. The apps people use are published, and opted in one by one
+### 2. Three apps are published, and opted in one by one
 
 | App | Published? | Behind Access? |
 |---|---|---|
 | Jellyfin | Yes | No, so its TV and phone apps work (decision 4) |
-| Seerr | Yes | Yes |
-| Calibre-Web-Automated | Yes | Yes |
-| Shelfmark | Yes | Yes |
+| Calibre-Web-Automated | Yes | Yes. E-readers syncing with it, or reading its OPDS catalogue, can't get through Access, so they sync at home or over Tailscale |
 | Music Assistant | Yes | Yes |
-| Snipe-IT | Yes | Yes ([0009](0009-snipe-it.md)) |
 | authentik (`auth`) | Yes, as the sign-in | No, Access sends people to it (decision 4) |
-| Sonarr, Radarr, Prowlarr, Bazarr, qBittorrent | No | Managing the media is done through the VPN |
-| Grafana, the dashboard, Blocky | No | They're for the house's network |
+| Seerr, Shelfmark, Snipe-IT, Open WebUI | No | Through Tailscale |
+| Sonarr, Radarr, Prowlarr, Bazarr, Lidarr, qBittorrent, slskd, SoulSync | No | Managing the media is done through Tailscale |
+| Grafana, the dashboard, Blocky | No | They're for the house's network, and Tailscale |
 
-Nothing is published by default. An app opts in with a setting naming its public host, under the package's `bbe/settings`.
+Nothing is published by default. An app opts in with a setting naming its public host, under the package's `bbe/settings`. Opting in more apps later is the same setting, and the table here is what bbe offers.
 
-Streaming Jellyfin and Music Assistant through Cloudflare goes against its terms (Context). It's one person's streaming, so it's a small share of traffic, but Cloudflare can still limit the account. Streaming through the VPN, where a device can run it, avoids that.
+Streaming Jellyfin and Music Assistant through Cloudflare goes against its terms (Context). It's the household's streaming, so a small share of traffic, but Cloudflare can still limit the account.
+- **At home**, the public names go straight to Traefik (decision 12), so nothing streams through Cloudflare.
+- **Music Assistant and Calibre-Web, on Tailscale,** go through Tailscale, as its DNS sends their public names to Blocky ([0013](0013-remote-access-through-tailscale.md), decision 3).
+- **Jellyfin, away from home, always goes through Cloudflare,** with Tailscale on or not. It's left out of Tailscale's DNS (0013, decision 3), so its streams away from home are the share Cloudflare's terms are about.
 
 ### 3. A public domain, with apps one level below it
 
-The published apps get public names in a domain on Cloudflare, one level below it: `jellyfin.<public domain>`. Universal SSL covers them for free. Inside the house they keep their `bbe.home.arpa` names.
+The published apps get public names in a domain on Cloudflare, one level below it: `jellyfin.<public domain>`. Universal SSL covers them for free at Cloudflare's edge. Inside the house they keep their `bbe.home.arpa` names too.
 
-This is the public domain [0002](0002-single-sign-on.md) left for later (decision 6). Cloudflare holds its certificate at the edge. Between cloudflared and Traefik, the traffic stays on bbe's own certificate authority (decision 8).
+This is the public domain [0002](0002-single-sign-on.md) left for later (decision 6). Between cloudflared and Traefik, the traffic stays on bbe's own certificate authority (decision 8). At home, Traefik serves a Let's Encrypt certificate for the public names (decision 12).
+
+The public domain and the published hosts are `global.bbe.public` in `bbe.yaml`. bbe gives them to every package that needs them: bbe-networking for Blocky and the certificate, bbe-tunnel, and the packages of the published apps for their routers.
 
 ### 4. Cloudflare Access in front, signing in with authentik, except Jellyfin
 
@@ -155,13 +168,13 @@ Rejected: **Logpush to our own storage.** It's the complete record, but it needs
   - Jellyfin's `/Users/AuthenticateByName`.
 
   One rule can match both, as its expression is any filter. It stops a flood before it reaches the house.
-- **At Traefik:** a `RateLimit` middleware on the public entrypoint's routers. It counts per `Cf-Connecting-IP` (`sourceCriterion.requestHeaderName`), so it limits each client rather than cloudflared. Traefik's limits can use whatever rate and period we choose. Jellyfin's streams make many requests, so its router gets a looser limit than the sign-ins.
+- **At Traefik:** a `RateLimit` middleware on the public entrypoint's routers. It counts per `Cf-Connecting-IP` (`sourceCriterion.requestHeaderName`), so it limits each client rather than cloudflared. Traefik's limits can use whatever rate and period we choose. Jellyfin's and Music Assistant's streams make many requests, so their routers get a looser limit than the sign-ins.
 - **At authentik:** its reputation policy, against guessing passwords slowly.
 
 ### 7. Countries are allowed and addresses blocked at Cloudflare, from bbe.yaml
 
 Two of the Free plan's five WAF custom rules:
-1. **Only the countries the owner uses are let in,** for every published hostname. It's one person, so anywhere else is someone else. Travelling means adding a country, and removing it after.
+1. **Only the countries the household uses are let in,** for every published hostname. Travelling means adding a country, and removing it after.
 2. **`ip.src in $bbe_blocked` is blocked.** `bbe_blocked` is a custom IP list, which holds up to 10,000 addresses and ranges.
 
 The countries and the blocked addresses are `bbe-tunnel`'s settings in `bbe.yaml`, each address with why it's blocked. OpenTofu's configuration is written from them (decision 9). Blocked requests never reach Access, the tunnel or the house.
@@ -175,7 +188,7 @@ Rejected: **IP Access rules.** Cloudflare recommends custom rules and lists inst
 
 A new package, `bbe-tunnel`, runs cloudflared:
 - **What it runs:** two replicas of a pinned `cloudflare/cloudflared` image, on the `restricted` pod security level.
-- **The token:** it signs in with the tunnel's token, from a Secret. OpenTofu creates the token, or the dashboard when it's set up by hand (decision 10).
+- **The token:** it signs in with the tunnel's token, from a Secret. OpenTofu creates the token (decision 9).
 - **bbe's CA:** mounted, so cloudflared verifies Traefik's certificate (`caPool`, with `originServerName` in `bbe.home.arpa`) instead of skipping the check.
 
 Traefik in `bbe-networking` gets a separate entrypoint, `public`, which isn't on its LoadBalancer service, so only pods reach it. cloudflared sends everything there.
@@ -194,7 +207,7 @@ bbe-networking had no policies, as the API server calls its webhooks from the no
 
 Rejected: **Cloudflare's `cloudflare-tunnel-remote` chart** (0.1.2). It runs the `latest` image, takes the token as a plain value, and can't mount bbe's CA.
 
-### 9. Cloudflare is configured with OpenTofu, written by bbe, with encrypted state
+### 9. Cloudflare and Tailscale are configured with OpenTofu, written by bbe, with encrypted state
 
 Everything on Cloudflare's side is in an OpenTofu module in this repository, `tofu/cloudflare`, released with the charts. It uses Cloudflare's provider 5.28.1:
 
@@ -207,49 +220,50 @@ Everything on Cloudflare's side is in an OpenTofu module in this repository, `to
 | `cloudflare_zero_trust_access_application`, `cloudflare_zero_trust_access_policy` | An application per app behind Access, allowing `remote` |
 | `cloudflare_list`, `cloudflare_list_item` | `bbe_blocked` |
 | `cloudflare_ruleset` | The country and blocking rules (`http_request_firewall_custom`), and the rate limit (`http_ratelimit`) |
+| `cloudflare_api_token` | cert-manager's token for the DNS-01 challenge, limited to `Zone - DNS - Edit` and `Zone - Zone - Read` on this zone. Only when the public names are answered at home (decision 12) |
 
-bbe writes the configuration that uses it into `~/.bbe/cloudflare/`, from `bbe.yaml`:
-- the module, pinned to the version of the charts installed;
+Tailscale's side is a module next to it, `tofu/tailscale` ([0013](0013-remote-access-through-tailscale.md), decision 5). Both are applied from one configuration, `~/.bbe/tofu/`, which bbe writes from `bbe.yaml`:
+- the modules of the packages installed (`bbe-tunnel`, `bbe-tailscale`), pinned to the version of the charts installed;
 - the public domain and each published app's public host;
-- the countries and the blocked addresses (decision 7).
+- the countries and the blocked addresses (decision 7);
+- Tailscale's routes, DNS and policy (0013).
 
-It's rewritten whenever those change, by `bbe install`, `bbe upgrade` or `bbe configure`. Nobody edits it by hand, so `bbe.yaml` stays the one place that says what's public.
+It's rewritten whenever those change, by `bbe install`, `bbe upgrade` or `bbe configure`. Nobody edits it by hand, so `bbe.yaml` stays the one place that says what's public and what's reached through Tailscale.
 
 The tunnel's routes are in OpenTofu and not in `bbe-tunnel`'s values. That way the DNS records, Access applications and routes all come from the same configuration, and can't drift apart.
 
-**The state and plans are encrypted, so they're committed with `~/.bbe`.** They hold the tunnel's token and the identity provider's secret:
+**The state and plans are encrypted, so they're committed with `~/.bbe`.** They hold the tunnel's token, Tailscale's auth key, cert-manager's API token and the identity provider's secret:
 - **How:** the configuration encrypts both with `aes_gcm`, from a `pbkdf2` key, with `enforced = true` so nothing is ever written unencrypted.
-- **The passphrase:** bbe generates it on install, at 32 characters, and shows it once, like bbe-auth's first passwords. You keep it, in a password manager. bbe never saves it: it's read from `TF_VAR_state_passphrase`, or asked for each time.
+- **The passphrase:** bbe generates it on install, at 32 characters, and shows it once, like bbe-auth's first passwords. You keep it, in a password manager. bbe never saves it: it's read from `TF_VAR_state_passphrase`, or asked for each time. One passphrase covers Cloudflare and Tailscale.
 - **Changing the passphrase** is a `fallback` to the old one for one apply.
-- **No backend:** the state stays in `~/.bbe/cloudflare/`, and git is its backup, so a paid backend isn't needed.
+- **No backend:** the state stays in `~/.bbe/tofu/`, and git is its backup, so a paid backend isn't needed.
 
-The Cloudflare API token can only edit this zone, and the account's Zero Trust and tunnels. It's never saved by bbe either: it's read from `CLOUDFLARE_API_TOKEN`, or asked for each time.
+The Cloudflare API token can only edit this zone, the account's Zero Trust and tunnels, and create cert-manager's token when it's needed (decision 12). It's never saved by bbe either: it's read from `CLOUDFLARE_API_TOKEN`, or asked for each time. Tailscale's credentials are read the same way (0013, decision 5).
 
 Rejected:
 - **Terraform.** Its state can only be encrypted by the backend it's stored in, so it would have to stay out of git, on one machine.
 - **Routes in `bbe-tunnel`'s values (a locally managed tunnel).** It would split what's public between the chart and OpenTofu, which still has to create the DNS records and Access applications.
 - **A configuration each installation writes itself.** Every installation would rewrite the same resources, and fixes to them wouldn't reach anyone.
+- **A configuration and state for each of Cloudflare and Tailscale.** Two passphrases to keep, and two applies for a change that touches both, such as publishing an app whose public name Tailscale's DNS also sends to Blocky.
 
-### 10. On install, you choose who sets up Cloudflare's side
+### 10. On install, you choose who runs OpenTofu
 
-`bbe install bbe-tunnel` asks how Cloudflare's side is set up, and keeps the answer in `bbe.yaml`:
+The first of `bbe install bbe-tunnel` and `bbe install bbe-tailscale` asks who runs OpenTofu, and keeps the answer in `bbe.yaml`. It holds for both:
 
 | Choice | What bbe does | What you do |
 |---|---|---|
-| **bbe runs OpenTofu** | Writes the configuration, runs `tofu init` and `apply`, shows the plan first and asks before applying. It reads the tunnel's token from OpenTofu's output into `bbe-tunnel`'s Secret | Have OpenTofu installed, and give the API token and the passphrase |
-| **You run OpenTofu** | Writes the configuration, and prints the commands to run from `~/.bbe/cloudflare/`. Then it asks for the tunnel's token, which `tofu output` prints | Review and apply it, in CI or by hand, with your own backend if you prefer one. The state stays encrypted there too |
-| **By hand in Cloudflare's dashboard** | Points at a guide in this repository's docs, with each resource of decision 9 as a step. Then it asks for the tunnel's token | Follow the guide, and repeat the matching steps when something changes |
+| **bbe runs OpenTofu** | Writes the configuration, runs `tofu init` and `apply`, shows the plan first and asks before applying. It reads the tunnel's token, Tailscale's auth key and cert-manager's token from OpenTofu's outputs into the packages' Secrets | Have OpenTofu installed, and give the API credentials and the passphrase |
+| **You run OpenTofu** | Writes the configuration, and prints the commands to run from `~/.bbe/tofu/`. Then it asks for the outputs it needs, which `tofu output` prints | Review and apply it, in CI or by hand, with your own backend if you prefer one. The state stays encrypted there too |
 
-Whatever changes Cloudflare's side later, such as `bbe configure bbe-tunnel` blocking an address or publishing an app, does the same as on install:
+Whatever changes later, such as `bbe configure bbe-tunnel` blocking an address or publishing an app, does the same as on install:
 - **bbe runs OpenTofu:** it applies the change, after showing the plan.
 - **You run OpenTofu:** it rewrites the configuration and tells you to apply it.
-- **By hand:** it prints what to change in the dashboard.
 
-`bbe configure bbe-tunnel` can switch between them. Switching from by hand to OpenTofu means importing what was made by hand, which the guide explains.
+`bbe configure` can switch between them.
 
-**By hand isn't managed as code.** Nothing checks the dashboard against `bbe.yaml`, and a change made in one and forgotten in the other stays that way. It's there for a first try, or for anyone who won't run OpenTofu.
-
-Rejected: **only bbe running OpenTofu.** Some people already run it from CI with their own backend, and others won't install it at all.
+Rejected:
+- **Only bbe running OpenTofu.** Some people already run it from CI with their own backend.
+- **Setting Cloudflare and Tailscale up by hand, from a guide.** Nothing would check their dashboards against `bbe.yaml`, so a change made in one and forgotten in the other would stay that way. The guide would also have to be kept in step with two modules, a step for every resource.
 
 ### 11. The audit trail is kept for 30 days, within a budget
 
@@ -281,24 +295,47 @@ Rejected:
 - **Shortening the retention automatically when space runs low.** Loki only deletes by age, so it would take a job sending Loki delete requests. And an audit trail that quietly shrinks when someone floods it is what that someone wants.
 - **30 days for every log.** It would double the space of the chatty logs, such as the Servarr apps' and qBittorrent's, which nobody needs that long.
 
+### 12. At home, the public names are answered at home, with a Let's Encrypt certificate
+
+A TV or phone set up with `jellyfin.<public domain>` keeps that name wherever it is. Without more, at home it would go out to Cloudflare and back through the tunnel: slower, through Access where there is one, and streaming through Cloudflare (decision 2). Instead, at home the public names go straight to Traefik, like the `bbe.home.arpa` ones. It's on by default once there's a public domain (`global.bbe.public.local`), and can be turned off.
+
+**Blocky answers each published host with the ingress's IP.** Only the published hosts are, each with everything under it, not the whole public domain. Other names in that domain, such as its mail records, are still asked of Cloudflare. Rebinding protection doesn't apply to names Blocky answers itself ([0010](0010-dns-blocking.md), decision 4).
+
+**Traefik serves a Let's Encrypt certificate for them**, which every device already trusts:
+- **The certificate:** cert-manager gets one for `<public domain>` and `*.<public domain>` from Let's Encrypt, with an ACME `Issuer` in `bbe-networking` and Cloudflare's DNS-01 solver. Its Secret is `bbe-public-tls`.
+- **Why a wildcard:** certificates are public in Certificate Transparency logs. A wildcard doesn't list which apps there are.
+- **The token:** cert-manager's Cloudflare token is in a Secret in `bbe-networking`, from OpenTofu's output (decisions 9 and 10). It can only edit DNS records in this zone.
+- **Picked by name:** Traefik's default TLS store lists `bbe-public-tls` under `certificates`, and `bbe-domain-tls` stays its `defaultCertificate`. Traefik serves whichever matches the name asked for, so the house's names keep bbe's CA ([0002](0002-single-sign-on.md), decision 6).
+
+**Each published app's Ingress gets its public host as a second host**, on the house's entrypoint, beside its routers on `public` (decision 8). It's the same app, signed in to the same way, except that Access isn't in front at home. That's the same as its `bbe.home.arpa` name, where Access never was. An app behind forward auth needs authentik's provider for the public domain too (Consequences).
+
+Devices on Tailscale get the same for every published host but Jellyfin's, as Tailscale's DNS sends them to Blocky ([0013](0013-remote-access-through-tailscale.md), decision 3). Away from home, Jellyfin's public name goes through Cloudflare.
+
+Rejected:
+- **Going out through Cloudflare.** It's what happens without this. It's slower, it streams through Cloudflare, and an app's at-home use would be in Cloudflare's logs and the audit trail.
+- **Answering the whole public domain at home.** One record would do, but every other name in the domain, its mail records included, would stop resolving at home.
+- **A certificate per app, with HTTP-01.** HTTP-01 needs port 80 reachable from the internet, and each certificate would publish an app's name.
+
 ## Consequences
 
-- **Streaming through Cloudflare goes against its terms.** If Cloudflare limits the account, Jellyfin and Music Assistant outside the house go through the VPN only.
-- **Cloudflare sees all traffic to the published apps**, decrypted.
+- **Streaming through Cloudflare goes against its terms.** Jellyfin away from home always does, and Music Assistant on devices without Tailscale (decision 2). If Cloudflare limits the account, Jellyfin can't be reached from outside, and Music Assistant only through Tailscale.
+- **Cloudflare sees all traffic to the published apps** that goes through it, decrypted.
 - **authentik's and Jellyfin's sign-ins are on the internet.** Both have to be kept up to date, as a flaw in either is a flaw in the way in. Everyone in `users` can sign in to Jellyfin from the allowed countries.
-- **The published apps have two names**: `bbe.home.arpa` at home, and the public one outside. Each one needs a router on `public`, and a forward auth provider for the public domain where it's behind forward auth.
+- **E-readers can't sync with Calibre-Web through Access.** Away from home, they sync over Tailscale where they can run it, or when they're back home.
+- **The published apps have two names**: `bbe.home.arpa`, and the public one, which works at home too (decision 12). Each one needs routers for both, and a forward auth provider for the public domain where it's behind forward auth, such as Music Assistant.
+- **`global.bbe.public` is shared by several packages,** so bbe has to give the same value to each, and upgrade bbe-networking when an app is published.
+- **A Cloudflare token that can edit the zone's DNS is in the cluster,** for cert-manager to renew the certificate. Anyone who can read Secrets in `bbe-networking` can change the domain's records. It can't touch the tunnel, Access or the rules. Turning `global.bbe.public.local` off removes it.
 - **The Free plan's rate limit is coarse,** and there's only one rule. Traefik's does most of the limiting.
-- **The audit trail needs `bbe-observability`,** and lasts 30 days. Without it, only authentik's and Jellyfin's own records outlive a pod.
+- **The audit trail needs `bbe-observability`,** and lasts 30 days. Without it, only authentik's and Jellyfin's own records outlive a pod. It only covers what came through Cloudflare. Use at home and over Tailscale isn't in it, as it isn't reached from the internet.
 - **`bbe-observability` changes with this:**
   - the audit streams' retention;
   - Alloy's byte counter;
   - the `AuditLogsOverBudget` rule;
   - the two settings for them, added to its `bbe/recorded-values`.
 - **Past its budget, the audit trail keeps growing until someone acts.** The alert says so, but nothing trims it.
-- **OpenTofu is a second tool next to bbe,** unless Cloudflare is set up by hand. When bbe runs it, OpenTofu has to be installed where bbe runs, like talosctl.
-- **Losing the passphrase makes the state unreadable,** so what's on Cloudflare would have to be imported again. bbe can't recover it.
-- **Set up by hand, Cloudflare can drift from `bbe.yaml`** without anything noticing.
-- **The guide for setting it up by hand has to be kept in step with the module**, as every resource added to one is a step to add to the other.
+- **OpenTofu is a second tool next to bbe.** When bbe runs it, OpenTofu has to be installed where bbe runs, like talosctl. There's no way to set Cloudflare or Tailscale up without it.
+- **Losing the passphrase makes the state unreadable,** so what's on Cloudflare and Tailscale would have to be imported again. bbe can't recover it.
 - **Not built or verified.**
   - **Checked on 2026-10-23:** the plan limits, cloudflared's settings and the provider's resources, against Cloudflare's documentation and the provider's repository; state encryption, against OpenTofu's documentation.
-  - **Not checked:** Traefik's and Jellyfin's settings, and the size estimate of the audit trail, which is a guess until there's traffic to measure.
+  - **Checked on 2026-11-10:** cert-manager's Cloudflare solver and its token's permissions, and Traefik's TLS store, against their documentation; `cloudflare_api_token`, against Cloudflare's changelog.
+  - **Not checked:** Traefik's and Jellyfin's settings, the size estimate of the audit trail, which is a guess until there's traffic to measure, and whether Traefik's chart writes a TLS store with `certificates`, or bbe-networking has to.

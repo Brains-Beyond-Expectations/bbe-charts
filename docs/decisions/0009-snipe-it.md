@@ -10,7 +10,7 @@ Everyone in the household signs in, with the same account as everywhere else ([0
 - **`users`** see what's checked out to them.
 - **`admins`** manage everything.
 
-The app is also reachable from outside, through the Cloudflare tunnel ([0008](0008-public-access-through-cloudflare.md)).
+The app is also reachable from outside, through Tailscale ([0013](0013-remote-access-through-tailscale.md)). It isn't published through the Cloudflare tunnel ([0008](0008-public-access-through-cloudflare.md), decision 2).
 
 Things that shaped what follows, read in Snipe-IT 8.8.3's source:
 - **It runs from an official image** (`snipe/snipe-it`), with Apache, PHP and a scheduler. It migrates its database every time it starts, and carries on without it if the database doesn't answer.
@@ -131,7 +131,7 @@ Following [0007](0007-network-policies.md):
 | | Snipe-IT | also Traefik |
 | bbe-auth | the LDAP outpost | also bbe-misc |
 
-It's reached from outside through the tunnel, behind Cloudflare Access ([0008](0008-public-access-through-cloudflare.md), decision 2). It sits behind Access like the book library: Snipe-IT has no apps that need to get past it.
+It's reached from outside through Tailscale, at the same name as at home ([0013](0013-remote-access-through-tailscale.md)). It isn't published through the Cloudflare tunnel ([0008](0008-public-access-through-cloudflare.md), decision 2), as only the apps the household watches, reads and listens with are.
 
 ## Consequences
 
