@@ -75,12 +75,46 @@ entries:
       group: !KeyOf admins
     attrs:
       order: 0
+  # Signing in to the book library, for everyone in `users` or `admins`. It has a provider of its own, for its host
+  # only, as the one above lets only admins in. The outpost picks a provider for a host before the domain's. Its
+  # sign-in comes back to /outpost.goauthentik.io/ on the library's host, which bbe-auth's Ingress sends here
+  - model: authentik_providers_proxy.proxyprovider
+    id: forward-auth-books
+    identifiers:
+      name: book library
+    attrs:
+      mode: forward_single
+      external_host: !Format ["https://calibre.%s", !Context domain]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+  - model: authentik_core.application
+    id: forward-auth-books-app
+    identifiers:
+      slug: calibre-web
+    attrs:
+      name: Calibre-Web
+      provider: !KeyOf forward-auth-books
+      meta_launch_url: !Format ["https://calibre.%s", !Context domain]
+      meta_description: Reads the books, signed in with authentik
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf forward-auth-books-app
+      group: !KeyOf users
+    attrs:
+      order: 0
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf forward-auth-books-app
+      group: !KeyOf admins
+    attrs:
+      order: 1
   - model: authentik_outposts.outpost
     identifiers:
       managed: goauthentik.io/outposts/embedded
     attrs:
       providers:
         - !KeyOf forward-auth
+        - !KeyOf forward-auth-books
       config:
         authentik_host: !Format ["https://auth.%s/", !Context domain]
         log_level: info
@@ -165,7 +199,7 @@ entries:
       name: Jellyfin
       provider: !KeyOf ldap
       meta_launch_url: !Format ["https://jellyfin.%s", !Context domain]
-      meta_description: Signs people in with LDAP, in every Jellyfin app, to the book library and to Snipe-IT
+      meta_description: Signs people in with LDAP, in every Jellyfin app, to the book library's e-readers and to Snipe-IT
   - model: authentik_policies.policybinding
     identifiers:
       target: !KeyOf ldap-app

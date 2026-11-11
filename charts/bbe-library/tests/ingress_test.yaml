@@ -7,12 +7,12 @@ release:
   name: bbe-library
   namespace: bbe-library
 tests:
-  - it: should serve the library and Shelfmark under the domain, without forward auth
+  - it: should serve the library and Shelfmark under the domain, on the dashboard
     set:
       global.bbe.domain: lab.home.arpa
     asserts:
       - hasDocuments:
-          count: 2
+          count: 3
       - equal:
           path: spec.rules[0].host
           value: calibre.lab.home.arpa
@@ -21,11 +21,71 @@ tests:
           path: spec.rules[0].host
           value: shelfmark.lab.home.arpa
         documentIndex: 1
-      - notExists:
-          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
       - equal:
           path: metadata.annotations["gethomepage.dev/group"]
           value: Read
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["gethomepage.dev/group"]
+          value: Read
+        documentIndex: 1
+
+  - it: should put the library behind forward auth, removing authentik's headers anyone sent first
+    documentSelector:
+      path: metadata.name
+      value: bbe-library-calibre
+    asserts:
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-library-strip-sso-headers@kubernetescrd,bbe-library-sso@kubernetescrd
+
+  - it: should leave Shelfmark to sign people in itself
+    documentSelector:
+      path: metadata.name
+      value: bbe-library-shelfmark
+    asserts:
+      - notExists:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+
+  - it: should let e-readers reach OPDS, Kobo sync and KOReader's sync without forward auth, still removing the headers
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: metadata.name
+      value: bbe-library-calibre-devices
+    asserts:
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-library-strip-sso-headers@kubernetescrd
+      - notExists:
+          path: metadata.annotations["gethomepage.dev/enabled"]
+      - equal:
+          path: spec.rules[0].host
+          value: calibre.lab.home.arpa
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 5
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /opds
+      - equal:
+          path: spec.rules[0].http.paths[1].path
+          value: /kobo/
+      - equal:
+          path: spec.rules[0].http.paths[2].path
+          value: /api/v3/
+      - equal:
+          path: spec.rules[0].http.paths[3].path
+          value: /api/UserStorage/
+      - equal:
+          path: spec.rules[0].http.paths[4].path
+          value: /kosync
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service
+          value:
+            name: bbe-library-calibre
+            port:
+              number: 8083
 
   - it: should serve nothing when the ingress is off
     set:

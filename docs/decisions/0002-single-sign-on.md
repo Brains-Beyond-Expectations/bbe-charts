@@ -130,7 +130,7 @@ Left for later: **a public domain with Let's Encrypt**, through a DNS-01 challen
 | qBittorrent | The same, and nginx in its pod asks authentik again (below) | `admins` |
 | Jellyfin, and its TV and phone apps | Jellyfin's official LDAP Authentication plugin (24, for Jellyfin 12), against authentik's LDAP outpost. Jellyfin creates someone's account when they first sign in, and makes `admins` its administrators | `users` and `admins` |
 | Seerr | Through Jellyfin, as before. Seerr creates an account for a new Jellyfin user (`newPlexLogin`, on by default) | Jellyfin's users |
-| Calibre-Web-Automated, and e-readers | LDAP, like Jellyfin ([0004](0004-book-library.md)) | `users` and `admins` |
+| Calibre-Web-Automated | In the browser, Traefik's `ForwardAuth` with a provider of its own, for its host only, and CWA signs in whoever authentik names. E-readers use LDAP, like Jellyfin ([0004](0004-book-library.md), decision 4) | `users` and `admins` |
 | Shelfmark | OpenID Connect | `users` and `admins` |
 
 **The apps behind forward auth stop asking for their own login.** Their own logins and API keys stay for bbe-media's setup Job, and for the apps talking to each other:

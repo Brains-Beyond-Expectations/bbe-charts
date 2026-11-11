@@ -20,8 +20,9 @@ flowchart TD
     Q2 -.->|rejected| B2[LazyLibrarian; Readarr, retired]
 
     A1 --> Q3{How do people sign in?}
-    Q3 -->|chosen| A3[authentik's LDAP, which<br/>e-readers can use too]
-    Q3 -.->|rejected| B3[OpenID Connect, or forward auth]
+    Q3 -->|chosen, in the browser| A3[Forward auth, with the library's own provider,<br/>and CWA trusting authentik's header]
+    Q3 -->|chosen, on e-readers| C3[authentik's LDAP]
+    Q3 -.->|rejected| B3[OpenID Connect]
 
     A2 --> Q4{And to Shelfmark?}
     Q4 -->|chosen| A4[OpenID Connect]
@@ -67,19 +68,36 @@ books-ingest/   What's waiting to be added, which CWA empties
 
 Rejected: **Longhorn**, safer for metadata.db, but the books would only be on the node's disk.
 
-### 4. People sign in to CWA with authentik's LDAP
+### 4. People sign in to CWA with authentik: forward auth in the browser, LDAP on e-readers
 
-CWA's login uses LDAP, through bbe-auth's LDAP outpost, as Jellyfin's does:
-- People in `users` or `admins` sign in with their authentik password, in the browser and on e-readers. CWA's OPDS feed checks passwords against LDAP too. Kobo devices use a token each person makes in their profile.
+Whoever is in authentik's `users` or `admins` gets in, and nobody else. Nobody is added to CWA by hand: CWA creates people on their first visit, and new people may download, read and keep shelves.
+
+**In the browser, Traefik's forward auth signs people in,** as for Sonarr, and CWA trusts who authentik names:
+- **Its own provider.** bbe-auth's forward auth for the domain only lets `admins` in ([0002](0002-single-sign-on.md), decision 7). So bbe-auth's blueprint adds a provider for `calibre.<domain>` only (`forward_single`), which lets in `users` and `admins`. The embedded outpost picks a provider for a host before the domain's.
+- **Its sign-in comes back to the library's host,** at `/outpost.goauthentik.io/`, where authentik sets its cookie for that host. bbe-auth's Ingress sends that path to authentik, ahead of the library's, as its path is longer.
+- **CWA signs in whoever `X-authentik-username` names** ("Allow Reverse Proxy Authentication"), and creates them if they're new. It does that on every request, so signing out of CWA does nothing: people sign out of authentik.
+- **Only Traefik's forward auth sets that header.** A middleware removes authentik's headers from every request to the library before forward auth, which sets them again. And the library's NetworkPolicy only lets Traefik and bbe's setup reach CWA, not Shelfmark nor any other pod.
+
+**E-readers sign in with LDAP,** through bbe-auth's LDAP outpost, as Jellyfin's apps do. They can't sign in through a browser, so their paths skip forward auth, with authentik's headers still removed:
+
+| Path | What uses it | How it's checked |
+|---|---|---|
+| `/opds` | OPDS apps, such as KOReader | Their authentik username and password, against LDAP |
+| `/kosync` | KOReader's progress sync | The same |
+| `/kobo/`, `/api/v3/`, `/api/UserStorage/` | Kobo sync, and the Kobo reading services it passes on | A token each person makes on their profile page, which is behind forward auth |
+
+`/kobo/` keeps its slash, as Traefik matches path prefixes as text, and `/kobo_auth`, where people make their token, is a page behind forward auth.
+
+CWA's login stays LDAP, which OPDS and KOReader's sync check passwords with. It can only be one of LDAP and OpenID Connect.
 - The library binds with its own account, `books-ldap`, which bbe-auth's blueprint creates with Jellyfin's. CWA's "OpenLDAP" setting is on, so it binds with the DN its search finds, as authentik's entries have no Active Directory `distinguishedName`.
-- CWA creates people on their first sign-in. New people may download, read and keep shelves.
 - **CWA has no admin group of its own**, so the setup asks LDAP who is in `admins` and keeps admin rights for exactly them, among the people in LDAP. A CronJob runs that part of the setup every 10 minutes (`bbe.setup.peopleSchedule`), as CWA creates people on their first sign-in.
-- **Books are sent to people's own email.** The same CronJob sets the Send to eReader address of someone from authentik to their email, when they have one and haven't set another. CWA makes up `<username>@email.com` for people without one, which it leaves alone.
-- **The library's own admin** (`bbe.admin.username`) isn't in LDAP, so it signs in with its own password, generated into `bbe-library-admin`. It's what the setup signs in with, and the way in when authentik can't help. CWA's default `admin` is renamed to it, with that password.
+- **Books are sent to people's own email.** The same CronJob sets someone's Send to eReader address to their email in authentik, read from LDAP, when they have one and haven't set another. It's not read from CWA, which makes up `<username>@localhost` for the people forward auth creates.
+- **The library's own admin** (`bbe.admin.username`) isn't in authentik, so it signs in with its own password, generated into `bbe-library-admin`. It's what the setup signs in with, straight to CWA's Service. It's the way in when authentik can't help, through `kubectl port-forward`, as Traefik's forward auth lets nobody through without authentik. CWA's default `admin` is renamed to it, with that password.
 
 Rejected:
-- **OpenID Connect**, which CWA 4 has, with admins by group. People would have no password for their e-readers.
-- **Forward auth**, which would keep e-readers out altogether.
+- **OpenID Connect**, which CWA 4 has, with admins by group. CWA's login would be OpenID Connect instead of LDAP, so people would have no password for OPDS and KOReader's sync. And people would still press its sign-in button, where forward auth signs them in when they open it.
+- **LDAP alone**, as before. People typed their authentik password into CWA's own form, rather than being signed in by authentik's session like the other apps.
+- **Forward auth on every path.** E-readers can't sign in through a browser, so they'd be kept out.
 
 ### 5. People sign in to Shelfmark with OpenID Connect
 
@@ -87,7 +105,7 @@ Shelfmark is only used in the browser. bbe-auth's blueprint adds an OAuth2 provi
 - `admins` are Shelfmark's admins, from the `groups` claim of authentik's profile scope.
 - Shelfmark's own logins are off (`DISABLE_LOCAL_AUTH`). Without that, it would run with no login at all until a local admin existed.
 - Shelfmark reaches authentik at `https://auth.<domain>`, which authentik names in its tokens. Pods don't resolve the domain, so a host alias points it at Traefik's IP, and its certificates are Python's with bbe's CA added.
-- Rejected: **forward auth**, which only lets `admins` in (0002, decision 7).
+- Rejected: **forward auth**. The domain's only lets `admins` in (0002, decision 7), and Shelfmark's OpenID Connect already signs people in with authentik's session, so it needs no provider of its own, as the library does (decision 4).
 
 ### 6. The setup posts CWA's admin forms
 
@@ -98,11 +116,16 @@ CWA has no API for its settings. The setup Job signs in like a browser and posts
 
 ## Consequences
 
-- **A new admin gets CWA admin rights within 10 minutes** of being added to `admins`, or of their first sign-in.
+- **A new admin gets CWA admin rights within 10 minutes** of being added to `admins`, or of their first visit.
+- **CWA trusts a header for who's signed in.** It's only safe while Traefik removes it from what people send and only Traefik and bbe's setup reach CWA. On a cluster that doesn't enforce NetworkPolicies, any pod reaching CWA's Service could sign in as anyone.
+- **The library can't be reached through Traefik while authentik is down,** e-readers' paths aside. Its own admin signs in through a port-forward.
+- **Publishing the library through Cloudflare** ([0008](0008-public-access-through-cloudflare.md)) needs a provider of its own for its public host too, and the same header removal on the public entrypoint.
 - **Books Shelfmark downloads are copies.** qBittorrent keeps seeding its own, in bbe-media's downloads, in its `books` category, until it's removed there.
 - **CWA keeps its databases on Longhorn, and the library on NFS.** Restoring one without the other loses users' reading progress and shelves, not books.
 - **Uninstalling `bbe-library`** deletes its namespace with people's shelves and reading progress. The books on the share stay.
 - **What's verified, and what isn't:**
-  - **Against the apps' source only,** CWA 4.0.8 and Shelfmark 1.3.0: CWA's settings forms, LDAP login, OPDS checking passwords against LDAP, its first start as root and what `NETWORK_SHARE_MODE` changes. Shelfmark's settings from the environment, its OpenID Connect sign-in and callback, and how it finds and copies qBittorrent's downloads.
+  - **Against the apps' source only,** CWA 4.0.8 and Shelfmark 1.3.0: CWA's settings forms, LDAP login, OPDS checking passwords against LDAP, its first start as root and what `NETWORK_SHARE_MODE` changes.
+  - **Against CWA 4.0.8's source, in the cluster's pod, on 2026-11-11:** signing in from a reverse proxy's header on every request and creating people from it, its three settings, that its login is one of LDAP and OpenID Connect, and the paths of OPDS, Kobo sync, the Kobo reading services and KOReader's sync. That authentik's LDAP gives people's `mail`, on the cluster.
+  - **Not checked:** that authentik's outpost picks the library's provider before the domain's, and that a forward auth sign-in comes back through `/outpost.goauthentik.io/` on the library's host. Shelfmark's settings from the environment, its OpenID Connect sign-in and callback, and how it finds and copies qBittorrent's downloads.
   - **Unit tests** cover the charts, and the setup's form reading was checked against CWA's form markup.
   - **Not run yet:** CWA and Shelfmark themselves, the setup Job against CWA, an LDAP sign-in, an e-reader, a Shelfmark sign-in through authentik, and a download through qBittorrent. Docker was unavailable, and nothing was installed on the cluster.

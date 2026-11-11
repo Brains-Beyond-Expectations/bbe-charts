@@ -57,6 +57,9 @@ tests:
     template: templates/ingress.yaml
     set:
       global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: metadata.name
+      value: bbe-auth
     asserts:
       - equal:
           path: spec.rules[0].host
@@ -170,6 +173,47 @@ tests:
       - matchRegex:
           path: data["bbe.yaml"]
           pattern: 'url: !Format \["https://shelfmark.%s/api/auth/oidc/callback", !Context domain\]'
+
+  - it: should put the book library behind forward auth of its own, for users and admins, served by the outpost
+    template: templates/blueprints.yaml
+    documentIndex: 0
+    asserts:
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: 'mode: forward_single\n      external_host: !Format \["https://calibre.%s", !Context domain\]'
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "target: !KeyOf forward-auth-books-app\\n      group: !KeyOf users"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "target: !KeyOf forward-auth-books-app\\n      group: !KeyOf admins"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "providers:\\n        - !KeyOf forward-auth\\n        - !KeyOf forward-auth-books"
+
+  - it: should send the book library's sign-in back to authentik, on the library's host
+    template: templates/ingress.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: metadata.name
+      value: bbe-auth-books
+    asserts:
+      - equal:
+          path: spec.rules[0]
+          value:
+            host: calibre.lab.home.arpa
+            http:
+              paths:
+                - path: /outpost.goauthentik.io/
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: bbe-auth-server
+                      port:
+                        name: http
+      - notExists:
+          path: metadata.annotations
 
   - it: should give Open WebUI an OpenID Connect client, for users and admins
     template: templates/blueprints.yaml

@@ -42,6 +42,8 @@ LIBRARY_DIR = os.environ.get("LIBRARY_DIR", "/share/books")
 # The groups people sign in with, and the one whose members are the library's admins
 GROUPS = ["users", "admins"]
 ADMIN_GROUP = "admins"
+# The header Traefik's forward auth names who authentik let in with
+SSO_HEADER = "X-authentik-username"
 ROLE_ADMIN = 1
 # What people may do when they first sign in: download, read in the browser and keep shelves. Admins also upload,
 # edit and delete
@@ -276,8 +278,9 @@ def configure_library(calibre):
 
 
 def basic_settings():
-    """Signing in against authentik's LDAP, for people in `users` or `admins`, Kobo sync and uploads. The library's own
-    admin isn't in LDAP, so it keeps signing in with its own password"""
+    """Signing in with authentik: in the browser through Traefik's forward auth, which names who it let in in
+    X-authentik-username, and on e-readers against authentik's LDAP, for people in `users` or `admins`. Then Kobo sync
+    and uploads. The library's own admin isn't in authentik, so it keeps signing in with its own password"""
     members = "".join(f"(memberOf={group_dn(group)})" for group in GROUPS)
     return {
         "config_login_type": "1",
@@ -300,6 +303,11 @@ def basic_settings():
         "config_ldap_group_name": ADMIN_GROUP,
         "ldap_import_user_filter": "0",
         "config_ldap_auto_create_users": "on",
+        # Whoever forward auth let in is signed in, and created on their first visit. Only Traefik sets the header,
+        # as it removes anyone else's and the library's NetworkPolicy lets only Traefik and the setup reach it
+        "config_allow_reverse_proxy_header_login": "on",
+        "config_reverse_proxy_login_header_name": SSO_HEADER,
+        "config_reverse_proxy_auto_create_users": "on",
         # Kobo e-readers sync with the library, which gives them the address they reach it at, through Traefik
         "config_kobo_sync": "on",
         "config_external_port": EXTERNAL_PORT,
@@ -324,7 +332,7 @@ def configure_basics(calibre, deadline):
     form["config_ldap_serv_password_e"] = LDAP_PASSWORD
     result = calibre.post_ajax("/admin/ajaxconfig", form)
     check_result(result, "the basic settings")
-    log(f"Calibre-Web: people sign in with authentik's LDAP, and Kobo sync is on ({', '.join(changed)})")
+    log(f"Calibre-Web: people sign in with authentik, and Kobo sync is on ({', '.join(changed)})")
 
     # Calibre-Web starts LDAP and Kobo sync when it starts, so it restarts itself for them
     if result.get("reboot"):
@@ -349,8 +357,8 @@ def configure_default_roles(calibre):
 
 
 def ldap_members(deadline):
-    """The usernames in each of bbe's groups, from authentik's LDAP. On a first install its outpost starts answering
-    minutes after authentik does, so this waits for it until the deadline"""
+    """The usernames in each of bbe's groups, and everyone's email address, from authentik's LDAP. On a first install
+    its outpost starts answering minutes after authentik does, so this waits for it until the deadline"""
     waiting = False
     while True:
         connection = ldap.initialize(f"ldap://{LDAP_SERVER}:{LDAP_PORT}")
@@ -358,10 +366,19 @@ def ldap_members(deadline):
         try:
             connection.simple_bind_s(LDAP_BIND_DN, LDAP_PASSWORD)
             members = {}
+            emails = {}
             for group in GROUPS:
-                found = connection.search_s(LDAP_BASE_DN, ldap.SCOPE_SUBTREE, f"(memberOf={group_dn(group)})", ["cn"])
-                members[group] = {entry["cn"][0].decode().lower() for dn, entry in found if dn and entry.get("cn")}
-            return members
+                found = connection.search_s(
+                    LDAP_BASE_DN, ldap.SCOPE_SUBTREE, f"(memberOf={group_dn(group)})", ["cn", "mail"])
+                members[group] = set()
+                for dn, entry in found:
+                    if not dn or not entry.get("cn"):
+                        continue
+                    name = entry["cn"][0].decode().lower()
+                    members[group].add(name)
+                    if entry.get("mail") and entry["mail"][0].strip():
+                        emails[name] = entry["mail"][0].decode().strip()
+            return members, emails
         except ldap.SERVER_DOWN as error:
             if time.monotonic() > deadline:
                 raise SetupError(f"LDAP: authentik's LDAP wasn't answering after {READY_TIMEOUT} seconds: {error}")
@@ -376,9 +393,9 @@ def ldap_members(deadline):
 
 
 def configure_people(calibre, deadline):
-    members = ldap_members(deadline)
+    members, emails = ldap_members(deadline)
     configure_admins(calibre, members)
-    configure_ereader_emails(calibre, members)
+    configure_ereader_emails(calibre, emails)
 
 
 def configure_admins(calibre, members):
@@ -403,17 +420,15 @@ def configure_admins(calibre, members):
         log(f"Calibre-Web: {name} is {'now' if wanted else 'no longer'} an admin")
 
 
-def configure_ereader_emails(calibre, members):
-    """Sends people's books to their own email address, for those from authentik who have one and haven't set another.
-    Calibre-Web makes up `<username>@email.com` for people without one, which isn't an address to send to"""
-    people = set().union(*members.values())
+def configure_ereader_emails(calibre, emails):
+    """Sends people's books to their own email address in authentik, for those who have one and haven't set another.
+    It's taken from LDAP, not Calibre-Web, which makes up `<username>@localhost` for people forward auth created"""
     for user in json.loads(calibre.users())["rows"]:
-        name = user["name"].lower()
-        email = (user.get("email") or "").strip()
-        if name not in people or user.get("kindle_mail") or not email or email.lower() == f"{name}@email.com":
+        email = emails.get(user["name"].lower())
+        if not email or user.get("kindle_mail"):
             continue
         calibre.post_ajax("/ajax/editlistusers/kindle_mail", {"pk": user["id"], "value": email})
-        log(f"Calibre-Web: {name}'s books are sent to their email address")
+        log(f"Calibre-Web: {user['name']}'s books are sent to their email address")
 
 
 def main():

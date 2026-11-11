@@ -7,20 +7,53 @@ release:
   name: bbe-library
   namespace: bbe-library
 tests:
-  - it: should let only the apps themselves and Traefik reach the apps
+  - it: should let only the library's pods and Traefik reach Shelfmark and the rest
     documentSelector:
       path: metadata.name
       value: bbe-library
     asserts:
       - equal:
           path: spec.podSelector
-          value: {}
+          value:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: NotIn
+                values:
+                  - calibre
       - equal:
           path: spec.ingress
           value:
             - from:
                 - podSelector: {}
             - from:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: bbe-networking
+                  podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: traefik
+
+  - it: should let only Traefik and bbe's setup reach Calibre-Web, which trusts forward auth's header
+    documentSelector:
+      path: metadata.name
+      value: bbe-library-calibre
+    asserts:
+      - equal:
+          path: spec.podSelector
+          value:
+            matchLabels:
+              app.kubernetes.io/component: calibre
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - podSelector:
+                    matchExpressions:
+                      - key: app.kubernetes.io/component
+                        operator: In
+                        values:
+                          - setup
+                          - people
                 - namespaceSelector:
                     matchLabels:
                       kubernetes.io/metadata.name: bbe-networking

@@ -180,9 +180,9 @@ Everyone then uses that one username and password everywhere: in the browser, in
 
 ## 7. Books
 
-- **Reading:** sign in to `https://calibre.bbe.home.arpa` with your authentik account. Within 10 minutes of your first sign-in, books you send to your e-reader go to your account's email address, if it has one.
+- **Reading:** open `https://calibre.bbe.home.arpa`, which signs you in with authentik, as Sonarr does. Within 10 minutes of your first visit, books you send to your e-reader go to your account's email address, if it has one.
 - **E-readers:**
-  - **OPDS apps** (KOReader, Moon+ Reader, …): use `https://calibre.bbe.home.arpa/opds`, with the same username and password.
+  - **OPDS apps** (KOReader, Moon+ Reader, …): use `https://calibre.bbe.home.arpa/opds`, with your authentik username and password.
   - **Kobo devices:** make a sync link under your profile.
 - **Finding books:** at `https://shelfmark.bbe.home.arpa`. Downloads land in the library by themselves.
 
