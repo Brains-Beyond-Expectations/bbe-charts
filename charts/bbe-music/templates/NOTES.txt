@@ -1,6 +1,10 @@
 {{- $domain := .Values.global.bbe.domain }}
 Music Assistant plays the music at https://music.{{ $domain }}, on speakers it finds on the LAN, in the browser and in
-its apps (connect them to music.{{ $domain }}, port 443). Its admin is {{ .Values.bbe.admin.username }}, with the password:
+its apps (connect them to https://music.{{ $domain }}, with no port).
+{{- with .Values.bbe.music.musicAssistant.loadBalancerIP }}
+Apps that don't trust the cluster's certificate connect to http://{{ . }}:8095 instead, unencrypted, so only at home.
+{{- end }}
+Its admin is {{ .Values.bbe.admin.username }}, with the password:
   kubectl get secret bbe-music-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
 It can't sign people in with authentik yet, so add people in its Settings → Users. To play Spotify too, add the
 Spotify provider in its Settings → Providers and sign in with your Premium account. It plays a local copy of a track

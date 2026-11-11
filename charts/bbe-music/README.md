@@ -23,6 +23,7 @@ A music library for the BBE cluster, with Lidarr to find albums, slskd for Souls
 | bbe.music.musicAssistant.dataSize | string | `"5Gi"` | The size of its data volume, with its settings, database and artwork cache |
 | bbe.music.musicAssistant.image.repository | string | `"ghcr.io/music-assistant/server"` | The Music Assistant server image |
 | bbe.music.musicAssistant.image.tag | string | `"2.10.7"` | The Music Assistant version. Stable and beta mustn't share one data volume |
+| bbe.music.musicAssistant.loadBalancerIP | string | `""` | An IP address on your LAN, which MetalLB announces, for Music Assistant's apps to connect to over plain HTTP at http://<address>:8095, for apps that don't trust the cluster's certificate authority. Unencrypted, so only on the home network. Left empty, the apps connect to music.<domain> on port 443 |
 | bbe.music.musicAssistant.resources.limits.memory | string | `"2Gi"` | The memory to limit Music Assistant to. Its docs ask for 2Gi at least |
 | bbe.music.musicAssistant.resources.requests.cpu | string | `"100m"` | The CPU to request for Music Assistant |
 | bbe.music.musicAssistant.resources.requests.memory | string | `"512Mi"` | The memory to request for Music Assistant |

@@ -188,8 +188,16 @@ Everyone then uses that one username and password everywhere: in the browser, in
 
 ## 8. Music
 
-- **Playing:** at `https://music.bbe.home.arpa`, or with Music Assistant's apps, connecting to `music.bbe.home.arpa` on port 443.
+- **Playing:** at `https://music.bbe.home.arpa`, or with Music Assistant's apps, connecting to `https://music.bbe.home.arpa` with no port.
   - It finds the speakers in the house by itself.
+  - **Apps that don't trust the certificate**, as Android apps usually don't trust the ones you install: give Music Assistant an address of its own on your network, which they reach over plain HTTP. Pick another free address from step 1, set it under the `bbe-music` package's values in `~/.bbe/bbe.yaml`, and run `bbe upgrade`:
+    ```yaml
+    bbe:
+      music:
+        musicAssistant:
+          loadBalancerIP: 192.168.1.243
+    ```
+    Then connect the apps to `http://192.168.1.243:8095`. It isn't encrypted, so only use it at home.
   - Its admin is `music-admin`. Get its password with:
     ```
     kubectl get secret bbe-music-admin -n bbe-music -o jsonpath='{.data.password}' | base64 -d

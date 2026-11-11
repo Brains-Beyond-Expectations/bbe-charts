@@ -33,6 +33,68 @@ tests:
           path: spec.template.spec.containers[0].image
           value: ghcr.io/music-assistant/server:2.10.7
 
+  - it: should keep Music Assistant off the LAN's own addresses by default
+    template: templates/music-assistant.yaml
+    asserts:
+      - hasDocuments:
+          count: 3
+
+  - it: should let Music Assistant's apps reach it over plain HTTP at its own address on the LAN
+    template: templates/music-assistant.yaml
+    set:
+      bbe.music.musicAssistant.loadBalancerIP: 192.168.1.243
+    asserts:
+      - hasDocuments:
+          count: 6
+      - equal:
+          path: spec.type
+          value: LoadBalancer
+        documentSelector:
+          path: metadata.name
+          value: bbe-music-music-assistant-lan
+      - equal:
+          path: spec.externalTrafficPolicy
+          value: Local
+        documentSelector:
+          path: metadata.name
+          value: bbe-music-music-assistant-lan
+      - equal:
+          path: spec.ports
+          value:
+            - name: http
+              protocol: TCP
+              port: 8095
+              targetPort: http
+        documentSelector:
+          path: metadata.name
+          value: bbe-music-music-assistant-lan
+      - equal:
+          path: metadata.annotations["metallb.io/address-pool"]
+          value: bbe-music-music-assistant
+        documentSelector:
+          path: metadata.name
+          value: bbe-music-music-assistant-lan
+      - equal:
+          path: spec.addresses
+          value:
+            - 192.168.1.243/32
+        documentSelector:
+          path: kind
+          value: IPAddressPool
+      - equal:
+          path: metadata.namespace
+          value: bbe-networking
+        documentSelector:
+          path: kind
+          value: L2Advertisement
+
+  - it: should refuse a Music Assistant address that isn't an IPv4 address
+    template: templates/music-assistant.yaml
+    set:
+      bbe.music.musicAssistant.loadBalancerIP: music.local
+    asserts:
+      - failedTemplate: {}
+
   - it: should give slskd its Soulseek account, folders and keys, sharing the music
     template: templates/slskd.yaml
     documentSelector:

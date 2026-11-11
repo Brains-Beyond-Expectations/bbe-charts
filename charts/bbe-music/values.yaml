@@ -78,6 +78,10 @@ bbe:
         limits:
           # -- The memory to limit Music Assistant to. Its docs ask for 2Gi at least
           memory: 2Gi
+      # -- An IP address on your LAN, which MetalLB announces, for Music Assistant's apps to connect to over plain
+      # HTTP at http://<address>:8095, for apps that don't trust the cluster's certificate authority. Unencrypted, so
+      # only on the home network. Left empty, the apps connect to music.<domain> on port 443
+      loadBalancerIP: ""
     slskd:
       image:
         # -- The slskd image, a Soulseek client with a web interface and API
