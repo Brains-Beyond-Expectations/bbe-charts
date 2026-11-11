@@ -126,6 +126,12 @@ CWA has no API for its settings. The setup Job signs in like a browser and posts
 - **What's verified, and what isn't:**
   - **Against the apps' source only,** CWA 4.0.8 and Shelfmark 1.3.0: CWA's settings forms, LDAP login, OPDS checking passwords against LDAP, its first start as root and what `NETWORK_SHARE_MODE` changes.
   - **Against CWA 4.0.8's source, in the cluster's pod, on 2026-11-11:** signing in from a reverse proxy's header on every request and creating people from it, its three settings, that its login is one of LDAP and OpenID Connect, and the paths of OPDS, Kobo sync, the Kobo reading services and KOReader's sync. That authentik's LDAP gives people's `mail`, on the cluster.
-  - **Not checked:** that authentik's outpost picks the library's provider before the domain's, and that a forward auth sign-in comes back through `/outpost.goauthentik.io/` on the library's host. Shelfmark's settings from the environment, its OpenID Connect sign-in and callback, and how it finds and copies qBittorrent's downloads.
+  - **Run on a test cluster on 2026-11-11,** through Traefik:
+    - opening the library sent people to authentik with the library's own provider, not the domain's;
+    - someone only in `users` signed in, came back through `/outpost.goauthentik.io/` on the library's host, and CWA created them and let them in, without admin rights;
+    - a forged `X-authentik-username` was removed, on the pages and on `/opds`;
+    - `/opds` and Kobo sync asked for their password or token, rather than sending people to authentik;
+    - the people CronJob gave that person their email in authentik as their Send to eReader address, not CWA's `<username>@localhost`.
+  - **Not checked:** the library's NetworkPolicy, as that cluster didn't enforce NetworkPolicies, and KOReader's sync, which is off in CWA's settings until someone turns it on. Shelfmark's settings from the environment, its OpenID Connect sign-in and callback, and how it finds and copies qBittorrent's downloads.
   - **Unit tests** cover the charts, and the setup's form reading was checked against CWA's form markup.
   - **Not run yet:** CWA and Shelfmark themselves, the setup Job against CWA, an LDAP sign-in, an e-reader, a Shelfmark sign-in through authentik, and a download through qBittorrent. Docker was unavailable, and nothing was installed on the cluster.
