@@ -1,0 +1,19 @@
+{{- /*
+Dashboards for the other packages, next to the monitors that scrape their metrics. Grafana's sidecar loads every
+ConfigMap labelled grafana_dashboard, in any namespace
+*/ -}}
+{{- $monitors := .Values.bbe.observability.monitors }}
+{{- if $monitors.networking }}
+# Blocky, the DNS server: queries, latency, upstreams, cache and blocking
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-dashboard-blocky
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  blocky.json: |-
+    {{- .Files.Get "files/dashboards/blocky.json" | nindent 4 }}
+{{- end }}

@@ -36,7 +36,7 @@ Metrics, logs and alerts for the BBE cluster, with Prometheus, Loki, Alloy and G
 | bbe.observability.alerts.repeatInterval | string | `"12h"` | How often an alert that's still firing is sent again |
 | bbe.observability.grafana.ingress.enabled | bool | `true` | Whether to serve Grafana at grafana.<domain>, through bbe-networking's Traefik, for admins signed in with authentik |
 | bbe.observability.monitors.auth | bool | `true` | Whether to scrape authentik in bbe-auth |
-| bbe.observability.monitors.networking | bool | `true` | Whether to scrape Traefik, cert-manager and Blocky in bbe-networking |
+| bbe.observability.monitors.networking | bool | `true` | Whether to scrape Traefik, cert-manager and Blocky in bbe-networking, and show Blocky's dashboard |
 | bbe.observability.monitors.storage | bool | `true` | Whether to scrape Longhorn in bbe-storage |
 | bbe.observability.rules.certificateExpiryDays | int | `14` | How many days before it expires a certificate is alerted about. cert-manager renews the domain's a third of the way before it expires, so a certificate this close has failed to renew |
 | bbe.observability.rules.longhornDiskUsagePercent | int | `85` | How full a Longhorn disk may get, in percent, before it's alerted about |

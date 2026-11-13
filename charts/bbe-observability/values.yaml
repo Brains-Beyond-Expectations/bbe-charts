@@ -43,7 +43,7 @@ bbe:
       # -- How full a Longhorn disk may get, in percent, before it's alerted about
       longhornDiskUsagePercent: 85
     monitors:
-      # -- Whether to scrape Traefik, cert-manager and Blocky in bbe-networking
+      # -- Whether to scrape Traefik, cert-manager and Blocky in bbe-networking, and show Blocky's dashboard
       networking: true
       # -- Whether to scrape Longhorn in bbe-storage
       storage: true

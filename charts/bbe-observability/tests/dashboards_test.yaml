@@ -1,0 +1,26 @@
+suite: test dashboards
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-observability
+  namespace: bbe-observability
+tests:
+  - it: should give Grafana a dashboard for Blocky, with bbe-networking's monitors
+    template: templates/dashboards.yaml
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.labels.grafana_dashboard
+          value: "1"
+      - matchRegex:
+          path: data["blocky.json"]
+          pattern: '"uid": "bbe-blocky"'
+
+  - it: should leave Blocky's dashboard out without bbe-networking's monitors
+    template: templates/dashboards.yaml
+    set:
+      bbe.observability.monitors.networking: false
+    asserts:
+      - hasDocuments:
+          count: 0

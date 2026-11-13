@@ -269,7 +269,7 @@ This opens one port of your home network to the internet, which only reaches sls
 
 bbe-observability keeps the cluster's metrics and the apps' logs for 15 days, and alerts when something goes wrong: a node down, a disk filling up, a Longhorn volume losing its copies, or a certificate not renewing.
 
-- **Looking:** at `https://grafana.bbe.home.arpa`, for admins. Its dashboards show each node, namespace and pod, and the apps' logs are under Explore → Loki.
+- **Looking:** at `https://grafana.bbe.home.arpa`, for admins. Its dashboards show each node, namespace and pod, and Blocky's DNS: its queries, latency, cache and what it blocks (Dashboards → Blocky). The apps' logs are under Explore → Loki.
 - **Getting alerts:** they're only shown in Grafana until you say where to send them. For example, to a Telegram chat:
   1. Make a bot with [@BotFather](https://t.me/BotFather), and find your chat's ID.
   2. Give the cluster the bot's token. It's never written to `bbe.yaml`:
