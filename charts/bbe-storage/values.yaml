@@ -4,10 +4,17 @@ longhorn:
   persistence:
     # -- Whether Longhorn's storage class is the cluster's default
     defaultClass: true
-    # -- How many copies of each volume Longhorn keeps, on different nodes. Raise it to 2 or 3 with more nodes
-    defaultClassReplicaCount: 1
+    # -- How many copies of each volume Longhorn keeps, on different nodes where it can. With 2, a volume stays usable
+    # when the node with one of its copies goes down, or can't be reached
+    defaultClassReplicaCount: 2
   defaultSettings:
     # -- Where Longhorn stores volumes on each node: the directory user volume bbe sets up
     defaultDataPath: /var/mnt/longhorn
     # -- How many copies of each volume Longhorn keeps when a volume doesn't say
-    defaultReplicaCount: 1
+    defaultReplicaCount: 2
+    # -- Whether a volume's copies may share a node when there's no other node for them, as on a cluster of one node,
+    # rather than the volume staying degraded
+    replicaSoftAntiAffinity: true
+    # -- Whether Longhorn moves copies sharing a node onto other nodes once there are some, such as when a node joins
+    # or comes back
+    replicaAutoBalance: best-effort
