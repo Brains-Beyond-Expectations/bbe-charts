@@ -86,9 +86,9 @@ bbe:
           # -- The CPU to request for Ollama. It uses every core while it answers
           cpu: 500m
         limits:
-          # -- The memory to limit Ollama to, the same as requested, so it never takes memory the node's other apps rely
-          # on
-          memory: 2560Mi
+          # -- The memory to limit Ollama to. It's above the request, so a model or context larger than the request was
+          # sized for still loads rather than being killed, taking memory the node's other apps may rely on, up to this
+          memory: 8Gi
     chat:
       # -- Whether to serve Open WebUI at ai.<domain>, to chat with Ollama's model in the browser. People sign in with
       # authentik: `users` chat, and `admins` manage it. Only with Ollama

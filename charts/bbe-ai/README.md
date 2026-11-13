@@ -27,7 +27,7 @@ A voice assistant's speech and language models for Home Assistant, run on the BB
 | bbe.ai.ollama.image.tag | string | `"0.40.14"` | Ollama's version |
 | bbe.ai.ollama.kvCacheType | string | `"q8_0"` | How the context is stored: `q8_0` takes half the memory of `f16`, with flash attention |
 | bbe.ai.ollama.model | string | `"qwen3:1.7b"` | The model it downloads, from https://ollama.com/library, which it needs to call Home Assistant's tools. `qwen3:1.7b` fits an 8 GB node. `qwen3:4b-instruct`, Home Assistant's default, answers better and needs 4Gi |
-| bbe.ai.ollama.resources.limits.memory | string | `"2560Mi"` | The memory to limit Ollama to, the same as requested, so it never takes memory the node's other apps rely on |
+| bbe.ai.ollama.resources.limits.memory | string | `"8Gi"` | The memory to limit Ollama to. It's above the request, so a model or context larger than the request was sized for still loads rather than being killed, taking memory the node's other apps may rely on, up to this |
 | bbe.ai.ollama.resources.requests.cpu | string | `"500m"` | The CPU to request for Ollama. It uses every core while it answers |
 | bbe.ai.ollama.resources.requests.memory | string | `"2560Mi"` | The memory to request for Ollama. The model and its context have to fit, so the pod only runs on a node with that much to spare |
 | bbe.ai.speechToText.image.repository | string | `"rhasspy/wyoming-whisper"` | The Wyoming speech-to-text server, with faster-whisper, NVIDIA's Parakeet and other backends |

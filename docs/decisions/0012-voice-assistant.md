@@ -49,7 +49,7 @@ Home Assistant speaks to each through an integration of its own, with nothing to
 - **Speech-to-text:** wyoming-whisper with `--language en` and its own choice of model, Parakeet for English. `bbe.ai.speechToText.library` and `model` switch to faster-whisper's `base.en`, which needs less memory.
 - **Text-to-speech:** wyoming-piper, with `en_US-lessac-medium`.
 - **The LLM:** Ollama, with `qwen3:1.7b`, which fits an 8 GB node. `qwen3:4b-instruct` is Home Assistant's default, and needs ~4 GB. An init container downloads the model before Ollama serves it, and keeps one already downloaded, so a restart needs no internet. Ollama keeps it loaded, serves one conversation at a time, and has its cloud features off.
-- **Memory:** Ollama's request and limit are the same, sized for the model and an 8192-token context, with its cache in `q8_0`. The pod is only scheduled on a node with that much to spare, and can't take memory from the node's other apps.
+- **Memory:** Ollama's request is sized for the model and an 8192-token context, with its cache in `q8_0`, and the pod is only scheduled on a node with that much to spare. Its limit is higher, 8Gi, so a larger model, or the larger context Home Assistant can ask for, still loads rather than Ollama being killed. Up to that limit, it can take memory the node's other apps rely on.
 
 Every server downloads into its own folder on one Longhorn volume, and runs as a user with no capabilities, so the namespace is `restricted`.
 

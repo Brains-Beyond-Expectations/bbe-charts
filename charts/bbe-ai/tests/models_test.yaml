@@ -176,7 +176,7 @@ tests:
             - name: OLLAMA_NO_CLOUD
               value: "1"
 
-  - it: should give Ollama the memory it asks for, and no more
+  - it: should give Ollama the memory it asks for, and let it use up to 8Gi
     documentSelector:
       path: kind
       value: Deployment
@@ -188,7 +188,7 @@ tests:
               memory: 2560Mi
               cpu: 500m
             limits:
-              memory: 2560Mi
+              memory: 8Gi
 
   - it: should download the model before Ollama serves it
     documentSelector:
