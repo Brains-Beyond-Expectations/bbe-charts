@@ -105,7 +105,7 @@ PostgreSQL and MariaDB are left for later. They can serve TLS, but only reload a
 
 - **Upgrade bbe-networking first.** Every package now mounts or names `bbe-ca-cert`, which only exists once trust-manager runs. A pod naming it waits until it's there.
 - **Upgrade bbe-auth, then the packages signing people in with LDAP.** Plain LDAP is no longer offered outside the outpost's pod. Jellyfin, the library and Snipe-IT can't sign people in from the moment bbe-auth is upgraded until their own package is.
-- **A first install takes up to about 3 minutes longer,** while authentik picks up its certificate.
+- **A first install takes up to about 3 minutes longer,** while authentik picks up its certificate. The setup waits up to 10 minutes for it (`bbe.setup.certificateTimeout`), counted from when the blueprint is applied, so a slow start doesn't eat into it.
 - **The setup sends authentik's bootstrap token in plain HTTP inside bbe-auth's namespace, on a first install only,** until authentik serves bbe's certificate. It sends nothing else secret that way.
 - **trust-manager can read every Secret**, to manage `bbe-ca-cert` in every namespace.
 - **Upgrading bbe-networking recreates the bundles,** and trust-manager writes their copies again within seconds. Pods already running keep the copy they have. Forward auth may fail for those seconds, while its Secret is being written again.

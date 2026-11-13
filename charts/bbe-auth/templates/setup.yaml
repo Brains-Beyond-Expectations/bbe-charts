@@ -70,6 +70,8 @@ spec:
               value: /user-passwords
             - name: READY_TIMEOUT
               value: {{ .Values.bbe.setup.readyTimeout | quote }}
+            - name: CERTIFICATE_TIMEOUT
+              value: {{ .Values.bbe.setup.certificateTimeout | quote }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

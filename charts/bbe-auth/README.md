@@ -82,6 +82,7 @@ Single sign-on for the BBE cluster's apps with authentik, its PostgreSQL databas
 | bbe.postgres.resources.requests.memory | string | `"128Mi"` | The memory to request for PostgreSQL |
 | bbe.postgres.size | string | `"2Gi"` | The size of authentik's database |
 | bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when authentik couldn't be set up |
+| bbe.setup.certificateTimeout | int | `600` | How long the setup waits, once bbe's blueprint is applied, for authentik to import its certificates and serve them, in seconds. On a first install, its server only looks for a changed certificate every 3 minutes |
 | bbe.setup.image.repository | string | `"python"` | The image to run the setup with, which only needs Python |
 | bbe.setup.image.tag | string | `"3.13-alpine"` | The tag of the setup image |
 | bbe.setup.readyTimeout | int | `900` | How long the setup waits for authentik to start and apply bbe's blueprint, in seconds |

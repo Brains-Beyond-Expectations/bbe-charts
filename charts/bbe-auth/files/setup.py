@@ -39,6 +39,9 @@ LDAP_OUTPOST_TOKEN = os.environ.get("LDAP_OUTPOST_TOKEN", "")
 USERS = json.loads(os.environ.get("USERS") or "[]")
 USER_PASSWORDS_DIR = os.environ.get("USER_PASSWORDS_DIR", "/user-passwords")
 READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
+# How long the setup waits, once the blueprint is applied, for the worker to import authentik's certificates and for
+# authentik to serve them. It's its own, as authentik may take long to start on a first install, and a slow worker too
+CERTIFICATE_TIMEOUT = int(os.environ.get("CERTIFICATE_TIMEOUT", "600"))
 # authentik's own certificates, which its worker imports from /certs/<name>, and the setup reads from
 # CERTIFICATES_DIR/<name> to tell when it has: its server's, which its default brand serves, and its LDAP outpost's
 CERTIFICATES_DIR = os.environ.get("CERTIFICATES_DIR", "/certificates")
@@ -172,7 +175,7 @@ def wait_until_trusted(deadline):
             last_error = str(error)
         time.sleep(10)
 
-    raise SetupError(f"authentik didn't serve bbe's certificate after {READY_TIMEOUT} seconds: {last_error}")
+    raise SetupError(f"authentik didn't serve bbe's certificate after {CERTIFICATE_TIMEOUT} seconds: {last_error}")
 
 
 def fingerprint(name):
@@ -350,10 +353,11 @@ def main():
     log("authentik: ready")
 
     apply_blueprint(authentik, deadline)
-    serve_certificates(authentik, deadline)
+    certificate_deadline = time.monotonic() + CERTIFICATE_TIMEOUT
+    serve_certificates(authentik, certificate_deadline)
     # The outpost's token and people's passwords only go to authentik over HTTPS
     if not trusted:
-        authentik = wait_until_trusted(deadline)
+        authentik = wait_until_trusted(certificate_deadline)
     configure_ldap_outpost(authentik)
     configure_users(authentik)
     log("authentik is set up")

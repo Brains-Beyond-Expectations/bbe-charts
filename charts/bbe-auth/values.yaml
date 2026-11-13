@@ -61,6 +61,9 @@ bbe:
       tag: "3.13-alpine"
     # -- How long the setup waits for authentik to start and apply bbe's blueprint, in seconds
     readyTimeout: 900
+    # -- How long the setup waits, once bbe's blueprint is applied, for authentik to import its certificates and serve
+    # them, in seconds. On a first install, its server only looks for a changed certificate every 3 minutes
+    certificateTimeout: 600
     # -- How many times the setup is retried when authentik couldn't be set up
     backoffLimit: 5
     resources:
