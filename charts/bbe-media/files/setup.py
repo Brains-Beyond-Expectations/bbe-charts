@@ -574,8 +574,12 @@ def configure_jellyfin_ldap(jellyfin):
     wanted = {
         "LdapServer": JELLYFIN_LDAP["server"],
         "LdapPort": JELLYFIN_LDAP["port"],
-        "UseSsl": False,
+        # LDAPS, as people's passwords go through it, with the outpost's certificate checked with bbe's certificate
+        # authority, for the server's name
+        "UseSsl": True,
         "UseStartTls": False,
+        "SkipSslVerify": False,
+        "LdapRootCaPath": JELLYFIN_LDAP["caPath"],
         "LdapBindUser": JELLYFIN_LDAP["bindUser"],
         "LdapBindPassword": JELLYFIN_LDAP_PASSWORD,
         "LdapBaseDn": base_dn,

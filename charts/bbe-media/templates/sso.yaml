@@ -10,7 +10,11 @@ metadata:
     {{- include "bbe-media.labels" . | nindent 4 }}
 spec:
   forwardAuth:
-    address: http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+    address: https://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+    # Over HTTPS, checking authentik's certificate with bbe's certificate authority, which trust-manager copies into
+    # every namespace
+    tls:
+      caSecret: bbe-ca-cert
     # authentik sends people back to where they were going from the X-Forwarded-* headers, only under the domain
     trustForwardHeader: true
     authResponseHeaders:
@@ -50,7 +54,11 @@ data:
 
         location /outpost.goauthentik.io {
             internal;
-            proxy_pass http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io;
+            # Over HTTPS, checking authentik's certificate with bbe's certificate authority, for its Service's name
+            proxy_pass https://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io;
+            proxy_ssl_verify on;
+            proxy_ssl_trusted_certificate /etc/nginx/ca/ca.crt;
+            proxy_ssl_server_name on;
             proxy_set_header Host $host;
             proxy_set_header X-Original-URL https://$http_host$request_uri;
             proxy_pass_request_body off;

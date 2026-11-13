@@ -44,9 +44,9 @@ containers:
             key: password
       - name: ADMIN_EMAIL
         value: {{ $root.Values.bbe.misc.snipeit.admin.username }}@{{ $root.Values.global.bbe.domain }}
-      # bbe-auth's LDAP outpost, which Snipe-IT binds to with its own account
+      # bbe-auth's LDAP outpost, which Snipe-IT binds to with its own account, over LDAPS
       - name: LDAP_URL
-        value: ldap://bbe-auth-ldap.bbe-auth.svc.cluster.local:389
+        value: ldaps://bbe-auth-ldap.bbe-auth.svc.cluster.local:636
       - name: LDAP_BASE_DN
         value: {{ include "bbe-misc.ldapBaseDn" $root }}
       - name: LDAP_BIND_DN
@@ -73,10 +73,16 @@ containers:
       - name: scripts
         mountPath: /scripts
         readOnly: true
+      - name: ca
+        mountPath: /certificates
+        readOnly: true
 volumes:
   - name: scripts
     configMap:
       name: bbe-misc-setup
+  - name: ca
+    secret:
+      secretName: bbe-ca-cert
 {{- end -}}
 
 {{- if .Values.bbe.setup.enabled }}

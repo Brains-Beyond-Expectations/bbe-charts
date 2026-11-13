@@ -174,7 +174,8 @@ function ldap_settings(): void
     $members = implode('', array_map(fn ($group) => '(memberOf='.group_dn($group).')', GROUPS));
     $wanted = [
         'ldap_enabled' => '1',
-        // Plain LDAP inside the cluster, like Jellyfin's
+        // LDAPS, as people's passwords go through it, rather than StartTLS. The outpost's certificate is checked with
+        // bbe's certificate authority, which LDAPTLS_CACERT names
         'ldap_server' => setting('LDAP_URL'),
         'ldap_tls' => '0',
         'ldap_server_cert_ignore' => '0',

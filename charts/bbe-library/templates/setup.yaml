@@ -36,11 +36,21 @@ containers:
           secretKeyRef:
             name: bbe-library-admin
             key: password
-      # bbe-auth's LDAP outpost, which the library binds to with its own account
+      # bbe-auth's LDAP outpost, which the library binds to with its own account, over LDAPS, checking its certificate
+      # with bbe's certificate authority
       - name: LDAP_SERVER
         value: bbe-auth-ldap.bbe-auth.svc.cluster.local
       - name: LDAP_PORT
-        value: "389"
+        value: "636"
+      - name: LDAP_CA_FILE
+        value: /certificates/ca.crt
+      # The same, from Calibre-Web's container, where its certificate is mounted whole
+      - name: CALIBRE_LDAP_CA_FILE
+        value: /certificates/ca.crt
+      - name: CALIBRE_LDAP_CERT_FILE
+        value: /certificates/tls.crt
+      - name: CALIBRE_LDAP_KEY_FILE
+        value: /certificates/tls.key
       - name: LDAP_BASE_DN
         value: {{ include "bbe-library.ldapBaseDn" $root }}
       - name: LDAP_BIND_DN

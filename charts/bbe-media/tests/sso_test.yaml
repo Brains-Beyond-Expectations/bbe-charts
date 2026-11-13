@@ -7,14 +7,19 @@ release:
   name: bbe-media
   namespace: bbe-media
 tests:
-  - it: should ask bbe-auth's authentik about every request
+  - it: should ask bbe-auth's authentik about every request, over HTTPS
     documentSelector:
       path: kind
       value: Middleware
     asserts:
       - equal:
           path: spec.forwardAuth.address
-          value: http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+          value: https://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+      # Checking authentik's certificate with bbe's certificate authority
+      - equal:
+          path: spec.forwardAuth.tls
+          value:
+            caSecret: bbe-ca-cert
       - equal:
           path: metadata.name
           value: sso

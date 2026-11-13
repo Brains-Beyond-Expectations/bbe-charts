@@ -111,6 +111,12 @@ spec:
               mountPath: /cache
             - name: cache
               mountPath: /transcode
+            {{- if .Values.global.bbe.sso.enabled }}
+            # bbe's certificate authority, which Jellyfin's LDAP plugin checks bbe-auth's LDAPS certificate with
+            - name: ca
+              mountPath: /certificates
+              readOnly: true
+            {{- end }}
       volumes:
         - name: config
           persistentVolumeClaim:
@@ -121,6 +127,11 @@ spec:
         - name: cache
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-jellyfin-cache
+        {{- if .Values.global.bbe.sso.enabled }}
+        - name: ca
+          secret:
+            secretName: bbe-ca-cert
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

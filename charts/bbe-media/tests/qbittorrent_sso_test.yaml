@@ -153,7 +153,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: JELLYFIN_LDAP
-            value: '{"baseDn":"dc=ldap,dc=goauthentik,dc=io","bindUser":"cn=jellyfin-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io","passwordResetUrl":"https://auth.lab.home.arpa/if/user/#/settings","port":389,"server":"bbe-auth-ldap.bbe-auth.svc.cluster.local"}'
+            value: '{"baseDn":"dc=ldap,dc=goauthentik,dc=io","bindUser":"cn=jellyfin-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io","caPath":"/certificates/ca.crt","passwordResetUrl":"https://auth.lab.home.arpa/if/user/#/settings","port":636,"server":"bbe-auth-ldap.bbe-auth.svc.cluster.local"}'
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -162,3 +162,33 @@ tests:
               secretKeyRef:
                 name: bbe-media-ldap
                 key: password
+
+  - it: should give Jellyfin bbe's certificate authority, to check the LDAP outpost's certificate with
+    template: templates/jellyfin.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: ca
+            mountPath: /certificates
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: ca
+            secret:
+              secretName: bbe-ca-cert
+
+  - it: should have qBittorrent's nginx ask authentik over HTTPS, checking its certificate
+    template: templates/sso.yaml
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - matchRegex:
+          path: data["default.conf"]
+          pattern: proxy_pass https://bbe-auth-server\.bbe-auth\.svc\.cluster\.local/outpost\.goauthentik\.io;\n\s+proxy_ssl_verify on;\n\s+proxy_ssl_trusted_certificate /etc/nginx/ca/ca\.crt;\n\s+proxy_ssl_server_name on;
+
