@@ -106,6 +106,12 @@ authentik:
     configMaps:
       - bbe-auth-blueprints
   server:
+    service:
+      annotations:
+        # Traefik connects to authentik over HTTPS, checking its certificate with the ServersTransport in
+        # certificates.yaml
+        traefik.ingress.kubernetes.io/service.serversscheme: https
+        traefik.ingress.kubernetes.io/service.serverstransport: bbe-auth-bbe-auth-server@kubernetescrd
     containerSecurityContext:
       allowPrivilegeEscalation: false
       capabilities:
@@ -128,6 +134,9 @@ authentik:
         readOnly: true
   worker:
     automountServiceAccountToken: false
+    # The certificates' keys are only readable by authentik's group
+    securityContext:
+      fsGroup: 1000
     containerSecurityContext:
       allowPrivilegeEscalation: false
       capabilities:
@@ -139,3 +148,30 @@ authentik:
         cpu: 100m
       limits:
         memory: 1Gi
+    # authentik's own certificates, which it imports from /certs, each named after its folder
+    volumes:
+      - name: server-certificate
+        secret:
+          secretName: bbe-auth-server-tls
+          defaultMode: 0440
+          items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+      - name: ldap-certificate
+        secret:
+          secretName: bbe-auth-ldap-tls
+          defaultMode: 0440
+          items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+    volumeMounts:
+      - name: server-certificate
+        mountPath: /certs/bbe-auth-server
+        readOnly: true
+      - name: ldap-certificate
+        mountPath: /certs/bbe-auth-ldap
+        readOnly: true

@@ -42,7 +42,7 @@ tests:
                   matchLabels:
                     app.kubernetes.io/name: traefik
             ports:
-              - port: http
+              - port: https
       - equal:
           path: spec.ingress[1]
           value:
@@ -54,7 +54,7 @@ tests:
                   matchLabels:
                     kubernetes.io/metadata.name: bbe-library
             ports:
-              - port: http
+              - port: https
       - equal:
           path: spec.ingress[2]
           value:
@@ -87,7 +87,7 @@ tests:
                     matchLabels:
                       kubernetes.io/metadata.name: bbe-misc
               ports:
-                - port: ldap
+                - port: ldaps
 
   - it: should add no policies when they're off
     set:

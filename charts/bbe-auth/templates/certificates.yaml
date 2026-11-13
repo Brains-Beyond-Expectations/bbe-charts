@@ -1,0 +1,45 @@
+{{- /*
+authentik's own certificates, from bbe's certificate authority, so what reaches it inside the cluster checks who answers:
+- its server's, on 9443, for Traefik, the apps' forward auth, qBittorrent's nginx, the LDAP outpost and the setup;
+- its LDAP outpost's, for LDAPS, for Jellyfin, the book library and Snipe-IT.
+authentik's worker imports them from /certs, each named after its folder, and again whenever cert-manager renews them.
+The setup has authentik serve them
+*/ -}}
+{{- range $service := list "bbe-auth-server" "bbe-auth-ldap" }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $service }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" $ | nindent 4 }}
+spec:
+  secretName: {{ $service }}-tls
+  dnsNames:
+    - {{ $service }}
+    - {{ $service }}.{{ $.Release.Namespace }}
+    - {{ $service }}.{{ $.Release.Namespace }}.svc
+    - {{ $service }}.{{ $.Release.Namespace }}.svc.cluster.local
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    kind: ClusterIssuer
+    name: bbe-ca
+{{- end }}
+---
+# How Traefik connects to authentik's server: over HTTPS, checking its certificate is bbe's certificate authority's,
+# for its Service's name
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: bbe-auth-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-auth.labels" . | nindent 4 }}
+spec:
+  serverName: bbe-auth-server.{{ .Release.Namespace }}.svc
+  rootCAs:
+    - secret: bbe-ca-cert
