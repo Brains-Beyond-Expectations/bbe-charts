@@ -1,0 +1,22 @@
+{{- if and .Values.incomplete.enabled (not .Values.incomplete.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "qbittorrent.incompleteClaimName" . }}
+  namespace: {{ include "qbittorrent.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "qbittorrent.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- with .Values.incomplete.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.incomplete.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  accessModes:
+    - {{ .Values.incomplete.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.incomplete.size }}
+{{- end }}

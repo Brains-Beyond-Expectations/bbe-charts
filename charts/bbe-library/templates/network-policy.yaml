@@ -1,0 +1,62 @@
+{{- if .Values.bbe.networkPolicy.enabled }}
+# Shelfmark is only reached through Traefik and by the library's own pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: NotIn
+        values:
+          - calibre
+  policyTypes:
+    - Ingress
+  ingress:
+    # The library, Shelfmark and the setup
+    - from:
+        - podSelector: {}
+    # Traefik, serving them
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-networking
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+---
+# Calibre-Web-Automated signs in whoever X-authentik-username names, which only Traefik's forward auth may set. So only
+# Traefik and bbe's setup, which signs in with the library's own admin, reach it
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-calibre
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: calibre
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - setup
+                  - people
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-networking
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+{{- end }}

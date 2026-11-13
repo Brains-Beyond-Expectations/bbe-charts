@@ -1,0 +1,57 @@
+{{- $ai := .Values.bbe.ai }}
+# Home Assistant reaches the models here, at their own address on the LAN. Wyoming isn't HTTP, so Traefik can't serve
+# it. Local traffic policy keeps Home Assistant's address, which the NetworkPolicy lets in
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: models
+  annotations:
+    metallb.io/address-pool: {{ .Release.Name }}
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    {{- include "bbe-ai.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: speech-to-text
+      protocol: TCP
+      port: {{ include "bbe-ai.speechToTextPort" . }}
+      targetPort: speech-to-text
+    - name: text-to-speech
+      protocol: TCP
+      port: {{ include "bbe-ai.textToSpeechPort" . }}
+      targetPort: text-to-speech
+    {{- if $ai.ollama.enabled }}
+    - name: ollama
+      protocol: TCP
+      port: {{ include "bbe-ai.ollamaPort" . }}
+      targetPort: ollama
+    {{- end }}
+---
+# The models' own address, which only their Service gets, in MetalLB's namespace
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: {{ .Release.Name }}
+  namespace: bbe-networking
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+spec:
+  autoAssign: false
+  addresses:
+    - {{ $ai.loadBalancerIP }}/32
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: {{ .Release.Name }}
+  namespace: bbe-networking
+  labels:
+    {{- include "bbe-ai.labels" . | nindent 4 }}
+spec:
+  ipAddressPools:
+    - {{ .Release.Name }}

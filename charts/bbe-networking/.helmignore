@@ -28,3 +28,6 @@ OWNERS
 
 # helm unit tests
 tests/
+
+# Writes crds/, it isn't part of the chart
+update-crds.sh

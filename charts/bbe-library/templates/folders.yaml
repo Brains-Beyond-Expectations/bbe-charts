@@ -1,0 +1,50 @@
+# Creates the books' folders on the share, and an empty library, as the NAS user, as the share maps root away
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job can't be changed once it exists, so each revision gets its own
+  name: bbe-library-folders-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-library.labels" . | nindent 8 }}
+        app.kubernetes.io/component: folders
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- include "bbe-library.runAsUser" . | nindent 8 }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: folders
+          image: "{{ .Values.bbe.library.calibre.image.repository }}:{{ .Values.bbe.library.calibre.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              mkdir -p /share/books /share/books-ingest
+              if [ ! -e /share/books/metadata.db ]; then
+                cp /app/calibre-web-automated/empty_library/metadata.db /share/books/metadata.db
+                echo "Created an empty library"
+              fi
+          resources:
+            {{- include "bbe-library.initResources" . | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: share
+              mountPath: /share
+      volumes:
+        - name: share
+          persistentVolumeClaim:
+            claimName: bbe-library-share

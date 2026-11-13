@@ -1,0 +1,151 @@
+{{- /*
+Snipe-IT's database, from the official image. It runs as the image's mysql user (999), on a volume of the cluster's
+default storage class
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: bbe-misc-mariadb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mariadb
+spec:
+  type: ClusterIP
+  ports:
+    - name: mariadb
+      port: 3306
+      targetPort: mariadb
+  selector:
+    app.kubernetes.io/name: bbe-misc
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: mariadb
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: bbe-misc-mariadb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mariadb
+spec:
+  serviceName: bbe-misc-mariadb
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bbe-misc
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: mariadb
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-misc.labels" . | nindent 8 }}
+        app.kubernetes.io/component: mariadb
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # The image's first start creates the system tables, then Snipe-IT's database and the accounts. Stopped in
+        # between, its next start finds the system tables, takes the volume as set up and never creates the rest. Without
+        # Snipe-IT's database the volume holds nothing of Snipe-IT's, so this empties it for the image to start over
+        - name: discard-unfinished-setup
+          image: "{{ .Values.bbe.misc.mariadb.image.repository }}:{{ .Values.bbe.misc.mariadb.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              if [ -d /var/lib/mysql/mysql ] && [ ! -d /var/lib/mysql/snipeit ]; then
+                echo "MariaDB: its first start didn't finish, so it starts over"
+                find /var/lib/mysql -mindepth 1 -maxdepth 1 ! -name lost+found -exec rm -rf {} +
+              fi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+      containers:
+        - name: mariadb
+          image: "{{ .Values.bbe.misc.mariadb.image.repository }}:{{ .Values.bbe.misc.mariadb.image.tag }}"
+          env:
+            - name: MARIADB_DATABASE
+              value: snipeit
+            - name: MARIADB_USER
+              value: snipeit
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-misc-mariadb
+                  key: password
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bbe-misc-mariadb
+                  key: root-password
+            # Upgrades the system tables when a new MariaDB version starts on older data
+            - name: MARIADB_AUTO_UPGRADE
+              value: "1"
+          ports:
+            - name: mariadb
+              containerPort: 3306
+          # The image's own check, with the account its first start creates for it. That start takes minutes on a fresh
+          # volume and little CPU, and it has up to 10 before the liveness probe can restart it
+          startupProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          {{- with .Values.bbe.misc.mariadb.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: run
+              mountPath: /run/mysqld
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "bbe-misc.labels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.bbe.misc.mariadb.size }}

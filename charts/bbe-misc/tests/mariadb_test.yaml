@@ -1,0 +1,78 @@
+suite: test mariadb
+values:
+  - ./values/required-values.yaml
+templates:
+  - mariadb.yaml
+release:
+  name: bbe-misc
+  namespace: bbe-misc
+tests:
+  - it: should run MariaDB as its own user with a read-only root
+    documentSelector:
+      path: kind
+      value: StatefulSet
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 999
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: run
+            mountPath: /run/mysqld
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 2Gi
+
+  - it: should create Snipe-IT's database and user, and upgrade it with new MariaDB versions
+    documentSelector:
+      path: kind
+      value: StatefulSet
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MARIADB_DATABASE
+            value: snipeit
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MARIADB_USER
+            value: snipeit
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MARIADB_AUTO_UPGRADE
+            value: "1"
+
+  - it: should check it with the image's own health check
+    documentSelector:
+      path: kind
+      value: StatefulSet
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.exec.command
+          value: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 60
+
+  - it: should start over when its first start didn't create Snipe-IT's database
+    documentSelector:
+      path: kind
+      value: StatefulSet
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: discard-unfinished-setup
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: '\[ -d /var/lib/mysql/mysql \] && \[ ! -d /var/lib/mysql/snipeit \]'
+      - contains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /var/lib/mysql

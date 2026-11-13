@@ -1,0 +1,4 @@
+bbe:
+  ai:
+    loadBalancerIP: 192.168.1.242
+    homeAssistantIP: 192.168.1.50

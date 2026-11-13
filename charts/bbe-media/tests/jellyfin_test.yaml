@@ -1,0 +1,153 @@
+suite: test jellyfin
+values:
+  - ./values/required-values.yaml
+templates:
+  - jellyfin.yaml
+  - setup.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should keep the names and labels of Jellyfin's chart, so clusters set up with it keep their volumes
+    template: jellyfin.yaml
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: jellyfin
+            app.kubernetes.io/instance: bbe-media
+        documentSelector:
+          path: kind
+          value: Deployment
+      - equal:
+          path: metadata.name
+          value: bbe-media-jellyfin
+        documentSelector:
+          path: kind
+          value: Service
+      - equal:
+          path: spec.selector
+          value:
+            app.kubernetes.io/name: jellyfin
+            app.kubernetes.io/instance: bbe-media
+        documentSelector:
+          path: kind
+          value: Service
+
+  - it: should ask for a GPU by default, so Jellyfin only runs on a node with one
+    template: jellyfin.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits["gpu.intel.com/i915"]
+          value: "1"
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+
+  - it: should transcode on the GPU with Quick Sync, with the codecs Intel's 7th generation decodes
+    template: setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JELLYFIN_ENCODING
+            value: '{"AllowAv1Encoding":false,"AllowHevcEncoding":true,"EnableDecodingColorDepth10Hevc":true,"EnableDecodingColorDepth10Vp9":true,"EnableHardwareEncoding":true,"EnableIntelLowPowerH264HwEncoder":false,"EnableIntelLowPowerHevcHwEncoder":false,"EnableTonemapping":false,"HardwareAccelerationType":"qsv","HardwareDecodingCodecs":["h264","hevc","mpeg2video","vc1","vp8","vp9"],"QsvDevice":"","VaapiDevice":"/dev/dri/renderD128"}'
+
+  - it: should transcode on the CPU, on any node, when allowed and no node offers a GPU
+    set:
+      bbe.media.jellyfin.transcoding.allowCpu: true
+    kubernetesProvider:
+      scheme:
+        "v1/Node":
+          gvr:
+            version: "v1"
+            resource: "nodes"
+          namespaced: false
+      objects:
+        - apiVersion: v1
+          kind: Node
+          metadata:
+            name: without-gpu
+          status:
+            allocatable:
+              cpu: "4"
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].resources.limits["gpu.intel.com/i915"]
+        template: jellyfin.yaml
+        documentSelector:
+          path: kind
+          value: Deployment
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JELLYFIN_ENCODING
+            value: '{"HardwareAccelerationType":"none"}'
+        template: setup.yaml
+        documentSelector:
+          path: kind
+          value: Job
+
+  - it: should still take a GPU when the CPU is allowed but a node offers one
+    set:
+      bbe.media.jellyfin.transcoding.allowCpu: true
+    kubernetesProvider:
+      scheme:
+        "v1/Node":
+          gvr:
+            version: "v1"
+            resource: "nodes"
+          namespaced: false
+      objects:
+        - apiVersion: v1
+          kind: Node
+          metadata:
+            name: without-gpu
+          status:
+            allocatable:
+              cpu: "4"
+        - apiVersion: v1
+          kind: Node
+          metadata:
+            name: with-gpu
+          status:
+            allocatable:
+              cpu: "4"
+              gpu.intel.com/i915: "2"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits["gpu.intel.com/i915"]
+          value: "1"
+        template: jellyfin.yaml
+        documentSelector:
+          path: kind
+          value: Deployment
+
+  - it: should tone-map with Intel's OpenCL runtime when asked, and decode AV1 on a newer GPU
+    set:
+      bbe.media.jellyfin.transcoding.tonemapping: true
+      bbe.media.jellyfin.transcoding.decodingCodecs: [h264, hevc, av1]
+      bbe.media.jellyfin.transcoding.av1Encoding: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DOCKER_MODS
+            value: linuxserver/mods:jellyfin-opencl-intel
+        template: jellyfin.yaml
+        documentSelector:
+          path: kind
+          value: Deployment
+      - matchRegex:
+          path: spec.template.spec.containers[0].env[?(@.name == "JELLYFIN_ENCODING")].value
+          pattern: '"AllowAv1Encoding":true.*"EnableTonemapping":true.*"HardwareDecodingCodecs":\["h264","hevc","av1"\]'
+        template: setup.yaml
+        documentSelector:
+          path: kind
+          value: Job

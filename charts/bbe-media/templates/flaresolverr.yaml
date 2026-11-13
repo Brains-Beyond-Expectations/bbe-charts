@@ -1,0 +1,100 @@
+{{- if .Values.bbe.media.flaresolverr.enabled }}
+# Gets past Cloudflare's challenges for Prowlarr, which only sends it the indexers that need it
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-flaresolverr
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flaresolverr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: flaresolverr
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-media.labels" . | nindent 8 }}
+        app.kubernetes.io/component: flaresolverr
+    spec:
+      # The image's `flaresolverr` user, which Kubernetes needs as a number to know it isn't root
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: flaresolverr
+          image: "{{ .Values.bbe.media.flaresolverr.image.repository }}:{{ .Values.bbe.media.flaresolverr.image.tag }}"
+          # FlareSolverr runs a Chromium for every request it serves at once, four by default with waitress, which it
+          # has no setting for. This starts it as the image does, with waitress serving as many as the values allow,
+          # and the rest waiting their turn
+          command:
+            - /usr/bin/dumb-init
+            - --
+            - /usr/local/bin/python
+            - -u
+            - -c
+            - |
+              import functools, runpy, sys, waitress
+              sys.path.insert(0, "/app")
+              waitress.serve = functools.partial(waitress.serve, threads={{ .Values.bbe.media.flaresolverr.concurrency | int }})
+              runpy.run_path("/app/flaresolverr.py", run_name="__main__")
+          workingDir: /app
+          env:
+            - name: LOG_LEVEL
+              value: info
+          ports:
+            - name: http
+              containerPort: 8191
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          {{- with .Values.bbe.media.flaresolverr.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            # Chromium keeps its pages in shared memory, which a container only gets 64Mi of
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-flaresolverr
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flaresolverr
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: flaresolverr
+  ports:
+    - name: http
+      port: 8191
+      targetPort: http
+{{- end }}

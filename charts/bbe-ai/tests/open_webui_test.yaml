@@ -1,0 +1,172 @@
+suite: test open webui
+values:
+  - ./values/required-values.yaml
+templates:
+  - open-webui.yaml
+release:
+  name: bbe-ai
+  namespace: bbe-ai
+tests:
+  - it: should serve Open WebUI at ai.<domain>, listed on the dashboard, without forward auth
+    documentSelector:
+      path: kind
+      value: Ingress
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: ai.bbe.home.arpa
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service
+          value:
+            name: bbe-ai-open-webui
+            port:
+              number: 8080
+      - equal:
+          path: metadata.annotations["gethomepage.dev/group"]
+          value: Ask
+      - notExists:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+
+  - it: should run as a user, writing only to its volume
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/open-webui/open-webui:0.13.0-slim
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+      - equal:
+          path: spec.template.spec.containers[*].securityContext
+          value:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STATIC_DIR
+            value: /app/backend/data/static
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /app/backend/data
+
+  - it: should chat with Ollama's model, which every user may use
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OLLAMA_BASE_URL
+            value: http://bbe-ai.bbe-ai.svc.cluster.local:11434
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BYPASS_MODEL_ACCESS_CONTROL
+            value: "true"
+
+  - it: should sign people in with authentik only, with their roles from its groups
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OPENID_PROVIDER_URL
+            value: https://auth.bbe.home.arpa/application/o/open-webui/.well-known/openid-configuration
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OPENID_REDIRECT_URI
+            value: https://ai.bbe.home.arpa/oauth/oidc/callback
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OAUTH_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: bbe-ai-auth
+                key: open-webui-client-secret
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENABLE_PASSWORD_AUTH
+            value: "false"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OAUTH_ROLES_CLAIM
+            value: groups
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OAUTH_ALLOWED_ROLES
+            value: users,admins
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: OAUTH_ADMIN_ROLES
+            value: admins
+
+  - it: should reach authentik at its own address through Traefik
+    documentSelector:
+      path: kind
+      value: Deployment
+    kubernetesProvider:
+      scheme:
+        "v1/Service":
+          gvr:
+            version: "v1"
+            resource: "services"
+          namespaced: true
+      objects:
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: bbe-networking-traefik
+            namespace: bbe-networking
+          spec:
+            clusterIP: 10.96.0.20
+          status:
+            loadBalancer:
+              ingress:
+                - ip: 192.168.1.241
+    asserts:
+      - equal:
+          path: spec.template.spec.hostAliases
+          value:
+            - ip: 192.168.1.241
+              hostnames:
+                - auth.bbe.home.arpa
+
+  - it: should be named under another domain
+    documentSelector:
+      path: kind
+      value: Ingress
+    set:
+      global.bbe.domain: example.home.arpa
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: ai.example.home.arpa
+
+  - it: should run nothing without Ollama
+    set:
+      bbe.ai.ollama.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should run nothing when off
+    set:
+      bbe.ai.chat.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

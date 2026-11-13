@@ -1,0 +1,93 @@
+suite: test service
+values:
+  - ./values/required-values.yaml
+templates:
+  - service.yaml
+release:
+  name: bbe-ai
+  namespace: bbe-ai
+tests:
+  - it: should serve every model at one address of their own, keeping the client's address
+    documentSelector:
+      path: kind
+      value: Service
+    asserts:
+      - equal:
+          path: spec.type
+          value: LoadBalancer
+      - equal:
+          path: spec.externalTrafficPolicy
+          value: Local
+      - equal:
+          path: metadata.annotations
+          value:
+            metallb.io/address-pool: bbe-ai
+      - equal:
+          path: spec.ports
+          value:
+            - name: speech-to-text
+              protocol: TCP
+              port: 10300
+              targetPort: speech-to-text
+            - name: text-to-speech
+              protocol: TCP
+              port: 10200
+              targetPort: text-to-speech
+            - name: ollama
+              protocol: TCP
+              port: 11434
+              targetPort: ollama
+
+  - it: should have MetalLB announce only that address, for that Service only
+    documentSelector:
+      path: kind
+      value: IPAddressPool
+    asserts:
+      - equal:
+          path: metadata.namespace
+          value: bbe-networking
+      - equal:
+          path: spec
+          value:
+            autoAssign: false
+            addresses:
+              - 192.168.1.242/32
+
+  - it: should announce the address on the LAN
+    documentSelector:
+      path: kind
+      value: L2Advertisement
+    asserts:
+      - equal:
+          path: spec.ipAddressPools
+          value: [bbe-ai]
+
+  - it: should serve no Ollama port without Ollama
+    documentSelector:
+      path: kind
+      value: Service
+    set:
+      bbe.ai.ollama.enabled: false
+    asserts:
+      - lengthEqual:
+          path: spec.ports
+          count: 2
+      - notContains:
+          path: spec.ports
+          content:
+            name: ollama
+          any: true
+
+  - it: should refuse to install without an address for the models
+    set:
+      bbe.ai.loadBalancerIP: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "/bbe/ai/loadBalancerIP"
+
+  - it: should refuse a name for Home Assistant's address
+    set:
+      bbe.ai.homeAssistantIP: home-assistant.local
+    asserts:
+      - failedTemplate:
+          errorPattern: "/bbe/ai/homeAssistantIP"

@@ -1,0 +1,31 @@
+apiVersion: v2
+name: bbe-misc
+description: Apps for the BBE cluster that belong to no other package, starting with Snipe-IT to keep track of the household's things
+type: application
+version: 0.0.1
+keywords:
+  - bbe
+  - snipe-it
+  - inventory
+  - assets
+home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for Snipe-IT's files and its database
+      storageClass: longhorn
+      package: bbe-storage
+    - name: networking
+      description: Traefik and the domain's certificate, which Snipe-IT is served with
+      package: bbe-networking
+    - name: sso
+      description: authentik, whose LDAP people sign in to Snipe-IT with
+      package: bbe-auth
+  # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it behaves alike
+  bbe/recorded-values: |
+    - bbe.setup.peopleSchedule
+  # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted, with the
+  # inventory and its files
+  bbe/uninstall: |
+    keeps: []

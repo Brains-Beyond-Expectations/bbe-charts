@@ -18,7 +18,7 @@ tests:
           path: metadata.annotations["helm.sh/resource-policy"]
           value: keep
 
-  - it: should make Longhorn the default storage class, with one copy of each volume
+  - it: should make Longhorn the default storage class, with two copies of each volume
     template: charts/longhorn/templates/storageclass.yaml
     asserts:
       - matchRegex:
@@ -26,7 +26,7 @@ tests:
           pattern: 'storageclass.kubernetes.io/is-default-class: "true"'
       - matchRegex:
           path: data["storageclass.yaml"]
-          pattern: 'numberOfReplicas: "1"'
+          pattern: 'numberOfReplicas: "2"'
       - equal:
           path: metadata.namespace
           value: longhorn-system
@@ -37,3 +37,16 @@ tests:
       - matchRegex:
           path: data["default-setting.yaml"]
           pattern: 'default-data-path: "/var/mnt/longhorn"'
+
+  - it: should keep two copies of each volume, on one node only while there's no other, moved apart once there is
+    template: charts/longhorn/templates/default-setting.yaml
+    asserts:
+      - matchRegex:
+          path: data["default-setting.yaml"]
+          pattern: 'default-replica-count: "2"'
+      - matchRegex:
+          path: data["default-setting.yaml"]
+          pattern: 'replica-soft-anti-affinity: true'
+      - matchRegex:
+          path: data["default-setting.yaml"]
+          pattern: 'replica-auto-balance: "best-effort"'

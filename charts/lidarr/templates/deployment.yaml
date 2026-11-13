@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lidarr.fullname" . }}
+  namespace: {{ include "lidarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "lidarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.lidarr.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "lidarr.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- if .Values.lidarr.strategyType }}
+  strategy:
+    type: {{ .Values.lidarr.strategyType }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "lidarr.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- if .Values.lidarr.annotations }}
+      annotations:
+        {{- toYaml .Values.lidarr.annotations | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: lidarr
+          image: "{{ .Values.lidarr.image.repository }}:{{ include "lidarr.image" . }}"
+          env: {{- include "lidarr.lidarrEnv" . | nindent 12 }}
+          {{- if .Values.service.ports }}
+          ports:
+            {{- range .Values.service.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.lidarr.resources }}
+          resources:
+            {{- if .Values.lidarr.resources.requests }}
+            requests:
+              {{- if .Values.lidarr.resources.requests.memory }}
+              memory: "{{ .Values.lidarr.resources.requests.memory }}"
+              {{- end }}
+              {{- if .Values.lidarr.resources.requests.cpu }}
+              cpu: "{{ .Values.lidarr.resources.requests.cpu }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.lidarr.resources.limits }}
+            limits:
+              {{- if .Values.lidarr.resources.limits.memory }}
+              memory: "{{ .Values.lidarr.resources.limits.memory }}"
+              {{- end }}
+              {{- if .Values.lidarr.resources.limits.cpu }}
+              cpu: "{{ .Values.lidarr.resources.limits.cpu }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.config.enabled .Values.lidarr.enabled }}
+          volumeMounts:
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /config
+            {{- end }}
+            {{- if .Values.media.enabled }}
+            - name: media
+              mountPath: /media
+            {{- end }}
+          {{- end }}
+          {{- if .Values.lidarr.securityContext }}
+          securityContext:
+            {{- toYaml .Values.lidarr.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.lidarr.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.lidarr.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.lidarr.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.lidarr.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.lidarr.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.lidarr.startupProbe | nindent 12 }}
+          {{- end }}
+      {{- if or .Values.config.enabled .Values.media.enabled }}
+      volumes:
+        {{- if .Values.config.enabled }}
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ include "lidarr.configClaimName" . }}
+        {{- end }}
+        {{- if .Values.media.enabled }}
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ include "lidarr.mediaClaimName" . }}
+        {{- end }}
+      {{- end }}

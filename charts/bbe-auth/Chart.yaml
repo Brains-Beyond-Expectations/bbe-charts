@@ -1,0 +1,62 @@
+apiVersion: v2
+name: bbe-auth
+description: Single sign-on for the BBE cluster's apps with authentik, its PostgreSQL database, and LDAP for Jellyfin
+type: application
+version: 0.0.1
+keywords:
+  - bbe
+  - auth
+  - sso
+  - authentik
+  - ldap
+home: https://brains-beyond-expectations.github.io/bbe-charts
+annotations:
+  # bbe checks these before installing the chart, and offers to install what's missing
+  bbe/prerequisites: |
+    - name: storage
+      description: Longhorn, the storage class for authentik's database
+      storageClass: longhorn
+      package: bbe-storage
+    - name: networking
+      description: Traefik and the domain's certificate, which authentik's sign-in page is served with
+      package: bbe-networking
+  # What `bbe uninstall` leaves, shown when it asks to confirm. Everything in the namespace is deleted
+  bbe/uninstall: |
+    keeps: []
+  # Lists `bbe configure` adds to and removes from, with first passwords kept in a secret instead of bbe.yaml
+  bbe/settings: |
+    - name: users
+      description: The people bbe adds to authentik, besides those added in its admin interface
+      values: bbe.auth.users
+      secret: bbe-auth-users
+      fields:
+        - name: username
+          label: Username
+          description: What they sign in with, in lower case
+          pattern: "^[a-z0-9][a-z0-9._-]{0,62}$"
+          unique: true
+        - name: email
+          label: Email
+          pattern: "^[^@\\s]+@[^@\\s]+$"
+        - name: firstName
+          label: First name
+          optional: true
+        - name: lastName
+          label: Last name
+          optional: true
+        - name: groups
+          label: Group
+          options:
+            - name: "users: Jellyfin, and Seerr through it"
+              value: [users]
+            - name: "admins: every app, and managing people in authentik"
+              value: [admins]
+        - name: password
+          label: First password
+          description: They can change it in authentik
+          generate: true
+          secret: true
+dependencies:
+  - name: authentik
+    repository: https://charts.goauthentik.io
+    version: 2026.8.4

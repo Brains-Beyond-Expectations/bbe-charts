@@ -1,0 +1,52 @@
+{{- if .Values.bbe.networkPolicy.enabled }}
+{{- /*
+Prometheus, Alertmanager, Loki and Alloy are only reached by each other, and Grafana by them and Traefik: Grafana
+trusts the user authentik names in a header, which only Traefik may send. Policies add up: a pod accepts what any
+policy selecting it allows
+*/ -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.labels" . | nindent 4 }}
+spec:
+  # Not metrics-server, which the Kubernetes API calls from the node's network
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: NotIn
+        values:
+          - metrics-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-observability.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+  policyTypes:
+    - Ingress
+  ingress:
+    # Traefik, serving Grafana once authentik let someone through
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: bbe-networking
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: grafana
+{{- end }}

@@ -1,0 +1,140 @@
+{{- /*
+Jellyfin, which bbe-media runs itself rather than from Jellyfin's chart, so it can ask for a GPU on clusters that
+have one ("bbe-media.jellyfinGpu"). The names and labels are the chart's, so clusters set up with it keep their
+volumes and Deployment. The linuxserver image reads the library as the NAS user, like the other apps
+*/ -}}
+{{- $jellyfin := .Values.bbe.media.jellyfin -}}
+{{- $gpu := eq (include "bbe-media.jellyfinGpu" .) "true" -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-jellyfin-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.jellyfinLabels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $jellyfin.configSize | quote }}
+---
+# Transcoding is bounded instead of filling the node's disk. The linuxserver image keeps its cache in /config, and
+# gives /transcode to Jellyfin for transcoding, which the setup points Jellyfin at
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-jellyfin-cache
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.jellyfinLabels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ $jellyfin.cacheSize | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-jellyfin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.jellyfinLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  # Its volumes can only be mounted on one node at a time, and the new pod would wait for the old one's GPU share
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "bbe-media.jellyfinSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "bbe-media.jellyfinLabels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: jellyfin
+          image: "{{ $jellyfin.image.repository }}:{{ $jellyfin.image.tag }}"
+          env:
+            - name: PUID
+              valueFrom:
+                configMapKeyRef:
+                  name: bbe-media-user
+                  key: PUID
+            - name: PGID
+              valueFrom:
+                configMapKeyRef:
+                  name: bbe-media-user
+                  key: PGID
+            {{- if and $gpu $jellyfin.transcoding.tonemapping }}
+            # Intel's OpenCL runtime, which tone mapping needs and the image doesn't have
+            - name: DOCKER_MODS
+              value: linuxserver/mods:jellyfin-opencl-intel
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8096
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+          resources:
+            {{- $resources := deepCopy ($jellyfin.resources | default dict) }}
+            {{- if $gpu }}
+            {{- /* One share of a GPU, which is what only lets it on a node with one, and hands it /dev/dri */ -}}
+            {{- $_ := set $resources "limits" (merge (dict $jellyfin.transcoding.gpu "1") ($resources.limits | default dict)) }}
+            {{- end }}
+            {{- toYaml $resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /media
+            - name: cache
+              mountPath: /cache
+            - name: cache
+              mountPath: /transcode
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-jellyfin-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: bbe-media-library
+        - name: cache
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-jellyfin-cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-jellyfin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.jellyfinLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8096
+      protocol: TCP
+      targetPort: http
+  selector:
+    {{- include "bbe-media.jellyfinSelectorLabels" . | nindent 4 }}

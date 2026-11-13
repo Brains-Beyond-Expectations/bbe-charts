@@ -1,0 +1,56 @@
+suite: test network policies
+values:
+  - ./values/required-values.yaml
+templates:
+  - network-policy.yaml
+release:
+  name: bbe-observability
+  namespace: bbe-observability
+tests:
+  - it: should let only the package's own pods reach it, leaving out metrics-server, which the Kubernetes API calls
+    documentSelector:
+      path: metadata.name
+      value: bbe-observability
+    asserts:
+      - equal:
+          path: spec.podSelector
+          value:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: NotIn
+                values:
+                  - metrics-server
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - podSelector: {}
+
+  - it: should let only Traefik reach Grafana from outside, as Grafana trusts its header naming the user
+    documentSelector:
+      path: metadata.name
+      value: bbe-observability-grafana
+    asserts:
+      - equal:
+          path: spec.podSelector.matchLabels
+          value:
+            app.kubernetes.io/name: grafana
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: bbe-networking
+                  podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: traefik
+              ports:
+                - port: grafana
+
+  - it: should add no policies when they're off
+    set:
+      bbe.networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

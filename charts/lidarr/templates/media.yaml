@@ -1,0 +1,19 @@
+{{- if and .Values.media.enabled (not .Values.media.existingClaim) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ include "lidarr.mediaClaimName" . }}
+  namespace: {{ include "lidarr.namespace" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "lidarr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- with (include "lidarr.mediaAnnotations" .) }}
+  annotations: {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.media.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.media.size }}
+{{- end }}

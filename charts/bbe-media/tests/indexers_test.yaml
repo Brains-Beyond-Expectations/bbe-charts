@@ -1,0 +1,69 @@
+suite: test Prowlarr indexers
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should hand the setup no indexers by default
+    template: templates/setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: INDEXERS
+            value: "[]"
+
+  - it: should hand the setup the indexers to add
+    template: templates/setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    set:
+      bbe.media.prowlarr.indexers:
+        - name: Internet Archive
+          definition: internetarchive
+          fields:
+            titleOnly: true
+        - name: BeyondHD
+          definition: BeyondHD
+          secretFields:
+            apiKey: beyondhd.apiKey
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: INDEXERS
+            value: '[{"definition":"internetarchive","fields":{"titleOnly":true},"name":"Internet Archive"},{"definition":"BeyondHD","name":"BeyondHD","secretFields":{"apiKey":"beyondhd.apiKey"}}]'
+
+  - it: should mount the indexers' credentials, which only exist once one needs them
+    template: templates/setup.yaml
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: indexer-secrets
+            secret:
+              secretName: bbe-media-indexers
+              optional: true
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: indexer-secrets
+            mountPath: /indexer-secrets
+            readOnly: true
+
+  - it: should refuse an indexer without a definition
+    template: templates/setup.yaml
+    set:
+      bbe.media.prowlarr.indexers:
+        - name: Internet Archive
+    asserts:
+      - failedTemplate:
+          errorPattern: "definition"

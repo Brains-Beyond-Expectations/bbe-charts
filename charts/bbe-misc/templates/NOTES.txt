@@ -1,0 +1,8 @@
+Snipe-IT is at https://snipeit.{{ .Values.global.bbe.domain }}.
+
+People in authentik's `users` and `admins` groups sign in with their authentik password. Snipe-IT creates them on their
+first sign-in. `users` see what's checked out to them. `admins` can do everything, within 10 minutes of their first
+sign-in.
+
+Snipe-IT's own admin, for when authentik can't help, is {{ .Values.bbe.misc.snipeit.admin.username }}. Its password:
+  kubectl get secret bbe-misc-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d

@@ -1,0 +1,111 @@
+suite: test ingresses
+values:
+  - ./values/required-values.yaml
+templates:
+  - ingress.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should serve every app under the domain
+    set:
+      global.bbe.domain: lab.home.arpa
+    asserts:
+      - hasDocuments:
+          count: 7
+      - equal:
+          path: spec.rules[0].host
+          value: sonarr.lab.home.arpa
+        documentIndex: 2
+      - equal:
+          path: spec.tls[0].hosts[0]
+          value: sonarr.lab.home.arpa
+        documentIndex: 2
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service
+          value:
+            name: bbe-media-sonarr
+            port:
+              number: 8989
+        documentIndex: 2
+
+  - it: should put the apps managing the media behind authentik's forward auth
+    documentSelector:
+      path: metadata.name
+      value: bbe-media-radarr
+    asserts:
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-media-sso@kubernetescrd
+
+  - it: should leave Jellyfin and Seerr on their own logins
+    asserts:
+      - notExists:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+        documentSelector:
+          path: metadata.name
+          value: bbe-media-jellyfin
+      - notExists:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+        documentSelector:
+          path: metadata.name
+          value: bbe-media-seerr
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: bbe-media-seerr-chart
+        documentSelector:
+          path: metadata.name
+          value: bbe-media-seerr
+
+  - it: should send qBittorrent through the nginx in its pod
+    documentSelector:
+      path: metadata.name
+      value: bbe-media-qbittorrent
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 4180
+
+  - it: should serve the apps without forward auth when single sign-on is off
+    set:
+      global.bbe.sso.enabled: false
+    asserts:
+      - notExists:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 8080
+        documentSelector:
+          path: metadata.name
+          value: bbe-media-qbittorrent
+
+  - it: should serve nothing when the ingress is off
+    set:
+      bbe.media.ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should list every app on bbe-networking's dashboard, with its pods' status
+    documentSelector:
+      path: metadata.name
+      value: bbe-media-seerr
+    asserts:
+      - equal:
+          path: metadata.annotations
+          value:
+            gethomepage.dev/enabled: "true"
+            gethomepage.dev/name: Seerr
+            gethomepage.dev/description: Ask for shows and movies
+            gethomepage.dev/group: Watch
+            gethomepage.dev/icon: seerr.png
+            gethomepage.dev/pod-selector: app.kubernetes.io/name=seerr-chart,app.kubernetes.io/instance=bbe-media
+
+  - it: should put the apps managing the media in their own group on the dashboard
+    documentSelector:
+      path: metadata.name
+      value: bbe-media-qbittorrent
+    asserts:
+      - equal:
+          path: metadata.annotations["gethomepage.dev/group"]
+          value: Manage

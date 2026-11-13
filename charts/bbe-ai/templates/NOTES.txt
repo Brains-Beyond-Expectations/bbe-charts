@@ -1,0 +1,29 @@
+{{- $ai := .Values.bbe.ai }}
+{{- $ip := $ai.loadBalancerIP }}
+The models are at {{ $ip }}, for Home Assistant at {{ $ai.homeAssistantIP }} only. They download the first time they start,
+which can take a few minutes. To see when they're ready:
+  kubectl get pods -n {{ .Release.Namespace }}
+
+Connect Home Assistant to them, in Settings → Devices & services → Add integration:
+  1. Wyoming Protocol, host {{ $ip }}, port {{ include "bbe-ai.speechToTextPort" . }}: speech-to-text.
+  2. Wyoming Protocol, host {{ $ip }}, port {{ include "bbe-ai.textToSpeechPort" . }}: text-to-speech, speaking with {{ $ai.textToSpeech.voice }}.
+{{- if $ai.ollama.enabled }}
+  3. Ollama, URL http://{{ $ip }}:{{ include "bbe-ai.ollamaPort" . }}, with the model {{ include "bbe-ai.ollamaModel" . }}. Let it control Home Assistant
+     (Assist), leave "Think before responding" off, and keep the context window at {{ $ai.ollama.contextLength }} or less: Ollama's memory is
+     sized for it.
+Then, in Settings → Voice assistants, make an assistant using them, with Ollama as its conversation agent, and turn on
+"Prefer handling commands locally". Home Assistant then turns the lights on itself, in a moment, and only asks the LLM
+what it doesn't understand. Expose as few entities to it as you can: each one makes every question to the LLM longer
+to read.
+
+The LLM runs on the CPU, and only on a node with {{ $ai.ollama.resources.requests.memory }} of memory to spare. The first question after a
+restart also waits for the model to load.
+{{- if include "bbe-ai.chatEnabled" . }}
+
+Open WebUI chats with it in the browser at https://ai.{{ .Values.global.bbe.domain }}, for authentik's users and admins, each with
+their own chats. authentik's admins are its admins too, except the very first person to sign in, who's made one
+until a second person signs in.
+{{- end }}
+{{- else }}
+Then, in Settings → Voice assistants, make an assistant using them, with Home Assistant as its conversation agent.
+{{- end }}

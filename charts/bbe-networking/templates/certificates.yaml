@@ -1,0 +1,74 @@
+{{- /*
+bbe's own certificate authority, and the certificate for the cluster's domain it signs, which Traefik serves for
+every app. They're hooks running after cert-manager's startup check (weight 1), as Helm can't create them before
+cert-manager's CRDs exist and its webhook answers. Recreating them on upgrades keeps their secrets, so nothing is
+issued again until it's due.
+*/}}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: bbe-self-signed
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: bbe-ca
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  isCA: true
+  commonName: bbe certificate authority for {{ .Values.global.bbe.domain }}
+  secretName: bbe-ca
+  duration: {{ .Values.bbe.certificates.caDuration }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    kind: Issuer
+    name: bbe-self-signed
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: bbe-ca
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  ca:
+    secretName: bbe-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: bbe-domain
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  secretName: bbe-domain-tls
+  duration: {{ .Values.bbe.certificates.duration }}
+  dnsNames:
+    - {{ .Values.global.bbe.domain }}
+    - "*.{{ .Values.global.bbe.domain }}"
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    kind: Issuer
+    name: bbe-ca

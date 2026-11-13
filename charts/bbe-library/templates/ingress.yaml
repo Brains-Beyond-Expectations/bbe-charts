@@ -1,0 +1,86 @@
+{{- /*
+The apps are served at <app>.<domain> with the domain's certificate, which bbe-networking makes Traefik's default.
+bbe-networking's dashboard lists them from their `gethomepage.dev/*` annotations.
+
+Calibre-Web-Automated is behind authentik's forward auth, with the library's own provider, and signs in whoever
+authentik names in X-authentik-username. The paths e-readers and their apps use aren't, as they can't sign in through
+a browser: OPDS and KOReader's sync check their password against authentik's LDAP, and Kobo sync its token. Shelfmark
+isn't either, as it signs people in with OpenID Connect itself
+*/ -}}
+{{- if .Values.bbe.ingress.enabled }}
+{{- $domain := .Values.global.bbe.domain }}
+{{- $strip := printf "%s-strip-sso-headers@kubernetescrd" .Release.Namespace }}
+{{- $sso := printf "%s-sso@kubernetescrd" .Release.Namespace }}
+{{- $apps := list
+    (dict "app" "calibre" "port" 8083 "name" "Calibre-Web" "description" "Read the books" "icon" "calibre-web.png" "middlewares" (printf "%s,%s" $strip $sso))
+    (dict "app" "shelfmark" "port" 8084 "name" "Shelfmark" "description" "Find books" "icon" "mdi-book-search")
+}}
+{{- range $apps }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $.Release.Name }}-{{ .app }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" $ | nindent 4 }}
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: {{ .name }}
+    gethomepage.dev/description: {{ .description }}
+    gethomepage.dev/group: Read
+    gethomepage.dev/icon: {{ .icon }}
+    gethomepage.dev/pod-selector: app.kubernetes.io/component={{ .app }},app.kubernetes.io/instance={{ $.Release.Name }}
+    {{- with .middlewares }}
+    # Traefik removes authentik's headers anyone sent, then asks authentik, which sends whoever isn't signed in to its
+    # sign-in
+    traefik.ingress.kubernetes.io/router.middlewares: {{ . }}
+    {{- end }}
+spec:
+  tls:
+    - hosts:
+        - {{ .app }}.{{ $domain }}
+  rules:
+    - host: {{ .app }}.{{ $domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $.Release.Name }}-{{ .app }}
+                port:
+                  number: {{ .port }}
+{{- end }}
+---
+# What e-readers and their apps reach, without forward auth. Their paths are longer than `/`, so Traefik picks this
+# Ingress for them. authentik's headers are still removed, so Calibre-Web checks their password or token itself
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-calibre-devices
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $strip }}
+spec:
+  tls:
+    - hosts:
+        - calibre.{{ $domain }}
+  rules:
+    - host: calibre.{{ $domain }}
+      http:
+        paths:
+          {{- /* OPDS, Kobo sync and the Kobo reading services it sends to, and KOReader's progress sync. `/kobo/` with
+          its slash, as Traefik matches prefixes by text and `/kobo_auth`, where people make their token, is a page */}}
+          {{- range list "/opds" "/kobo/" "/api/v3/" "/api/UserStorage/" "/kosync" }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $.Release.Name }}-calibre
+                port:
+                  number: 8083
+          {{- end }}
+{{- end }}

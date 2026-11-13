@@ -1,0 +1,50 @@
+suite: test network policies
+values:
+  - ./values/required-values.yaml
+templates:
+  - network-policy.yaml
+release:
+  name: bbe-misc
+  namespace: bbe-misc
+tests:
+  - it: should let only bbe-misc's own pods reach MariaDB and the rest
+    documentSelector:
+      path: metadata.name
+      value: bbe-misc
+    asserts:
+      - equal:
+          path: spec.podSelector
+          value: {}
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - podSelector: {}
+
+  - it: should let Traefik reach Snipe-IT
+    documentSelector:
+      path: metadata.name
+      value: bbe-misc-snipeit
+    asserts:
+      - equal:
+          path: spec.podSelector.matchLabels["app.kubernetes.io/component"]
+          value: snipeit
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: bbe-networking
+                  podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: traefik
+              ports:
+                - port: http
+
+  - it: should add no policies when they're off
+    set:
+      bbe.networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
