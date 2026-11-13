@@ -18,6 +18,12 @@ under the bbe-observability package's values in ~/.bbe/bbe.yaml, then run `bbe u
   kubectl create secret generic bbe-observability-alerts -n {{ .Release.Namespace }} --from-literal=token=<token> \
     --dry-run=client -o yaml | kubectl apply -f -
 {{- end }}
+{{- if not .Values.bbe.observability.alerts.heartbeat }}
+
+Nothing outside the cluster notices if Prometheus or Alertmanager stop, as alerts can't come from them then. Set
+`bbe.observability.alerts.heartbeat` to have their Watchdog alert ping a service such as healthchecks.io every minute,
+which alerts you when the pings stop.
+{{- end }}
 
 The control plane's own metrics, from etcd, the scheduler, the controller manager and kube-proxy, need nodes set up by
 a bbe that has them serve those. On clusters set up before, their targets show as down in Prometheus.

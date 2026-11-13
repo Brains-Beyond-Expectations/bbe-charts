@@ -1,6 +1,7 @@
 {{- /*
 Alertmanager's config, written from `bbe.observability.alerts`. Without a receiver, alerts go nowhere, and are only
-shown in Grafana. kube-prometheus-stack's Watchdog alert, which always fires to show alerting works, is never sent
+shown in Grafana. kube-prometheus-stack's Watchdog alert, which always fires to show alerting works, only goes to the
+heartbeat receiver, every minute, so a service outside the cluster can tell when Prometheus or Alertmanager stop
 */ -}}
 {{- $alerts := .Values.bbe.observability.alerts }}
 {{- $receivers := list (dict "name" "null") }}
@@ -9,6 +10,11 @@ shown in Grafana. kube-prometheus-stack's Watchdog alert, which always fires to 
 {{- $receivers = append $receivers (merge (dict "name" "bbe") $alerts.receiver) }}
 {{- $receiver = "bbe" }}
 {{- end }}
+{{- $watchdog := dict "receiver" "null" "matchers" (list "alertname = \"Watchdog\"") }}
+{{- if $alerts.heartbeat }}
+{{- $receivers = append $receivers (merge (dict "name" "heartbeat") $alerts.heartbeat) }}
+{{- $watchdog = merge (dict "receiver" "heartbeat" "group_wait" "0s" "group_interval" "1m" "repeat_interval" "1m") $watchdog }}
+{{- end }}
 {{- $config := dict
     "route" (dict
       "receiver" $receiver
@@ -16,7 +22,7 @@ shown in Grafana. kube-prometheus-stack's Watchdog alert, which always fires to 
       "group_wait" "30s"
       "group_interval" "5m"
       "repeat_interval" $alerts.repeatInterval
-      "routes" (list (dict "receiver" "null" "matchers" (list "alertname = \"Watchdog\"")))
+      "routes" (list $watchdog)
     )
     "inhibit_rules" (list
       (dict

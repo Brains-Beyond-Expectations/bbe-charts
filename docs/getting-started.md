@@ -288,6 +288,22 @@ bbe-observability keeps the cluster's metrics and the apps' logs for 15 days, an
                  bot_token_file: /etc/alertmanager/secrets/bbe-observability-alerts/token
      ```
   4. Run `bbe upgrade`.
+- **Knowing alerting itself works:** alerts come from inside the cluster, so they stop when the cluster's storage or network does. A heartbeat tells a service outside it that alerting still works, every minute, and that service tells you when it stops hearing it. For example, with [healthchecks.io](https://healthchecks.io):
+  1. Add a check with a period of 5 minutes, and copy its ping URL.
+  2. Add the URL to the alerts secret, keeping what's in it:
+     ```
+     kubectl patch secret bbe-observability-alerts -n bbe-observability --type merge \
+       -p '{"stringData":{"heartbeat":"<ping URL>"}}'
+     ```
+  3. Set the heartbeat next to the receiver in `~/.bbe/bbe.yaml`, then run `bbe upgrade`:
+     ```yaml
+     bbe:
+       observability:
+         alerts:
+           heartbeat:
+             webhook_configs:
+               - url_file: /etc/alertmanager/secrets/bbe-observability-alerts/heartbeat
+     ```
 - **`kubectl top`** works once it's installed, as it adds metrics-server.
 
 ## 11. The household's things

@@ -14,9 +14,11 @@ spec:
   groups:
     - name: bbe.longhorn
       rules:
-        # Longhorn's robustness is 2 when a volume has fewer copies than it should, and 3 when it has none it can use
+        # Longhorn's volume metrics have a series for each robustness and state, labelled `state`, which is 1 for the
+        # volume's own and 0 for the others. A volume is degraded when it has fewer copies than it should, and faulted
+        # when it has none it can use
         - alert: LonghornVolumeDegraded
-          expr: longhorn_volume_robustness == 2
+          expr: longhorn_volume_robustness{state="degraded"} == 1
           for: 10m
           labels:
             severity: warning
@@ -26,7 +28,7 @@ spec:
               The volume of {{ "{{ $labels.pvc }}" }} in {{ "{{ $labels.pvc_namespace }}" }} has fewer copies than it
               should. Longhorn rebuilds them when a node with room for them is up.
         - alert: LonghornVolumeFaulted
-          expr: longhorn_volume_robustness == 3
+          expr: longhorn_volume_robustness{state="faulted"} == 1
           for: 2m
           labels:
             severity: critical
@@ -35,6 +37,19 @@ spec:
             description: >-
               The volume of {{ "{{ $labels.pvc }}" }} in {{ "{{ $labels.pvc_namespace }}" }} has no copy Longhorn can
               use, so its app can't read or write it.
+        # A volume attaching for this long can't reach its copies, and its robustness is unknown rather than faulted,
+        # such as when the node it's attaching to can't reach the pods on the nodes its copies are on
+        - alert: LonghornVolumeStuck
+          expr: longhorn_volume_state{state=~"attaching|detaching"} == 1
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: Longhorn volume {{ "{{ $labels.volume }}" }} has been {{ "{{ $labels.state }}" }} for 15 minutes
+            description: >-
+              The volume of {{ "{{ $labels.pvc }}" }} in {{ "{{ $labels.pvc_namespace }}" }} is still
+              {{ "{{ $labels.state }}" }}, so its app can't start. Longhorn's engine for it usually can't reach its
+              copies: its logs in longhorn-manager say which address it couldn't reach.
         - alert: LonghornDiskAlmostFull
           expr: >-
             100 * longhorn_disk_usage_bytes / longhorn_disk_capacity_bytes > {{ $rules.longhornDiskUsagePercent }}

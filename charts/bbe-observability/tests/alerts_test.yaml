@@ -39,6 +39,29 @@ tests:
       - matchRegex:
           path: stringData["alertmanager.yaml"]
           pattern: "- matchers:\n    - alertname = \"Watchdog\"\n    receiver: \"null\""
+      - notMatchRegex:
+          path: stringData["alertmanager.yaml"]
+          pattern: "name: heartbeat"
+
+  - it: should send the Watchdog to the heartbeat receiver every minute, and nothing else there
+    template: templates/alertmanager.yaml
+    documentSelector:
+      path: metadata.name
+      value: bbe-observability-alertmanager
+    set:
+      bbe.observability.alerts.heartbeat:
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/bbe-observability-alerts/heartbeat
+    asserts:
+      - matchRegex:
+          path: stringData["alertmanager.yaml"]
+          pattern: "- name: heartbeat\n  webhook_configs:\n  - url_file: /etc/alertmanager/secrets/bbe-observability-alerts/heartbeat"
+      - matchRegex:
+          path: stringData["alertmanager.yaml"]
+          pattern: "- group_interval: 1m\n    group_wait: 0s\n    matchers:\n    - alertname = \"Watchdog\"\n    receiver: heartbeat\n    repeat_interval: 1m"
+      - matchRegex:
+          path: stringData["alertmanager.yaml"]
+          pattern: 'receiver: "null"\n  repeat_interval: 12h'
 
   - it: should keep the credentials added to the alerts secret
     template: templates/alertmanager.yaml
@@ -79,19 +102,28 @@ tests:
           value:
             - bbe-observability-alerts
 
-  - it: should alert on degraded and faulted Longhorn volumes, and full disks past the threshold
+  - it: should alert on degraded, faulted and stuck Longhorn volumes, and full disks past the threshold
     template: templates/rules.yaml
     set:
       bbe.observability.rules.longhornDiskUsagePercent: 90
     asserts:
       - equal:
           path: spec.groups[0].rules[0].expr
-          value: longhorn_volume_robustness == 2
+          value: longhorn_volume_robustness{state="degraded"} == 1
       - equal:
           path: spec.groups[0].rules[1].expr
-          value: longhorn_volume_robustness == 3
+          value: longhorn_volume_robustness{state="faulted"} == 1
+      - equal:
+          path: spec.groups[0].rules[2].alert
+          value: LonghornVolumeStuck
       - equal:
           path: spec.groups[0].rules[2].expr
+          value: longhorn_volume_state{state=~"attaching|detaching"} == 1
+      - equal:
+          path: spec.groups[0].rules[2].annotations.summary
+          value: Longhorn volume {{ $labels.volume }} has been {{ $labels.state }} for 15 minutes
+      - equal:
+          path: spec.groups[0].rules[3].expr
           value: 100 * longhorn_disk_usage_bytes / longhorn_disk_capacity_bytes > 90
 
   - it: should alert on certificates expiring within the days set

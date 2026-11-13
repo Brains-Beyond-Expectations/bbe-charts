@@ -79,7 +79,7 @@ On clusters set up before, these targets show as down in Prometheus, and kube-pr
 
 Credentials stay out of `bbe.yaml`. They go in the `bbe-observability-alerts` secret, mounted into Alertmanager, where its receivers read them from files (`bot_token_file`, `auth_password_file` and so on). The chart creates the secret empty, and keeps what's added to it, as bbe-auth keeps its generated passwords.
 
-kube-prometheus-stack's Watchdog, which always fires to show alerting works, is never sent.
+kube-prometheus-stack's Watchdog, which always fires to show alerting works, is only sent to `bbe.observability.alerts.heartbeat`, every minute, when it's set. A dead man's switch outside the cluster, such as healthchecks.io, then alerts when the pings stop. Nothing inside the cluster can: Prometheus keeps its data on a Longhorn volume, so when Longhorn can't attach volumes, Prometheus is down too, and no rule fires. That's how a node losing its routes to the other nodes' pods went unnoticed for five hours on a test cluster. The ping URL is a credential, so it goes in the secret too, read with `url_file`.
 
 ### 6. A few rules of bbe's own
 
@@ -89,10 +89,13 @@ kube-prometheus-stack's rules already alert on nodes going down, filesystems and
 |---|---|
 | `LonghornVolumeDegraded` | A volume has fewer copies than it should, for 10 minutes |
 | `LonghornVolumeFaulted` | A volume has no copy Longhorn can use |
+| `LonghornVolumeStuck` | A volume has been attaching or detaching for 15 minutes. Its robustness is unknown rather than faulted then, so the rule above misses it |
 | `LonghornDiskAlmostFull` | A Longhorn disk is more than 85% full (`bbe.observability.rules.longhornDiskUsagePercent`) |
 | `LonghornNodeDown` | A Longhorn node isn't ready, for 10 minutes |
 | `CertificateExpiringSoon` | A certificate expires within 14 days (`bbe.observability.rules.certificateExpiryDays`). cert-manager renews the domain's a third of the way before it expires, so one this close failed to renew |
 | `CertificateNotReady` | cert-manager couldn't issue a certificate, for 30 minutes |
+
+Longhorn v1.12's volume metrics have a series for each robustness and state, labelled `state`, with 1 for the volume's own and 0 for the others, so the rules match `state` rather than comparing a number.
 
 The Windows rules and dashboards, and the AIX and macOS node dashboards, are off.
 
@@ -107,7 +110,7 @@ The Prometheus operator's admission webhooks are off. They only check rules and 
 - **The package takes about 1.2Gi of memory, and up to 4Gi**, plus about 100Mi for each node added.
 - **The metrics and logs are deleted with the package**, by `bbe uninstall`. The Prometheus operator's CRDs stay, as Helm never deletes CRDs.
 - **The control plane's metrics need nodes set up by a bbe that serves them** (decision 4). Older clusters show those targets as down.
-- **Alerts go nowhere until a receiver is set.**
+- **Alerts go nowhere until a receiver is set**, and Prometheus or Alertmanager stopping goes unnoticed until a heartbeat is.
 - **Grafana trusts the username header it's given.** Anything reaching its pod directly, rather than through Traefik, could claim to be anyone. Its NetworkPolicy lets only Traefik in from outside the package ([0007](0007-network-policies.md)), which only clusters enforcing NetworkPolicies honour.
 - **bbe-observability needs bbe 1.7.0**, for the prerequisites naming only a package, and the values it records.
 - **Not verified on a cluster**, as there's no test cluster. The chart renders, its unit tests pass, and the control plane's labels were checked in Talos v1.14.2's source, and its ports follow Talos' and kube-prometheus-stack's documentation.
