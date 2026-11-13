@@ -20,7 +20,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: AUTHENTIK_URL
-            value: http://bbe-auth-server
+            value: https://bbe-auth-server
       - contains:
           path: spec.template.spec.containers[0].env
           content:
@@ -30,6 +30,50 @@ tests:
                 name: bbe-auth-authentik
                 key: AUTHENTIK_BOOTSTRAP_TOKEN
 
+
+  - it: should check authentik's certificate with bbe's, only using plain HTTP until authentik serves it
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CA_FILE
+            value: /certificates/ca/ca.crt
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTHENTIK_BOOTSTRAP_URL
+            value: http://bbe-auth-server
+      # authentik may take minutes to serve it, so the wait has its own 10 minutes, after the blueprint's
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CERTIFICATE_TIMEOUT
+            value: "600"
+      # The certificates, to tell when authentik imported them, but never their keys
+      - notMatchRegex:
+          path: spec.template.spec.volumes[3].projected.sources[1].secret.items[0].key
+          pattern: tls\.key
+      - equal:
+          path: spec.template.spec.volumes[3].projected.sources
+          value:
+            - secret:
+                name: bbe-ca-cert
+                items:
+                  - key: ca.crt
+                    path: ca/ca.crt
+            - secret:
+                name: bbe-auth-server-tls
+                items:
+                  - key: tls.crt
+                    path: bbe-auth-server/tls.crt
+            - secret:
+                name: bbe-auth-ldap-tls
+                items:
+                  - key: tls.crt
+                    path: bbe-auth-ldap/tls.crt
   - it: should create the first admin before the users bbe configure added
     documentSelector:
       path: kind

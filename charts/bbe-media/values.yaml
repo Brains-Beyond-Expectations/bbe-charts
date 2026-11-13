@@ -313,6 +313,9 @@ qbittorrent:
         - name: sso
           mountPath: /etc/nginx/conf.d
           readOnly: true
+        - name: ca
+          mountPath: /etc/nginx/ca
+          readOnly: true
     {{- end }}
   # gluetun, when the VPN is on, before qBittorrent and the nginx in front of it
   extraInitContainers: |
@@ -324,6 +327,10 @@ qbittorrent:
     - name: sso
       configMap:
         name: {{ .Release.Name }}-qbittorrent-sso
+    # bbe's certificate authority, which nginx checks authentik's certificate with
+    - name: ca
+      secret:
+        secretName: bbe-ca-cert
     {{- end }}
     {{- if .Values.global.bbe.vpn.enabled }}
     - name: vpn-key

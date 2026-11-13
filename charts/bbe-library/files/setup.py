@@ -14,6 +14,7 @@ import http.cookiejar
 import json
 import os
 import re
+import ssl
 import sys
 import time
 import urllib.error
@@ -23,10 +24,19 @@ import urllib.request
 import ldap
 
 CALIBRE_URL = os.environ.get("CALIBRE_URL", "").rstrip("/")
+# The certificate authority Calibre-Web's certificate is checked with, rather than the system's
+CALIBRE_CA = os.environ.get("CALIBRE_CA") or None
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 LDAP_SERVER = os.environ.get("LDAP_SERVER", "")
-LDAP_PORT = int(os.environ.get("LDAP_PORT", "389"))
+LDAP_PORT = int(os.environ.get("LDAP_PORT", "636"))
+# bbe's certificate authority, which the LDAP outpost's LDAPS certificate is checked with: here, and in Calibre-Web's
+# container, with Calibre-Web's own certificate and key, as Calibre-Web only checks the server's certificate when it's
+# given one of its own. The outpost doesn't ask for it
+LDAP_CA_FILE = os.environ.get("LDAP_CA_FILE", "")
+CALIBRE_LDAP_CA_FILE = os.environ.get("CALIBRE_LDAP_CA_FILE", "")
+CALIBRE_LDAP_CERT_FILE = os.environ.get("CALIBRE_LDAP_CERT_FILE", "")
+CALIBRE_LDAP_KEY_FILE = os.environ.get("CALIBRE_LDAP_KEY_FILE", "")
 LDAP_BASE_DN = os.environ.get("LDAP_BASE_DN", "dc=ldap,dc=goauthentik,dc=io")
 LDAP_BIND_DN = os.environ.get("LDAP_BIND_DN", "")
 LDAP_PASSWORD = os.environ.get("LDAP_PASSWORD", "")
@@ -136,21 +146,14 @@ def form_with(page, field):
     raise SetupError(f"Calibre-Web: there's no form with `{field}`")
 
 
-class InsideTheCluster(http.cookiejar.DefaultCookiePolicy):
-    """Sends Calibre-Web's session cookie over plain HTTP too. It's marked secure for people, who reach it over HTTPS,
-    and this only talks to its Service inside the cluster"""
-
-    def return_ok_secure(self, cookie, request):
-        return True
-
-
 class CalibreWeb:
     """Calibre-Web's pages, signed in with a session cookie like a browser"""
 
     def __init__(self, url):
         self.url = url
-        cookies = http.cookiejar.CookieJar(policy=InsideTheCluster())
-        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
+        self.opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+            urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=CALIBRE_CA)))
         self.csrf_token = ""
 
     def request(self, method, path, form=None, ajax=False, timeout=120):
@@ -286,11 +289,12 @@ def basic_settings():
         "config_login_type": "1",
         "config_ldap_provider_url": LDAP_SERVER,
         "config_ldap_port": str(LDAP_PORT),
-        # Plain LDAP inside the cluster, like Jellyfin's
-        "config_ldap_encryption": "0",
-        "config_ldap_cacert_path": "",
-        "config_ldap_cert_path": "",
-        "config_ldap_key_path": "",
+        # LDAPS, as people's passwords go through it, checking the outpost's certificate with bbe's certificate
+        # authority
+        "config_ldap_encryption": "2",
+        "config_ldap_cacert_path": CALIBRE_LDAP_CA_FILE,
+        "config_ldap_cert_path": CALIBRE_LDAP_CERT_FILE,
+        "config_ldap_key_path": CALIBRE_LDAP_KEY_FILE,
         "config_ldap_authentication": "2",
         "config_ldap_serv_username": LDAP_BIND_DN,
         "config_ldap_dn": LDAP_BASE_DN,
@@ -358,11 +362,15 @@ def configure_default_roles(calibre):
 
 def ldap_members(deadline):
     """The usernames in each of bbe's groups, and everyone's email address, from authentik's LDAP. On a first install
-    its outpost starts answering minutes after authentik does, so this waits for it until the deadline"""
+    its outpost starts answering minutes after authentik does, and serves bbe's certificate after that, so this waits
+    for it until the deadline. Over LDAPS, checking its certificate with bbe's certificate authority"""
     waiting = False
     while True:
-        connection = ldap.initialize(f"ldap://{LDAP_SERVER}:{LDAP_PORT}")
+        connection = ldap.initialize(f"ldaps://{LDAP_SERVER}:{LDAP_PORT}")
         connection.set_option(ldap.OPT_NETWORK_TIMEOUT, 30)
+        connection.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
+        connection.set_option(ldap.OPT_X_TLS_CACERTFILE, LDAP_CA_FILE)
+        connection.set_option(ldap.OPT_X_TLS_NEWCTX, 0)
         try:
             connection.simple_bind_s(LDAP_BIND_DN, LDAP_PASSWORD)
             members = {}
@@ -432,9 +440,9 @@ def configure_ereader_emails(calibre, emails):
 
 
 def main():
-    if not all((CALIBRE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, LDAP_SERVER, LDAP_BIND_DN, LDAP_PASSWORD)):
-        raise SetupError("CALIBRE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, LDAP_SERVER, LDAP_BIND_DN and LDAP_PASSWORD "
-                         "are required")
+    if not all((CALIBRE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, LDAP_SERVER, LDAP_BIND_DN, LDAP_PASSWORD, LDAP_CA_FILE)):
+        raise SetupError("CALIBRE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, LDAP_SERVER, LDAP_BIND_DN, LDAP_PASSWORD and "
+                         "LDAP_CA_FILE are required")
 
     deadline = time.monotonic() + READY_TIMEOUT
     calibre = CalibreWeb(CALIBRE_URL)

@@ -1,7 +1,8 @@
 {{- /*
 authentik's LDAP outpost, which Jellyfin signs people in against, so its TV and phone apps use the same people and
 passwords. It signs in to authentik with the token the setup gives the `bbe LDAP` outpost, so it starts once authentik
-takes that token
+takes that token. It only serves LDAPS outside its pod, with the certificate the setup gives its provider, as the
+passwords people sign in with go through it
 */ -}}
 apiVersion: v1
 kind: Service
@@ -14,9 +15,9 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - name: ldap
-      port: 389
-      targetPort: ldap
+    - name: ldaps
+      port: 636
+      targetPort: ldaps
   selector:
     app.kubernetes.io/name: bbe-auth
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -60,18 +61,22 @@ spec:
             - sh
             - -c
             - |
-              until curl --silent --fail --output /dev/null --header "Authorization: Bearer $AUTHENTIK_TOKEN" \
-                  "$AUTHENTIK_HOST/api/v3/outposts/instances/"; do
+              until curl --silent --fail --output /dev/null --cacert /certificates/ca.crt \
+                  --header "Authorization: Bearer $AUTHENTIK_TOKEN" "$AUTHENTIK_HOST/api/v3/outposts/instances/"; do
                 sleep 5
               done
           env:
             - name: AUTHENTIK_HOST
-              value: http://bbe-auth-server
+              value: https://bbe-auth-server
             - name: AUTHENTIK_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: bbe-auth-authentik
                   key: BBE_LDAP_OUTPOST_TOKEN
+          volumeMounts:
+            - name: ca
+              mountPath: /certificates
+              readOnly: true
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -82,23 +87,32 @@ spec:
         - name: ldap
           image: "{{ .Values.bbe.ldap.image.repository }}:{{ .Values.bbe.ldap.image.tag }}"
           env:
-            # authentik's server in the cluster, rather than through Traefik
+            # authentik's server in the cluster, rather than through Traefik, over HTTPS. Its certificate is checked
+            # with bbe's certificate authority, which the outpost trusts instead of the public ones, as it only reaches
+            # authentik
             - name: AUTHENTIK_HOST
-              value: http://bbe-auth-server
-            - name: AUTHENTIK_INSECURE
-              value: "true"
+              value: https://bbe-auth-server
+            - name: SSL_CERT_FILE
+              value: /certificates/ca.crt
             - name: AUTHENTIK_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: bbe-auth-authentik
                   key: BBE_LDAP_OUTPOST_TOKEN
           ports:
+            # Plain LDAP stays inside the pod, for the probe
             - name: ldap
               containerPort: 3389
+            - name: ldaps
+              containerPort: 6636
           readinessProbe:
             tcpSocket:
               port: ldap
             periodSeconds: 10
+          volumeMounts:
+            - name: ca
+              mountPath: /certificates
+              readOnly: true
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -109,3 +123,8 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+      volumes:
+        # bbe's certificate authority, which trust-manager copies into every namespace
+        - name: ca
+          secret:
+            secretName: bbe-ca-cert

@@ -1,6 +1,6 @@
 {{- /*
 authentik signs people in at auth.<domain>, which forward auth sends them to as well. Traefik serves it with the
-domain's certificate
+domain's certificate, and connects to authentik over HTTPS, checking authentik's own certificate (certificates.yaml)
 */ -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -32,7 +32,7 @@ spec:
               service:
                 name: bbe-auth-server
                 port:
-                  name: http
+                  name: https
 ---
 {{- /*
 The book library's forward auth is for its host only, so authentik's sign-in comes back to
@@ -60,4 +60,4 @@ spec:
               service:
                 name: bbe-auth-server
                 port:
-                  name: http
+                  name: https

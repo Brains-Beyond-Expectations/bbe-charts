@@ -27,7 +27,11 @@ metadata:
     {{- include "bbe-library.labels" . | nindent 4 }}
 spec:
   forwardAuth:
-    address: http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+    address: https://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+    # Over HTTPS, checking authentik's certificate with bbe's certificate authority, which trust-manager copies into
+    # every namespace
+    tls:
+      caSecret: bbe-ca-cert
     # authentik sends people back to where they were going from the X-Forwarded-* headers
     trustForwardHeader: true
     authResponseHeaders:

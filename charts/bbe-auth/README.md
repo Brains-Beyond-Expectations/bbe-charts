@@ -31,6 +31,8 @@ Single sign-on for the BBE cluster's apps with authentik, its PostgreSQL databas
 | authentik.server.resources.limits.memory | string | `"1Gi"` |  |
 | authentik.server.resources.requests.cpu | string | `"100m"` |  |
 | authentik.server.resources.requests.memory | string | `"512Mi"` |  |
+| authentik.server.service.annotations."traefik.ingress.kubernetes.io/service.serversscheme" | string | `"https"` |  |
+| authentik.server.service.annotations."traefik.ingress.kubernetes.io/service.serverstransport" | string | `"bbe-auth-bbe-auth-server@kubernetescrd"` |  |
 | authentik.server.volumeMounts[0].mountPath | string | `"/media/public/branding"` |  |
 | authentik.server.volumeMounts[0].name | string | `"branding"` |  |
 | authentik.server.volumeMounts[0].readOnly | bool | `true` |  |
@@ -43,6 +45,27 @@ Single sign-on for the BBE cluster's apps with authentik, its PostgreSQL databas
 | authentik.worker.resources.limits.memory | string | `"1Gi"` |  |
 | authentik.worker.resources.requests.cpu | string | `"100m"` |  |
 | authentik.worker.resources.requests.memory | string | `"384Mi"` |  |
+| authentik.worker.securityContext.fsGroup | int | `1000` |  |
+| authentik.worker.volumeMounts[0].mountPath | string | `"/certs/bbe-auth-server"` |  |
+| authentik.worker.volumeMounts[0].name | string | `"server-certificate"` |  |
+| authentik.worker.volumeMounts[0].readOnly | bool | `true` |  |
+| authentik.worker.volumeMounts[1].mountPath | string | `"/certs/bbe-auth-ldap"` |  |
+| authentik.worker.volumeMounts[1].name | string | `"ldap-certificate"` |  |
+| authentik.worker.volumeMounts[1].readOnly | bool | `true` |  |
+| authentik.worker.volumes[0].name | string | `"server-certificate"` |  |
+| authentik.worker.volumes[0].secret.defaultMode | int | `288` |  |
+| authentik.worker.volumes[0].secret.items[0].key | string | `"tls.crt"` |  |
+| authentik.worker.volumes[0].secret.items[0].path | string | `"tls.crt"` |  |
+| authentik.worker.volumes[0].secret.items[1].key | string | `"tls.key"` |  |
+| authentik.worker.volumes[0].secret.items[1].path | string | `"tls.key"` |  |
+| authentik.worker.volumes[0].secret.secretName | string | `"bbe-auth-server-tls"` |  |
+| authentik.worker.volumes[1].name | string | `"ldap-certificate"` |  |
+| authentik.worker.volumes[1].secret.defaultMode | int | `288` |  |
+| authentik.worker.volumes[1].secret.items[0].key | string | `"tls.crt"` |  |
+| authentik.worker.volumes[1].secret.items[0].path | string | `"tls.crt"` |  |
+| authentik.worker.volumes[1].secret.items[1].key | string | `"tls.key"` |  |
+| authentik.worker.volumes[1].secret.items[1].path | string | `"tls.key"` |  |
+| authentik.worker.volumes[1].secret.secretName | string | `"bbe-auth-ldap-tls"` |  |
 | bbe.auth.admin.email | string | `nil` | The first admin's email address |
 | bbe.auth.admin.username | string | `nil` | The username of the first admin, who can manage everyone else in authentik. Their first password is generated into the `bbe-auth-admin` secret |
 | bbe.auth.users | list | `[]` | The users bbe adds to authentik, with `bbe configure bbe-auth`. Each has a `username`, an `email`, an optional `firstName` and `lastName`, `groups` (`users` or `admins`), and `secretFields.password`, the key of their first password in the `bbe-auth-users` secret. People added in authentik's admin interface aren't listed here |
@@ -59,6 +82,7 @@ Single sign-on for the BBE cluster's apps with authentik, its PostgreSQL databas
 | bbe.postgres.resources.requests.memory | string | `"128Mi"` | The memory to request for PostgreSQL |
 | bbe.postgres.size | string | `"2Gi"` | The size of authentik's database |
 | bbe.setup.backoffLimit | int | `5` | How many times the setup is retried when authentik couldn't be set up |
+| bbe.setup.certificateTimeout | int | `600` | How long the setup waits, once bbe's blueprint is applied, for authentik to import its certificates and serve them, in seconds. On a first install, its server only looks for a changed certificate every 3 minutes |
 | bbe.setup.image.repository | string | `"python"` | The image to run the setup with, which only needs Python |
 | bbe.setup.image.tag | string | `"3.13-alpine"` | The tag of the setup image |
 | bbe.setup.readyTimeout | int | `900` | How long the setup waits for authentik to start and apply bbe's blueprint, in seconds |

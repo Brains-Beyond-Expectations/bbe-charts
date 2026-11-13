@@ -44,7 +44,7 @@ spec:
             matchLabels:
               app.kubernetes.io/name: traefik
       ports:
-        - port: http
+        - port: https
     # qBittorrent's nginx, which asks about every request itself, and Shelfmark, signing people in with OpenID Connect
     - from:
         - namespaceSelector:
@@ -54,7 +54,7 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: bbe-library
       ports:
-        - port: http
+        - port: https
     # bbe-observability's Prometheus, for authentik's metrics
     - from:
         - namespaceSelector:
@@ -79,7 +79,7 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # Jellyfin, the book library and Snipe-IT, signing people in over LDAP
+    # Jellyfin, the book library and Snipe-IT, signing people in over LDAPS
     - from:
         - namespaceSelector:
             matchLabels:
@@ -91,5 +91,5 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: bbe-misc
       ports:
-        - port: ldap
+        - port: ldaps
 {{- end }}

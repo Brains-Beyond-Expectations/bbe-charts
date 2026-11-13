@@ -40,9 +40,18 @@ spec:
             - python3
             - /scripts/setup.py
           env:
-            # authentik's server, as the setup's requests stay in the cluster
+            # authentik's server, as the setup's requests stay in the cluster, over HTTPS checked with bbe's
+            # certificate authority. Plain HTTP is only used on a first install, until authentik serves bbe's
+            # certificate
             - name: AUTHENTIK_URL
+              value: https://bbe-auth-server
+            - name: CA_FILE
+              value: /certificates/ca/ca.crt
+            - name: AUTHENTIK_BOOTSTRAP_URL
               value: http://bbe-auth-server
+            # authentik's own certificates, to tell when its worker has imported them
+            - name: CERTIFICATES_DIR
+              value: /certificates
             - name: AUTHENTIK_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -61,6 +70,8 @@ spec:
               value: /user-passwords
             - name: READY_TIMEOUT
               value: {{ .Values.bbe.setup.readyTimeout | quote }}
+            - name: CERTIFICATE_TIMEOUT
+              value: {{ .Values.bbe.setup.certificateTimeout | quote }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -79,6 +90,9 @@ spec:
               readOnly: true
             - name: user-passwords
               mountPath: /user-passwords
+              readOnly: true
+            - name: certificates
+              mountPath: /certificates
               readOnly: true
       volumes:
         - name: scripts
@@ -100,3 +114,22 @@ spec:
               - secret:
                   name: bbe-auth-users
                   optional: true
+        # bbe's certificate authority, and authentik's certificates without their keys
+        - name: certificates
+          projected:
+            sources:
+              - secret:
+                  name: bbe-ca-cert
+                  items:
+                    - key: ca.crt
+                      path: ca/ca.crt
+              - secret:
+                  name: bbe-auth-server-tls
+                  items:
+                    - key: tls.crt
+                      path: bbe-auth-server/tls.crt
+              - secret:
+                  name: bbe-auth-ldap-tls
+                  items:
+                    - key: tls.crt
+                      path: bbe-auth-ldap/tls.crt

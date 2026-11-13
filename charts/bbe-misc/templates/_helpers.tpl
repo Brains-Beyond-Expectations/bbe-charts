@@ -41,6 +41,10 @@ Snipe-IT's settings, shared by the app and its setup, which boots Snipe-IT's own
 # Its LDAP settings page refuses to test a server on a private address otherwise, and authentik's is in the cluster
 - name: TEST_ALLOW_PRIVATE_IPS
   value: "true"
+# bbe's certificate authority, which PHP's LDAP checks the outpost's LDAPS certificate with, mounted from the
+# `bbe-ca-cert` Secret trust-manager copies into every namespace
+- name: LDAPTLS_CACERT
+  value: /certificates/ca.crt
 - name: DB_CONNECTION
   value: mariadb
 - name: DB_HOST

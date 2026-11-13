@@ -44,12 +44,17 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: should ask authentik about every request, and pass on who's signed in
+  - it: should ask authentik about every request over HTTPS, and pass on who's signed in
     template: templates/sso.yaml
     asserts:
       - equal:
           path: spec.forwardAuth.address
-          value: http://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+          value: https://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+      # Checking authentik's certificate with bbe's certificate authority
+      - equal:
+          path: spec.forwardAuth.tls
+          value:
+            caSecret: bbe-ca-cert
       - contains:
           path: spec.forwardAuth.authResponseHeaders
           content: X-authentik-username

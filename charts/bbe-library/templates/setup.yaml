@@ -19,8 +19,11 @@ containers:
     env:
       - name: MODE
         value: {{ .mode }}
+      # Calibre-Web's Service, over HTTPS, with bbe's certificate authority to check its certificate
       - name: CALIBRE_URL
-        value: http://{{ $root.Release.Name }}-calibre:8083
+        value: https://{{ $root.Release.Name }}-calibre:8083
+      - name: CALIBRE_CA
+        value: /certificates/ca.crt
       - name: LIBRARY_DIR
         value: /share/books
       - name: ADMIN_USERNAME
@@ -33,11 +36,21 @@ containers:
           secretKeyRef:
             name: bbe-library-admin
             key: password
-      # bbe-auth's LDAP outpost, which the library binds to with its own account
+      # bbe-auth's LDAP outpost, which the library binds to with its own account, over LDAPS, checking its certificate
+      # with bbe's certificate authority
       - name: LDAP_SERVER
         value: bbe-auth-ldap.bbe-auth.svc.cluster.local
       - name: LDAP_PORT
-        value: "389"
+        value: "636"
+      - name: LDAP_CA_FILE
+        value: /certificates/ca.crt
+      # The same, from Calibre-Web's container, where its certificate is mounted whole
+      - name: CALIBRE_LDAP_CA_FILE
+        value: /certificates/ca.crt
+      - name: CALIBRE_LDAP_CERT_FILE
+        value: /certificates/tls.crt
+      - name: CALIBRE_LDAP_KEY_FILE
+        value: /certificates/tls.key
       - name: LDAP_BASE_DN
         value: {{ include "bbe-library.ldapBaseDn" $root }}
       - name: LDAP_BIND_DN
@@ -63,10 +76,20 @@ containers:
       - name: scripts
         mountPath: /scripts
         readOnly: true
+      - name: certificate
+        mountPath: /certificates
+        readOnly: true
 volumes:
   - name: scripts
     configMap:
       name: bbe-library-setup
+  # Only the certificate authority, not Calibre-Web's key
+  - name: certificate
+    secret:
+      secretName: bbe-library-calibre-tls
+      items:
+        - key: ca.crt
+          path: ca.crt
 {{- end -}}
 
 {{- if .Values.bbe.setup.enabled }}

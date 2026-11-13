@@ -65,7 +65,19 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: LDAP_URL
-            value: ldap://bbe-auth-ldap.bbe-auth.svc.cluster.local:389
+            value: ldaps://bbe-auth-ldap.bbe-auth.svc.cluster.local:636
+      # PHP's LDAP checks the outpost's certificate with bbe's certificate authority
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LDAPTLS_CACERT
+            value: /certificates/ca.crt
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: ca
+            secret:
+              secretName: bbe-ca-cert
       - contains:
           path: spec.template.spec.containers[0].env
           content:

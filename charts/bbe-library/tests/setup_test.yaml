@@ -25,6 +25,43 @@ tests:
             - /lsiopy/bin/python3
             - /scripts/setup.py
 
+  - it: should reach bbe-auth's LDAP over LDAPS, checking its certificate with bbe's certificate authority, for the
+      setup and the people CronJob alike
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LDAP_PORT
+            value: "636"
+        documentSelector:
+          path: kind
+          value: Job
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LDAP_CA_FILE
+            value: /certificates/ca.crt
+        documentSelector:
+          path: kind
+          value: Job
+      # Calibre-Web only checks the outpost's certificate when it has one of its own to give, its server's
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CALIBRE_LDAP_CERT_FILE
+            value: /certificates/tls.crt
+        documentSelector:
+          path: kind
+          value: Job
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.containers[0].env
+          content:
+            name: LDAP_CA_FILE
+            value: /certificates/ca.crt
+        documentSelector:
+          path: kind
+          value: CronJob
+
   - it: should bind to bbe-auth's LDAP with the library's own account
     documentSelector:
       path: kind
@@ -44,7 +81,27 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: CALIBRE_URL
-            value: http://bbe-library-calibre:8083
+            value: https://bbe-library-calibre:8083
+
+  - it: should check Calibre-Web's certificate with bbe's certificate authority, without its key
+    documentSelector:
+      path: kind
+      value: Job
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CALIBRE_CA
+            value: /certificates/ca.crt
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: certificate
+            secret:
+              secretName: bbe-library-calibre-tls
+              items:
+                - key: ca.crt
+                  path: ca.crt
 
   - it: should keep people in line every 10 minutes, as Calibre-Web creates them on their first sign-in
     documentSelector:

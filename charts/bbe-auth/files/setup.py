@@ -1,5 +1,5 @@
-"""Sets up authentik for bbe after every install and upgrade: applies bbe's blueprint, gives the LDAP outpost its
-token, and keeps the people bbe manages in line with the chart's values.
+"""Sets up authentik for bbe after every install and upgrade: applies bbe's blueprint, has authentik serve bbe's
+certificates, gives the LDAP outpost its token, and keeps the people bbe manages in line with the chart's values.
 
 The blueprint holds the groups, the forward auth and LDAP providers and the branding. People added in authentik's
 admin interface are left alone: bbe only changes and removes the ones it created, under the `bbe/people` path. Every
@@ -9,14 +9,19 @@ so the job runs on the plain python image.
 
 import json
 import os
-from hashlib import sha512
+from hashlib import sha256, sha512
+import ssl
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
+# authentik's server over HTTPS, checked with bbe's certificate authority in CA_FILE
 AUTHENTIK_URL = os.environ.get("AUTHENTIK_URL", "").rstrip("/")
+CA_FILE = os.environ.get("CA_FILE", "")
+# The same server in plain HTTP, only talked to on a first install, until it serves bbe's certificate
+AUTHENTIK_BOOTSTRAP_URL = os.environ.get("AUTHENTIK_BOOTSTRAP_URL", "").rstrip("/")
 # authentik's bootstrap token, which belongs to its own admin
 AUTHENTIK_TOKEN = os.environ.get("AUTHENTIK_TOKEN", "")
 BLUEPRINT = os.environ.get("BLUEPRINT", "bbe")
@@ -34,15 +39,34 @@ LDAP_OUTPOST_TOKEN = os.environ.get("LDAP_OUTPOST_TOKEN", "")
 USERS = json.loads(os.environ.get("USERS") or "[]")
 USER_PASSWORDS_DIR = os.environ.get("USER_PASSWORDS_DIR", "/user-passwords")
 READY_TIMEOUT = int(os.environ.get("READY_TIMEOUT", "900"))
+# How long the setup waits, once the blueprint is applied, for the worker to import authentik's certificates and for
+# authentik to serve them. It's its own, as authentik may take long to start on a first install, and a slow worker too
+CERTIFICATE_TIMEOUT = int(os.environ.get("CERTIFICATE_TIMEOUT", "600"))
+# authentik's own certificates, which its worker imports from /certs/<name>, and the setup reads from
+# CERTIFICATES_DIR/<name> to tell when it has: its server's, which its default brand serves, and its LDAP outpost's
+CERTIFICATES_DIR = os.environ.get("CERTIFICATES_DIR", "/certificates")
+SERVER_CERTIFICATE = os.environ.get("SERVER_CERTIFICATE", "bbe-auth-server")
+LDAP_CERTIFICATE = os.environ.get("LDAP_CERTIFICATE", "bbe-auth-ldap")
+LDAP_PROVIDER = os.environ.get("LDAP_PROVIDER", "bbe LDAP")
+# How long the worker may take to import a certificate before it's asked again
+DISCOVERY_WAIT = 120
 
 # The groups whose members bbe keeps in line for the people it manages
 GROUPS = ["admins", "users"]
 # Where bbe keeps the people it creates, which tells them apart from those added in authentik
 PEOPLE_PATH = "bbe/people"
+# The brand authentik's server serves its certificate for, when no other matches
+DEFAULT_BRAND = "authentik-default"
+# How authentik marks the keypairs its worker imported from /certs
+DISCOVERED = "goauthentik.io/crypto/discovered/%s"
 
 
 class SetupError(Exception):
     pass
+
+
+class NotTrusted(SetupError):
+    """authentik answered with a certificate bbe's certificate authority didn't sign: its own, until it serves bbe's"""
 
 
 def log(message):
@@ -50,11 +74,12 @@ def log(message):
 
 
 class Authentik:
-    """authentik's API, signed in with its bootstrap token"""
+    """authentik's API, signed in with its bootstrap token. Over HTTPS, its certificate is checked with `context`"""
 
-    def __init__(self, url, token):
+    def __init__(self, url, token, context=None):
         self.url = url
         self.token = token
+        self.context = context
 
     def request(self, method, path, body=None, timeout=60):
         headers = {"Accept": "application/json", "Authorization": f"Bearer {self.token}"}
@@ -65,11 +90,15 @@ class Authentik:
 
         request = urllib.request.Request(self.url + "/api/v3" + path, data=data, method=method, headers=headers)
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with urllib.request.urlopen(request, timeout=timeout, context=self.context) as response:
                 status, content = response.status, response.read()
         except urllib.error.HTTPError as error:
             status, content = error.code, error.read()
-        except (urllib.error.URLError, OSError) as error:
+        except urllib.error.URLError as error:
+            if isinstance(error.reason, ssl.SSLCertVerificationError):
+                raise NotTrusted(f"authentik: {method} {path} failed: {error.reason}")
+            raise SetupError(f"authentik: {method} {path} failed: {error}")
+        except OSError as error:
             raise SetupError(f"authentik: {method} {path} failed: {error}")
 
         if status >= 300:
@@ -101,18 +130,108 @@ class Authentik:
     def delete(self, path):
         return self.request("DELETE", path)
 
-    def wait_until_ready(self, deadline):
-        """Waits until authentik answers with the token, as its first start migrates the database for a while"""
-        last_error = "no answer yet"
-        while time.monotonic() < deadline:
+
+def secure_client():
+    return Authentik(AUTHENTIK_URL, AUTHENTIK_TOKEN, ssl.create_default_context(cafile=CA_FILE))
+
+
+def connect(deadline):
+    """authentik over HTTPS, checked with bbe's certificate authority, once it answers with the token, as its first
+    start migrates the database for a while. Until the setup has it serve bbe's certificate, on a first install, it
+    answers with its own, and the setup talks to it in plain HTTP inside the namespace instead, only to apply the
+    blueprint and have it serve bbe's. Returns the client, and whether it's checked"""
+    secure = secure_client()
+    bootstrap = Authentik(AUTHENTIK_BOOTSTRAP_URL, AUTHENTIK_TOKEN)
+    last_error = "no answer yet"
+    while time.monotonic() < deadline:
+        try:
+            secure.get("/core/users/me/")
+            return secure, True
+        except NotTrusted:
             try:
-                self.get("/core/users/me/")
-                return
+                bootstrap.get("/core/users/me/")
+                log("authentik: doesn't serve bbe's certificate yet, so it's set up in plain HTTP until it does")
+                return bootstrap, False
             except SetupError as error:
                 last_error = str(error)
-            time.sleep(5)
+        except SetupError as error:
+            last_error = str(error)
+        time.sleep(5)
 
-        raise SetupError(f"authentik wasn't ready after {READY_TIMEOUT} seconds: {last_error}")
+    raise SetupError(f"authentik wasn't ready after {READY_TIMEOUT} seconds: {last_error}")
+
+
+def wait_until_trusted(deadline):
+    """Waits until authentik's server serves bbe's certificate, which it looks for every 3 minutes, and returns the
+    client checking it"""
+    secure = secure_client()
+    last_error = "no answer yet"
+    while time.monotonic() < deadline:
+        try:
+            secure.get("/core/users/me/")
+            log("authentik: serves bbe's certificate")
+            return secure
+        except SetupError as error:
+            last_error = str(error)
+        time.sleep(10)
+
+    raise SetupError(f"authentik didn't serve bbe's certificate after {CERTIFICATE_TIMEOUT} seconds: {last_error}")
+
+
+def fingerprint(name):
+    """The SHA-256 fingerprint of the first certificate in CERTIFICATES_DIR/<name>/tls.crt, as authentik writes it"""
+    end = "-----END CERTIFICATE-----"
+    with open(os.path.join(CERTIFICATES_DIR, name, "tls.crt"), encoding="utf-8") as file:
+        pem = file.read()
+    digest = sha256(ssl.PEM_cert_to_DER_cert(pem[:pem.index(end) + len(end)])).hexdigest()
+    return ":".join(digest[i:i + 2] for i in range(0, len(digest), 2))
+
+
+def discover_certificates(authentik):
+    """Has the worker import the certificates in /certs now, rather than when a file changes or within the hour"""
+    schedules = [schedule for schedule in authentik.results("/tasks/schedules/")
+                 if schedule["actor_name"].endswith("certificate_discovery")]
+    if not schedules:
+        raise SetupError("authentik: there's no schedule importing the certificates in /certs")
+    authentik.post(f"/tasks/schedules/{schedules[0]['id']}/send/")
+
+
+def imported_keypair(authentik, name, deadline):
+    """The keypair authentik's worker imported from /certs/<name>, once it holds the certificate cert-manager issued
+    last, with its key"""
+    wanted = fingerprint(name)
+    requested = None
+    while time.monotonic() < deadline:
+        found = authentik.results("/crypto/certificatekeypairs/", managed=DISCOVERED % name)
+        if found and found[0]["fingerprint_sha256"] == wanted and found[0]["private_key_available"]:
+            return found[0]
+        if requested is None or time.monotonic() - requested > DISCOVERY_WAIT:
+            discover_certificates(authentik)
+            requested = time.monotonic()
+        time.sleep(5)
+
+    raise SetupError(f"authentik: the worker didn't import the certificate in /certs/{name}. The worker's log says why")
+
+
+def serve_certificates(authentik, deadline):
+    """Has authentik's server serve its certificate, through its default brand, and the LDAP outpost serve its own,
+    through its provider. The worker imports them again when cert-manager renews them, into the same keypairs"""
+    server = imported_keypair(authentik, SERVER_CERTIFICATE, deadline)
+    ldap = imported_keypair(authentik, LDAP_CERTIFICATE, deadline)
+
+    brands = authentik.results("/core/brands/", domain=DEFAULT_BRAND)
+    if not brands:
+        raise SetupError(f"authentik: there's no `{DEFAULT_BRAND}` brand, which its default blueprint creates")
+    if brands[0]["web_certificate"] != server["pk"]:
+        authentik.patch(f"/core/brands/{brands[0]['brand_uuid']}/", {"web_certificate": server["pk"]})
+        log(f"authentik: its server serves the {SERVER_CERTIFICATE} certificate")
+
+    providers = authentik.results("/providers/ldap/", name__iexact=LDAP_PROVIDER)
+    if not providers:
+        raise SetupError(f"authentik: there's no `{LDAP_PROVIDER}` LDAP provider, which the blueprint creates")
+    if providers[0]["certificate"] != ldap["pk"]:
+        authentik.patch(f"/providers/ldap/{providers[0]['pk']}/", {"certificate": ldap["pk"]})
+        log(f"authentik: the LDAP outpost serves the {LDAP_CERTIFICATE} certificate")
 
 
 def read_file(directory, name):
@@ -225,15 +344,20 @@ def configure_users(authentik):
 
 
 def main():
-    if not AUTHENTIK_URL or not AUTHENTIK_TOKEN or not LDAP_OUTPOST_TOKEN:
-        raise SetupError("AUTHENTIK_URL, AUTHENTIK_TOKEN and LDAP_OUTPOST_TOKEN are required")
+    if not all((AUTHENTIK_URL, AUTHENTIK_BOOTSTRAP_URL, CA_FILE, AUTHENTIK_TOKEN, LDAP_OUTPOST_TOKEN)):
+        raise SetupError("AUTHENTIK_URL, AUTHENTIK_BOOTSTRAP_URL, CA_FILE, AUTHENTIK_TOKEN and LDAP_OUTPOST_TOKEN are "
+                         "required")
 
     deadline = time.monotonic() + READY_TIMEOUT
-    authentik = Authentik(AUTHENTIK_URL, AUTHENTIK_TOKEN)
-    authentik.wait_until_ready(deadline)
+    authentik, trusted = connect(deadline)
     log("authentik: ready")
 
     apply_blueprint(authentik, deadline)
+    certificate_deadline = time.monotonic() + CERTIFICATE_TIMEOUT
+    serve_certificates(authentik, certificate_deadline)
+    # The outpost's token and people's passwords only go to authentik over HTTPS
+    if not trusted:
+        authentik = wait_until_trusted(certificate_deadline)
     configure_ldap_outpost(authentik)
     configure_users(authentik)
     log("authentik is set up")

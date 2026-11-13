@@ -69,7 +69,7 @@ tests:
           value:
             name: bbe-auth-server
             port:
-              name: http
+              name: https
       - equal:
           path: metadata.annotations["gethomepage.dev/href"]
           value: https://auth.lab.home.arpa/if/user/
@@ -113,18 +113,121 @@ tests:
                 name: bbe-auth-authentik
                 key: BBE_LDAP_OUTPOST_TOKEN
 
-  - it: should serve LDAP on its usual port
+  - it: should serve only LDAPS outside the outpost's pod, on its usual port
     template: templates/ldap.yaml
     documentSelector:
       path: kind
       value: Service
     asserts:
       - equal:
-          path: spec.ports[0]
+          path: spec.ports
           value:
-            name: ldap
-            port: 389
-            targetPort: ldap
+            - name: ldaps
+              port: 636
+              targetPort: ldaps
+
+  - it: should have the LDAP outpost reach authentik over HTTPS, trusting only bbe's certificate authority
+    template: templates/ldap.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTHENTIK_HOST
+            value: https://bbe-auth-server
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SSL_CERT_FILE
+            value: /certificates/ca.crt
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTHENTIK_INSECURE
+            value: "true"
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: --cacert /certificates/ca.crt
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: ca
+            secret:
+              secretName: bbe-ca-cert
+
+  - it: should give authentik's server and LDAP outpost certificates from bbe's certificate authority, for their Services
+    template: templates/certificates.yaml
+    release:
+      namespace: bbe-auth
+    asserts:
+      - equal:
+          path: spec.dnsNames
+          value:
+            - bbe-auth-server
+            - bbe-auth-server.bbe-auth
+            - bbe-auth-server.bbe-auth.svc
+            - bbe-auth-server.bbe-auth.svc.cluster.local
+        documentIndex: 0
+      - equal:
+          path: spec.dnsNames
+          value:
+            - bbe-auth-ldap
+            - bbe-auth-ldap.bbe-auth
+            - bbe-auth-ldap.bbe-auth.svc
+            - bbe-auth-ldap.bbe-auth.svc.cluster.local
+        documentIndex: 1
+      - equal:
+          path: spec.issuerRef
+          value:
+            kind: ClusterIssuer
+            name: bbe-ca
+        documentIndex: 0
+
+  - it: should have Traefik reach authentik over HTTPS, checking its certificate for its Service's name
+    template: templates/certificates.yaml
+    release:
+      namespace: bbe-auth
+    documentSelector:
+      path: kind
+      value: ServersTransport
+    asserts:
+      - equal:
+          path: spec
+          value:
+            serverName: bbe-auth-server.bbe-auth.svc
+            rootCAs:
+              - secret: bbe-ca-cert
+
+  - it: should point Traefik at that ServersTransport for authentik's server
+    template: charts/authentik/templates/server/service.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/service.serverstransport"]
+          value: bbe-auth-bbe-auth-server@kubernetescrd
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/service.serversscheme"]
+          value: https
+
+  - it: should have the worker import authentik's certificates from /certs, readable only by authentik
+    template: charts/authentik/templates/worker/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: server-certificate
+            mountPath: /certs/bbe-auth-server
+            readOnly: true
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: ldap-certificate
+            mountPath: /certs/bbe-auth-ldap
+            readOnly: true
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 1000
 
   - it: should ship bbe's blueprint and images
     template: templates/blueprints.yaml
@@ -211,7 +314,7 @@ tests:
                     service:
                       name: bbe-auth-server
                       port:
-                        name: http
+                        name: https
       - notExists:
           path: metadata.annotations
 

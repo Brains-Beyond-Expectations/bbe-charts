@@ -103,10 +103,16 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/snipeit
+            - name: ca
+              mountPath: /certificates
+              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: bbe-misc-snipeit
+        - name: ca
+          secret:
+            secretName: bbe-ca-cert
 ---
 apiVersion: v1
 kind: Service

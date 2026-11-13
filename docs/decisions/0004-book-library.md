@@ -114,10 +114,20 @@ CWA has no API for its settings. The setup Job signs in like a browser and posts
 - It reads before it writes, so a second run changes nothing. CWA allows three logins a minute per username, so it keeps its session rather than signing in again.
 - It runs on CWA's own image, for the python-ldap it searches authentik's groups with.
 
+### 7. CWA serves HTTPS itself, even behind Traefik
+
+Traefik ends people's HTTPS with the domain's certificate, and connects to CWA over HTTPS again, so nothing in the cluster talks to CWA in plain HTTP:
+- **CWA's certificate is from bbe's certificate authority**, through the `bbe-ca` ClusterIssuer bbe-networking adds for apps in other namespaces. It names CWA's Service, and cert-manager renews it. CWA's server, gevent, reads it on every connection, so a renewal needs no restart.
+- **CWA's own settings name it** (Basic Configuration, "SSL certfile location" and "SSL Keyfile location"). CWA reads them when it starts, so an init container sets them in its database before it starts. On a first install that container creates the database first, with `cps.py -d`, as CWA's own start does. It doesn't copy CWA's `empty_library/app.db`, which carries a session key that every install would share.
+- **Traefik checks the certificate** with a ServersTransport trusting bbe's certificate authority, for the Service's name. bbe's setup checks it the same way, with only the certificate authority mounted, not CWA's key.
+- **CWA reaches authentik's LDAP over LDAPS** ([0014](0014-encrypting-connections-inside-the-cluster.md)), with bbe's certificate authority. CWA only checks the server's certificate when it's also given a client certificate and key, and otherwise encrypts without checking. So it's given its own server certificate, which the outpost doesn't ask for.
+- Rejected: **CWA's `-c` and `-k` flags**, which CWA's start doesn't pass on. And **setting it from the setup Job**, which would leave CWA serving plain HTTP until the setup ran, while its probes and Traefik expect HTTPS.
+
 ## Consequences
 
 - **A new admin gets CWA admin rights within 10 minutes** of being added to `admins`, or of their first visit.
 - **CWA trusts a header for who's signed in.** It's only safe while Traefik removes it from what people send and only Traefik and bbe's setup reach CWA. On a cluster that doesn't enforce NetworkPolicies, any pod reaching CWA's Service could sign in as anyone.
+- **CWA's start logs a `Gevent SSL Error`** each time, from its own check that its port is open, which connects without TLS.
 - **The library can't be reached through Traefik while authentik is down,** e-readers' paths aside. Its own admin signs in through a port-forward.
 - **Publishing the library through Cloudflare** ([0008](0008-public-access-through-cloudflare.md)) needs a provider of its own for its public host too, and the same header removal on the public entrypoint.
 - **Books Shelfmark downloads are copies.** qBittorrent keeps seeding its own, in bbe-media's downloads, in its `books` category, until it's removed there.

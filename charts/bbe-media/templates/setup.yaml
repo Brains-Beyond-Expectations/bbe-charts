@@ -76,9 +76,10 @@ spec:
             - name: JELLYFIN_URL
               value: http://{{ .Release.Name }}-jellyfin:8096
             {{- if .Values.global.bbe.sso.enabled }}
-            # Jellyfin signs people in against bbe-auth's LDAP outpost
+            # Jellyfin signs people in against bbe-auth's LDAP outpost, over LDAPS, checking its certificate with bbe's
+            # certificate authority, as mounted in Jellyfin's pod
             - name: JELLYFIN_LDAP
-              value: {{ dict "server" "bbe-auth-ldap.bbe-auth.svc.cluster.local" "port" 389 "bindUser" "cn=jellyfin-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io" "baseDn" "dc=ldap,dc=goauthentik,dc=io" "passwordResetUrl" (printf "https://auth.%s/if/user/#/settings" .Values.global.bbe.domain) | toJson | quote }}
+              value: {{ dict "server" "bbe-auth-ldap.bbe-auth.svc.cluster.local" "port" 636 "caPath" "/certificates/ca.crt" "bindUser" "cn=jellyfin-ldap,ou=users,dc=ldap,dc=goauthentik,dc=io" "baseDn" "dc=ldap,dc=goauthentik,dc=io" "passwordResetUrl" (printf "https://auth.%s/if/user/#/settings" .Values.global.bbe.domain) | toJson | quote }}
             - name: JELLYFIN_LDAP_PASSWORD
               valueFrom:
                 secretKeyRef:
