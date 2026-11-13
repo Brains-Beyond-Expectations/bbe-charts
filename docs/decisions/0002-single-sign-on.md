@@ -138,7 +138,7 @@ Left for later: **a public domain with Let's Encrypt**, through a DNS-01 challen
 - Bazarr uses `auth.type` `None`.
 - qBittorrent only skips its login for `127.0.0.1`. nginx in its pod checks with authentik (`auth_request` to `/outpost.goauthentik.io/auth/nginx`) before passing a request on, so only someone authentik let through gets there. Sonarr, Radarr and the setup Job use its API key (qBittorrent 5.2).
 
-**The LDAP outpost runs as bbe-auth's own Deployment** (`bbe-auth-ldap`, port 389). authentik's embedded outpost only does forward auth. It signs in with the token the Job gives it. Jellyfin reaches it over plain LDAP inside the cluster, like the other connections between pods.
+**The LDAP outpost runs as bbe-auth's own Deployment** (`bbe-auth-ldap`). authentik's embedded outpost only does forward auth. It signs in with the token the Job gives it. Jellyfin reaches it over LDAPS on port 636, and forward auth reaches authentik over HTTPS, both checked with bbe's certificate authority ([0014](0014-encrypting-connections-inside-the-cluster.md)).
 
 Jellyfin can't change passwords, as authentik's LDAP is read-only. Its password reset link points at authentik's user settings.
 
