@@ -291,6 +291,103 @@ tests:
           path: metadata.annotations["helm.sh/hook-weight"]
           value: "1"
 
+  - it: copies only bbe's certificate authority into a Secret in every namespace, for Traefik and the apps to trust
+    template: templates/trust.yaml
+    documentSelector:
+      path: metadata.name
+      value: bbe-ca-cert
+    asserts:
+      - equal:
+          path: spec.sources
+          value:
+            - secret:
+                name: bbe-ca
+                key: tls.crt
+      - equal:
+          path: spec.target
+          value:
+            secret:
+              key: ca.crt
+      - notExists:
+          path: spec.target.namespaceSelector
+
+  - it: copies the public certificate authorities with bbe's into a ConfigMap in every namespace
+    template: templates/trust.yaml
+    documentSelector:
+      path: metadata.name
+      value: bbe-ca-bundle
+    asserts:
+      - equal:
+          path: spec.sources
+          value:
+            - useDefaultCAs: true
+            - secret:
+                name: bbe-ca
+                key: tls.crt
+      - equal:
+          path: spec.target
+          value:
+            configMap:
+              key: ca-bundle.crt
+
+  - it: creates the bundles after the certificates, once trust-manager's webhook answers, on upgrades too
+    template: templates/trust.yaml
+    release:
+      namespace: bbe-networking
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "15"
+        documentIndex: 0
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: nc -z -w 5 trust-manager\.bbe-networking\.svc 443
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "20"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "20"
+        documentIndex: 2
+
+  - it: lets trust-manager write only bbe's Secret, and read the certificate authority from this namespace
+    template: charts/trust-manager/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --trust-namespace=bbe-networking
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --secret-targets-enabled=true
+
+  - it: has Helm issue trust-manager's webhook certificate, as cert-manager's webhook isn't up yet on a first install
+    template: charts/trust-manager/templates/certificate.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: leaves trust-manager's CRD to the crds folder, which Helm installs first
+    template: charts/trust-manager/templates/crd-trust.cert-manager.io_bundles.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: runs Reloader with a read-only filesystem and no capabilities
+    template: charts/reloader/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          value:
+            - ALL
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+
   - it: refuses home.arpa as the domain, which browsers treat as a public suffix
     set:
       global.bbe.domain: home.arpa

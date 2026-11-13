@@ -130,6 +130,13 @@ bbe:
     caDuration: 87600h
     # -- How long the certificate for the domain is valid. cert-manager renews it a third of the way before it expires
     duration: 2160h
+  trust:
+    # The image of the hook waiting for trust-manager's webhook before bbe's bundles are created
+    waitImage:
+      # -- The image the wait runs on, which only needs `nc`
+      repository: busybox
+      # -- The tag of the wait's image
+      tag: "1.37.0"
 
 metallb:
   crds:
@@ -208,3 +215,55 @@ blocky:
     # Blocky's configuration, written from global.bbe.dns by bbe-networking's templates/_blocky.tpl
     yaml: |
       {{- include "bbe-networking.blockyConfig" . }}
+
+# trust-manager copies bbe's certificate authority into every namespace, for what checks the apps' own certificates:
+# - `bbe-ca-cert`, a Secret holding only bbe's certificate authority under `ca.crt`, for Traefik and the apps reaching
+#   each other inside the cluster.
+# - `bbe-ca-bundle`, a ConfigMap holding the public certificate authorities and bbe's under `ca-bundle.crt`, for apps
+#   that can only be given one file to trust, and reach the internet too.
+# The bundles are in templates/trust.yaml
+trust-manager:
+  crds:
+    # trust-manager's CRD is in this chart's crds/ folder, written by update-crds.sh, so Helm knows it before the hooks
+    # creating the bundles run
+    enabled: false
+  app:
+    trust:
+      # Where trust-manager reads the bundles' sources from: bbe's certificate authority, which cert-manager keeps in this
+      # namespace, where bbe installs the package
+      namespace: bbe-networking
+    webhook:
+      tls:
+        helmCert:
+          # Helm issues the webhook's certificate, as cert-manager's webhook doesn't answer yet when the chart's own
+          # resources are created on a first install. It's valid for 10 years, and issued again on every upgrade
+          enabled: true
+  # trust-manager may only write bbe's own Secret target, though it can read every Secret to manage it
+  secretTargets:
+    enabled: true
+    authorizedSecrets:
+      - bbe-ca-cert
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 10m
+    limits:
+      memory: 256Mi
+
+# Reloader restarts the apps that only read their certificates when they start, once cert-manager renews them. An app's
+# workload asks for it with the `secret.reloader.stakater.com/reload` annotation, naming its certificate's Secret
+reloader:
+  reloader:
+    readOnlyRootFileSystem: true
+    deployment:
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        requests:
+          memory: 64Mi
+          cpu: 10m
+        limits:
+          memory: 256Mi

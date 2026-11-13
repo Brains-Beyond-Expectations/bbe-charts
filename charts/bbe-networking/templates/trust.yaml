@@ -1,0 +1,93 @@
+{{- /*
+trust-manager copies bbe's certificate authority into every namespace, for the apps' own certificates to be checked
+with inside the cluster. The bundles are hooks after bbe's certificate authority (weight 10), as trust-manager's webhook
+checks them and doesn't answer yet when the chart's own resources are created. Recreating them on upgrades has
+trust-manager write their targets again within seconds, while the apps already running keep the copy they read.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-trust-manager-ready
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "15"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  # trust-manager takes about a minute to start on a first install
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bbe-networking
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: trust-manager-ready
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        # The webhook's Service only sends connections to a trust-manager that's ready
+        - name: wait
+          image: "{{ .Values.bbe.trust.waitImage.repository }}:{{ .Values.bbe.trust.waitImage.tag }}"
+          command:
+            - sh
+            - -c
+            - until nc -z -w 5 trust-manager.{{ .Release.Namespace }}.svc 443; do sleep 2; done
+          resources:
+            requests:
+              memory: 8Mi
+              cpu: 10m
+            limits:
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+# Only bbe's certificate authority, for checking the apps' certificates inside the cluster. A Secret, as Traefik's
+# forward auth only reads its certificate authority from one
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: bbe-ca-cert
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  sources:
+    - secret:
+        name: bbe-ca
+        key: tls.crt
+  target:
+    secret:
+      key: ca.crt
+---
+# The public certificate authorities and bbe's, for apps that can only be given one file to trust and also reach the
+# internet
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: bbe-ca-bundle
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  sources:
+    - useDefaultCAs: true
+    - secret:
+        name: bbe-ca
+        key: tls.crt
+  target:
+    configMap:
+      key: ca-bundle.crt
