@@ -1,6 +1,8 @@
 {{- /*
 bbe's own certificate authority, and the certificate for the cluster's domain it signs, which Traefik serves for
-every app. They're hooks running after cert-manager's startup check (weight 1), as Helm can't create them before
+every app. The apps in other namespaces get their own servers' certificates from it through the `bbe-ca`
+ClusterIssuer, so Traefik and the other apps check them with the same authority. cert-manager reads its secret from
+this namespace, where it runs. They're hooks running after cert-manager's startup check (weight 1), as Helm can't create them before
 cert-manager's CRDs exist and its webhook answers. Recreating them on upgrades keeps their secrets, so nothing is
 issued again until it's due.
 */}}
@@ -42,6 +44,18 @@ kind: Issuer
 metadata:
   name: bbe-ca
   namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  ca:
+    secretName: bbe-ca
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: bbe-ca
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "10"

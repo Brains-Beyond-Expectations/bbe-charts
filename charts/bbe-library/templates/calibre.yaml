@@ -3,6 +3,9 @@
 #
 # Its library and ingest folder are in the share, named in its dirs.json. Its start runs as root, which the share maps
 # away, and checks the image's own /calibre-library, so that stays as it is
+#
+# It serves HTTPS itself, with a certificate from bbe's certificate authority, so even Traefik's connection to it is
+# encrypted
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -59,6 +62,46 @@ spec:
       # Its config volume is the NAS user's, as it doesn't change the owner of anything with NETWORK_SHARE_MODE
       securityContext:
         fsGroup: {{ .Values.bbe.library.user.gid | int }}
+      initContainers:
+        # Calibre-Web serves HTTPS once its settings name a certificate and its key, which it reads when it starts. So
+        # they're set before it starts, in its database. On a first install the database is created first, as CWA's
+        # own start would
+        - name: https
+          image: "{{ .Values.bbe.library.calibre.image.repository }}:{{ .Values.bbe.library.calibre.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              if [ ! -f /config/app.db ]; then
+                cd /app/calibre-web-automated
+                /lsiopy/bin/python3 cps.py -d
+              fi
+              sqlite3 /config/app.db "UPDATE settings SET config_certfile = '/certificates/tls.crt', config_keyfile = '/certificates/tls.key'"
+          env:
+            - name: CALIBRE_DBPATH
+              value: /config
+            - name: HOME
+              value: /tmp
+          securityContext:
+            {{- include "bbe-library.runAsUser" . | nindent 12 }}
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          # Creating the database starts Calibre-Web's Python, which used 117MB
+          resources:
+            requests:
+              memory: 64Mi
+              cpu: 10m
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: tmp
+              mountPath: /tmp
       containers:
         # It starts as root, like the linuxserver images it's built on, and runs Calibre-Web and the ingest as the NAS
         # user from PUID and PGID
@@ -81,22 +124,25 @@ spec:
             - name: SESSION_COOKIE_SECURE
               value: "true"
           ports:
-            - name: http
+            - name: https
               containerPort: 8083
           startupProbe:
             httpGet:
               path: /login
-              port: http
+              port: https
+              scheme: HTTPS
             periodSeconds: 10
             failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /login
-              port: http
+              port: https
+              scheme: HTTPS
           livenessProbe:
             httpGet:
               path: /login
-              port: http
+              port: https
+              scheme: HTTPS
             periodSeconds: 30
             failureThreshold: 5
           {{- with .Values.bbe.library.calibre.resources }}
@@ -112,6 +158,10 @@ spec:
               mountPath: /app/calibre-web-automated/dirs.json
               subPath: dirs.json
               readOnly: true
+            # Not a sub-path, so cert-manager's renewals reach it. Calibre-Web reads them on every connection
+            - name: certificate
+              mountPath: /certificates
+              readOnly: true
       volumes:
         - name: config
           persistentVolumeClaim:
@@ -122,6 +172,14 @@ spec:
         - name: dirs
           configMap:
             name: bbe-library-calibre-dirs
+        - name: certificate
+          secret:
+            secretName: bbe-library-calibre-tls
+            # Its key is only for the NAS user's group, which Calibre-Web runs as
+            defaultMode: 0440
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
 ---
 apiVersion: v1
 kind: Service
@@ -131,12 +189,58 @@ metadata:
   labels:
     {{- include "bbe-library.labels" . | nindent 4 }}
     app.kubernetes.io/component: calibre
+  {{- if .Values.bbe.ingress.enabled }}
+  annotations:
+    # Traefik connects to it over HTTPS too, checking its certificate with its ServersTransport
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+    traefik.ingress.kubernetes.io/service.serverstransport: {{ .Release.Namespace }}-{{ .Release.Name }}-calibre@kubernetescrd
+  {{- end }}
 spec:
   type: ClusterIP
   selector:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: calibre
   ports:
-    - name: http
+    - name: https
       port: 8083
-      targetPort: http
+      targetPort: https
+{{- if .Values.bbe.ingress.enabled }}
+---
+# How Traefik connects to Calibre-Web, which serves HTTPS itself: it checks Calibre-Web's certificate is bbe's
+# certificate authority's, for its Service's name
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: {{ .Release.Name }}-calibre
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  serverName: {{ .Release.Name }}-calibre.{{ .Release.Namespace }}.svc
+  rootCAs:
+    - secret: bbe-library-calibre-tls
+{{- end }}
+---
+# Calibre-Web's own certificate, from bbe's certificate authority, which Traefik and bbe's setup check it with. Traefik
+# ends people's HTTPS with the domain's certificate, and connects to Calibre-Web over HTTPS again
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: bbe-library-calibre
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-library.labels" . | nindent 4 }}
+spec:
+  secretName: bbe-library-calibre-tls
+  dnsNames:
+    - {{ .Release.Name }}-calibre
+    - {{ .Release.Name }}-calibre.{{ .Release.Namespace }}
+    - {{ .Release.Name }}-calibre.{{ .Release.Namespace }}.svc
+    - {{ .Release.Name }}-calibre.{{ .Release.Namespace }}.svc.cluster.local
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    kind: ClusterIssuer
+    name: bbe-ca

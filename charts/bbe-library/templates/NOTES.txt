@@ -13,7 +13,8 @@ Books Shelfmark downloads, and books dropped in `books-ingest/` on the share, ar
 `books-ingest/` by themselves. The library itself is in `books/`.
 
 The library's own admin, for when authentik can't help, is {{ .Values.bbe.admin.username }}. The library is behind
-authentik, so it signs in at http://localhost:8083 after:
+authentik, so it signs in at https://localhost:8083, past the browser's warning as its certificate names its Service,
+after:
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-calibre 8083:8083
 Its password:
   kubectl get secret bbe-library-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d

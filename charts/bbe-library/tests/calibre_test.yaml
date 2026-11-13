@@ -92,6 +92,115 @@ tests:
             configMapRef:
               name: bbe-library-user
 
+  - it: should serve HTTPS with its own certificate, named in its settings before it starts
+    template: calibre.yaml
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: https
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: "if \\[ ! -f /config/app.db \\]; then\\n  cd /app/calibre-web-automated\\n  /lsiopy/bin/python3 cps.py -d\\n"
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: "UPDATE settings SET config_certfile = '/certificates/tls.crt', config_keyfile = '/certificates/tls.key'"
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.runAsUser
+          value: 1031
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: certificate
+            mountPath: /certificates
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: certificate
+            secret:
+              secretName: bbe-library-calibre-tls
+              defaultMode: 0440
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.scheme
+          value: HTTPS
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.scheme
+          value: HTTPS
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.scheme
+          value: HTTPS
+
+  - it: should get its certificate from bbe's certificate authority, for its Service's names
+    template: calibre.yaml
+    documentSelector:
+      path: kind
+      value: Certificate
+    asserts:
+      - equal:
+          path: spec.secretName
+          value: bbe-library-calibre-tls
+      - equal:
+          path: spec.issuerRef
+          value:
+            kind: ClusterIssuer
+            name: bbe-ca
+      - equal:
+          path: spec.dnsNames
+          value:
+            - bbe-library-calibre
+            - bbe-library-calibre.bbe-library
+            - bbe-library-calibre.bbe-library.svc
+            - bbe-library-calibre.bbe-library.svc.cluster.local
+
+  - it: should have Traefik connect to it over HTTPS, checking its certificate
+    template: calibre.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/service.serversscheme"]
+          value: https
+        documentSelector:
+          path: kind
+          value: Service
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/service.serverstransport"]
+          value: bbe-library-bbe-library-calibre@kubernetescrd
+        documentSelector:
+          path: kind
+          value: Service
+      - equal:
+          path: metadata.name
+          value: bbe-library-calibre
+        documentSelector:
+          path: kind
+          value: ServersTransport
+      - equal:
+          path: spec
+          value:
+            serverName: bbe-library-calibre.bbe-library.svc
+            rootCAs:
+              - secret: bbe-library-calibre-tls
+        documentSelector:
+          path: kind
+          value: ServersTransport
+
+  - it: should leave Traefik's settings out when it isn't served through Traefik
+    template: calibre.yaml
+    set:
+      bbe.ingress.enabled: false
+    asserts:
+      - containsDocument:
+          kind: ServersTransport
+          apiVersion: traefik.io/v1alpha1
+        not: true
+      - notExists:
+          path: metadata.annotations
+        documentSelector:
+          path: kind
+          value: Service
+
   - it: should name the library and ingest folders in the share
     template: calibre.yaml
     documentSelector:

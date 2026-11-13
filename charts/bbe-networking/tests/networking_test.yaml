@@ -246,6 +246,21 @@ tests:
           path: spec.issuerRef.name
           value: bbe-ca
 
+  - it: lets the apps in other namespaces get their servers' certificates from bbe's certificate authority
+    template: templates/certificates.yaml
+    documentSelector:
+      path: kind
+      value: ClusterIssuer
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-ca
+      - equal:
+          path: spec.ca.secretName
+          value: bbe-ca
+      - notExists:
+          path: metadata.namespace
+
   - it: serves the domain's certificate by default
     template: charts/traefik/templates/tlsstore.yaml
     asserts:

@@ -14,6 +14,7 @@ import http.cookiejar
 import json
 import os
 import re
+import ssl
 import sys
 import time
 import urllib.error
@@ -23,6 +24,8 @@ import urllib.request
 import ldap
 
 CALIBRE_URL = os.environ.get("CALIBRE_URL", "").rstrip("/")
+# The certificate authority Calibre-Web's certificate is checked with, rather than the system's
+CALIBRE_CA = os.environ.get("CALIBRE_CA") or None
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 LDAP_SERVER = os.environ.get("LDAP_SERVER", "")
@@ -136,21 +139,14 @@ def form_with(page, field):
     raise SetupError(f"Calibre-Web: there's no form with `{field}`")
 
 
-class InsideTheCluster(http.cookiejar.DefaultCookiePolicy):
-    """Sends Calibre-Web's session cookie over plain HTTP too. It's marked secure for people, who reach it over HTTPS,
-    and this only talks to its Service inside the cluster"""
-
-    def return_ok_secure(self, cookie, request):
-        return True
-
-
 class CalibreWeb:
     """Calibre-Web's pages, signed in with a session cookie like a browser"""
 
     def __init__(self, url):
         self.url = url
-        cookies = http.cookiejar.CookieJar(policy=InsideTheCluster())
-        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
+        self.opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+            urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=CALIBRE_CA)))
         self.csrf_token = ""
 
     def request(self, method, path, form=None, ajax=False, timeout=120):
