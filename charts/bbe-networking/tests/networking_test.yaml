@@ -97,6 +97,13 @@ tests:
           path: metadata.annotations["metallb.io/address-pool"]
           value: blocky
 
+  - it: keeps the devices' own addresses on Blocky's queries
+    template: charts/blocky/templates/service.yaml
+    asserts:
+      - equal:
+          path: spec.externalTrafficPolicy
+          value: Local
+
   - it: has Blocky answer for the domain with the ingress's IP
     template: charts/blocky/templates/config_map.yaml
     set:

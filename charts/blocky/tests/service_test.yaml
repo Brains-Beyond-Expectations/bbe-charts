@@ -35,3 +35,16 @@ tests:
       - equal:
           path: spec.ports[2].port
           value: 4000
+
+  - it: should leave Kubernetes' default traffic policy unless one is set
+    asserts:
+      - notExists:
+          path: spec.externalTrafficPolicy
+
+  - it: should keep the clients' own addresses with the Local traffic policy
+    set:
+      service.externalTrafficPolicy: Local
+    asserts:
+      - equal:
+          path: spec.externalTrafficPolicy
+          value: Local

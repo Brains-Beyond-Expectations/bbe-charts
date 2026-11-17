@@ -40,6 +40,7 @@ A collection of charts for BBE cluster networking
 | blocky.blocky.resources.requests.memory | string | `"160Mi"` |  |
 | blocky.config.yaml | string | `"{{- include \"bbe-networking.blockyConfig\" . }}\n"` |  |
 | blocky.service.annotations."metallb.io/address-pool" | string | `"blocky"` |  |
+| blocky.service.externalTrafficPolicy | string | `"Local"` |  |
 | cert-manager.crds.enabled | bool | `false` |  |
 | cert-manager.startupapicheck.jobAnnotations."helm.sh/hook" | string | `"post-install,post-upgrade"` |  |
 | cert-manager.startupapicheck.jobAnnotations."helm.sh/hook-delete-policy" | string | `"before-hook-creation,hook-succeeded"` |  |

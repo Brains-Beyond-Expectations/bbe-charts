@@ -40,6 +40,7 @@ A DNS proxy and ad-blocker for the local network
 | nameOverride | string | `""` | Optional short name override for the resources |
 | namespaceOverride | string | `""` | Optional namespace override for the resources |
 | service.annotations | object | `{}` | Annotations to apply to the Blocky service |
+| service.externalTrafficPolicy | string | `""` | Where a LoadBalancer or NodePort Service sends outside traffic. `Local` sends it only to Blocky's pods on the node it arrives at, keeping the clients' own addresses, which per-client settings and metrics need. Empty leaves Kubernetes' default, `Cluster`, which spreads it over every pod but shows each client as the node |
 | service.ports | list | `[{"name":"dns-udp","port":53,"protocol":"UDP"},{"name":"dns-tcp","port":53,"protocol":"TCP"},{"name":"http","port":4000,"protocol":"TCP"}]` | Port to expose the Blocky service on |
 | service.type | string | `"LoadBalancer"` | The type of service to create |
 

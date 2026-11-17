@@ -84,6 +84,10 @@ service:
       protocol: TCP
   # -- The type of service to create
   type: LoadBalancer
+  # -- Where a LoadBalancer or NodePort Service sends outside traffic. `Local` sends it only to Blocky's pods on the
+  # node it arrives at, keeping the clients' own addresses, which per-client settings and metrics need. Empty leaves
+  # Kubernetes' default, `Cluster`, which spreads it over every pod but shows each client as the node
+  externalTrafficPolicy: ""
 
 metrics:
   # -- Whether to enable the Blocky ServiceMonitor for Prometheus scraping

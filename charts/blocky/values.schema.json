@@ -142,6 +142,11 @@
           "type": "string",
           "description": "The service type",
           "enum": ["ClusterIP", "NodePort", "LoadBalancer"]
+        },
+        "externalTrafficPolicy": {
+          "type": "string",
+          "description": "Where a LoadBalancer or NodePort Service sends outside traffic. Local keeps the clients' own addresses; empty leaves Kubernetes' default, Cluster",
+          "enum": ["", "Cluster", "Local"]
         }
       },
       "required": ["ports", "type"]

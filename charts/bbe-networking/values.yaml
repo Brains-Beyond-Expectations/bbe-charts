@@ -203,6 +203,9 @@ blocky:
   service:
     annotations:
       metallb.io/address-pool: blocky
+    # Devices' queries reach Blocky with their own addresses, which its per-device block lists and metrics need. MetalLB
+    # announces the address from a node running Blocky
+    externalTrafficPolicy: Local
   blocky:
     # The blocklists are held in memory: with the defaults' 390,000 domains, Blocky 0.35.0 used about 105MB, and 165MB
     # after refreshing them
