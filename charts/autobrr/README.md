@@ -38,7 +38,11 @@ Modern, easy to use download automation for torrents and usenet.
 | config.retain | bool | `false` | Whether to keep the persistent volume claim for the config after the Autobrr chart is uninstalled |
 | config.size | string | `"1Gi"` | The amount of storage to request for the Autobrr config |
 | config.storageClass | string | `""` | Storage class to use for the Autobrr config persistent volume claim |
+| extraInitContainers | string | `""` | More init containers for the Autobrr pod, before its own, such as one setting up its login, as a YAML string rendered as a template |
+| extraVolumeMounts | string | `""` | More volume mounts for the Autobrr container, of `extraVolumes`, as a YAML string rendered as a template |
+| extraVolumes | string | `""` | More volumes for the Autobrr pod, such as certificates to trust, as a YAML string rendered as a template |
 | fullnameOverride | string | `""` | Optional full name override for the resources |
+| hostAliases | string | `""` | Host aliases for the Autobrr pod, for names it can't resolve, as a YAML string rendered as a template |
 | ingress.annotations | object | `{}` | Annotations to apply to the Autobrr ingress |
 | ingress.enabled | bool | `false` | Whether to create an ingress for Autobrr |
 | ingress.hosts | list | `[]` | Host configuration for the Autobrr ingress |

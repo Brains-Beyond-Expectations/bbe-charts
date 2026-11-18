@@ -167,6 +167,22 @@
       },
       "required": ["replicas", "image"]
     },
+    "hostAliases": {
+      "type": "string",
+      "description": "Host aliases for the autobrr pod, as a YAML string rendered as a template"
+    },
+    "extraInitContainers": {
+      "type": "string",
+      "description": "More init containers for the autobrr pod, before its own, as a YAML string rendered as a template"
+    },
+    "extraVolumes": {
+      "type": "string",
+      "description": "More volumes for the autobrr pod, as a YAML string rendered as a template"
+    },
+    "extraVolumeMounts": {
+      "type": "string",
+      "description": "More volume mounts for the autobrr container, as a YAML string rendered as a template"
+    },
     "service": {
       "type": "object",
       "properties": {

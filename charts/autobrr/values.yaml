@@ -68,6 +68,19 @@ autobrr:
     periodSeconds: 5
     timeoutSeconds: 1
 
+# -- Host aliases for the Autobrr pod, for names it can't resolve, as a YAML string rendered as a template
+hostAliases: ""
+
+# -- More init containers for the Autobrr pod, before its own, such as one setting up its login, as a YAML string
+# rendered as a template
+extraInitContainers: ""
+
+# -- More volumes for the Autobrr pod, such as certificates to trust, as a YAML string rendered as a template
+extraVolumes: ""
+
+# -- More volume mounts for the Autobrr container, of `extraVolumes`, as a YAML string rendered as a template
+extraVolumeMounts: ""
+
 service:
   # -- Annotations to apply to the Autobrr service
   annotations: {}

@@ -146,3 +146,106 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].envFrom[1].secretRef.name
           value: test-secret
+
+  - it: has no init containers or extra volumes unless asked
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: config
+              persistentVolumeClaim:
+                claimName: test-autobrr-config
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: config
+              mountPath: /config
+
+  - it: renders extra init containers, volumes and volume mounts as templates
+    set:
+      extraInitContainers: |
+        - name: setup
+          image: "{{ .Values.autobrr.image.repository }}:{{ include "autobrr.image" . }}"
+      extraVolumes: |
+        - name: ca
+          secret:
+            secretName: {{ .Release.Name }}-ca
+      extraVolumeMounts: |
+        - name: ca
+          mountPath: /certificates
+          readOnly: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: setup
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].image
+          pattern: ^ghcr.io/autobrr/autobrr:.+
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: ca
+            secret:
+              secretName: test-ca
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: config
+            mountPath: /config
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: ca
+            mountPath: /certificates
+            readOnly: true
+
+  - it: can mount extra volumes without the config volume
+    set:
+      config.enabled: false
+      extraVolumes: |
+        - name: ca
+          secret:
+            secretName: ca
+      extraVolumeMounts: |
+        - name: ca
+          mountPath: /certificates
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: ca
+              secret:
+                secretName: ca
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: ca
+              mountPath: /certificates
+
+  - it: renders host aliases as a template, and leaves them out when they render empty
+    set:
+      hostAliases: |
+        {{- if .Release.Name }}
+        - ip: 10.0.0.1
+          hostnames:
+            - auth.{{ .Release.Namespace }}.example
+        {{- end }}
+    asserts:
+      - equal:
+          path: spec.template.spec.hostAliases
+          value:
+            - ip: 10.0.0.1
+              hostnames:
+                - auth.test.example
+
+  - it: has no host aliases unless asked
+    set:
+      hostAliases: |
+        {{- if false }}
+        - ip: 10.0.0.1
+        {{- end }}
+    asserts:
+      - notExists:
+          path: spec.template.spec.hostAliases
