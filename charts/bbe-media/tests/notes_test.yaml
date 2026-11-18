@@ -12,7 +12,7 @@ tests:
       - matchRegexRaw:
           pattern: "https://<app>.bbe.home.arpa"
       - matchRegexRaw:
-          pattern: "Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent let in its admins"
+          pattern: "Sonarr, Radarr, Prowlarr, Bazarr, qBittorrent and autobrr let in its\\nadmins"
       - matchRegexRaw:
           pattern: "Seerr signs people in through Jellyfin"
 

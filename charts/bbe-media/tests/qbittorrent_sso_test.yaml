@@ -100,6 +100,7 @@ tests:
             namespace: bbe-auth
           data:
             BBE_JELLYFIN_LDAP_PASSWORD: bGRhcC1wYXNzd29yZA==
+            BBE_AUTOBRR_CLIENT_SECRET: YXV0b2Jyci1zZWNyZXQ=
             AUTHENTIK_SECRET_KEY: c2VjcmV0
     documentSelector:
       path: metadata.name

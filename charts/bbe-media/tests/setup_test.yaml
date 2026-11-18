@@ -17,6 +17,9 @@ tests:
       - matchRegex:
           path: data["setup.py"]
           pattern: def configure_seerr
+      - matchRegex:
+          path: data["setup.py"]
+          pattern: def configure_autobrr
   - it: should run the setup once per revision
     documentIndex: 1
     asserts:
@@ -59,6 +62,11 @@ tests:
           content:
             name: SEERR_URL
             value: http://bbe-media-seerr-chart:80
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AUTOBRR_URL
+            value: http://bbe-media-autobrr:7474
       - contains:
           path: spec.template.spec.containers[0].env
           content:

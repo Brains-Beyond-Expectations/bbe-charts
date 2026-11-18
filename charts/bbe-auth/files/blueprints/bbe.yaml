@@ -1,5 +1,5 @@
 # bbe's setup of authentik: the groups, signing in to the apps behind Traefik, LDAP for Jellyfin and the book library,
-# OpenID Connect for Shelfmark and Open WebUI, and bbe's looks.
+# OpenID Connect for Shelfmark, Open WebUI and autobrr, and bbe's looks.
 # The worker applies it on start, and again whenever it changes. Users are left to the setup Job and the admin UI
 version: 1
 metadata:
@@ -67,7 +67,7 @@ entries:
     attrs:
       name: bbe apps
       provider: !KeyOf forward-auth
-      meta_description: Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent
+      meta_description: Sonarr, Radarr, Prowlarr, Bazarr, qBittorrent and autobrr
   # Only admins get in
   - model: authentik_policies.policybinding
     identifiers:
@@ -369,6 +369,46 @@ entries:
       group: !KeyOf admins
     attrs:
       order: 1
+
+  # autobrr, which grabs releases as trackers announce them, signs people in with OpenID Connect. Whoever it lets in
+  # can do everything, so only `admins` get in
+  - model: authentik_providers_oauth2.oauth2provider
+    id: autobrr
+    identifiers:
+      name: autobrr
+    attrs:
+      client_type: confidential
+      client_id: autobrr
+      client_secret: !Env BBE_AUTOBRR_CLIENT_SECRET
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - matching_mode: strict
+          url: !Format ["https://autobrr.%s/api/auth/oidc/callback", !Context domain]
+          redirect_uri_type: authorization
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+  - model: authentik_core.application
+    id: autobrr-app
+    identifiers:
+      slug: autobrr
+    attrs:
+      name: autobrr
+      provider: !KeyOf autobrr
+      meta_launch_url: !Format ["https://autobrr.%s", !Context domain]
+      meta_description: Grabs releases as trackers announce them
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf autobrr-app
+      group: !KeyOf admins
+    attrs:
+      order: 0
 
   # bbe's looks. authentik 2026.8 shows a flow's own background, not the brand's, so the flows people see get it too
   - model: authentik_flows.flow

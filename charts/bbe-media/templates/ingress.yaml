@@ -1,8 +1,9 @@
 {{- /*
 Every app is served at <app>.<domain> with the domain's certificate, which bbe-networking makes Traefik's default. The
-apps managing the media are behind authentik's forward auth. Jellyfin signs people in against authentik's LDAP
-itself, so its TV and phone apps keep working, and Seerr signs in through Jellyfin. bbe-networking's dashboard lists
-them from their `gethomepage.dev/*` annotations
+apps managing the media are behind authentik's forward auth. autobrr then asks for a login of its own, which authentik
+gives it with OpenID Connect. Jellyfin signs people in against authentik's LDAP itself, so its TV and phone apps keep
+working, and Seerr signs in through Jellyfin. bbe-networking's dashboard lists them from their `gethomepage.dev/*`
+annotations
 */ -}}
 {{- if .Values.bbe.media.ingress.enabled }}
 {{- $domain := .Values.global.bbe.domain }}
@@ -14,6 +15,7 @@ them from their `gethomepage.dev/*` annotations
     (dict "app" "prowlarr" "service" "prowlarr" "port" 9696 "label" "prowlarr" "name" "Prowlarr" "group" "Manage" "description" "Indexers" "sso" true)
     (dict "app" "bazarr" "service" "bazarr" "port" 6767 "label" "bazarr" "name" "Bazarr" "group" "Manage" "description" "Subtitles" "sso" true)
     (dict "app" "qbittorrent" "service" "qbittorrent" "port" 8080 "label" "qbittorrent" "name" "qBittorrent" "group" "Manage" "description" "Downloads" "sso" true)
+    (dict "app" "autobrr" "service" "autobrr" "port" 7474 "label" "autobrr" "name" "autobrr" "group" "Manage" "description" "Releases as trackers announce them" "sso" true)
 }}
 {{- range $apps }}
 {{- $sso := and $.Values.global.bbe.sso.enabled (hasKey . "sso") }}

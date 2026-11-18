@@ -69,6 +69,8 @@ spec:
             {{- end }}
             - name: QBITTORRENT_URL
               value: http://{{ .Release.Name }}-qbittorrent:8080
+            - name: AUTOBRR_URL
+              value: http://{{ .Release.Name }}-autobrr:7474
             - name: QBITTORRENT_API_KEY
               valueFrom:
                 secretKeyRef:

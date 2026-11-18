@@ -183,8 +183,8 @@ bbe:
 # and stores its media on the shared library. The apps on the library are linuxserver or hotio images, which
 # write as the user in PUID and PGID, from the `bbe-media-user` config map.
 #
-# The library lives on the NAS. The node only holds what's faster there, 31Gi together on the default
-# StorageClass: the five apps' configs (1Gi each), Jellyfin's config (3Gi) and transcoding cache (2Gi),
+# The library lives on the NAS. The node only holds what's faster there, 32Gi together on the default
+# StorageClass: the six apps' configs (1Gi each), Jellyfin's config (3Gi) and transcoding cache (2Gi),
 # Seerr's config (1Gi), and qBittorrent's downloads in progress (20Gi), which it moves to the library
 # once complete
 sonarr:
@@ -368,6 +368,106 @@ qbittorrent:
         port: 4180
         protocol: TCP
       {{- end }}
+
+# autobrr grabs releases as trackers announce them on IRC, and hands them to Sonarr, Radarr or qBittorrent, which the
+# setup connects it to. It reads its settings from `bbe-media-autobrr`
+autobrr:
+  autobrr:
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 20m
+      limits:
+        memory: 256Mi
+    envFrom:
+      - configMapRef:
+          name: bbe-media-autobrr
+      # Its OIDC client secret, with single sign-on
+      - secretRef:
+          name: bbe-media-autobrr
+          optional: true
+  # bbe's login, which the setup signs in to autobrr's API with. autobrr only offers to create a first login on its
+  # page, so it's set here with autobrrctl. That doesn't create autobrr's database, so autobrr is started on its own
+  # address first, until it has created and migrated it. With single sign-on, autobrr then waits for authentik's
+  # client, as it only looks it up as it starts
+  extraInitContainers: |
+    - name: login
+      image: "{{ .Values.autobrr.image.repository }}:{{ include "autobrr.image" . }}"
+      command:
+        - sh
+        - -c
+        - |
+          AUTOBRR__HOST=127.0.0.1 autobrr --config /config &
+          pid=$!
+          until curl -fsS -o /dev/null http://127.0.0.1:7474/api/healthz/liveness; do
+            kill -0 "$pid" 2>/dev/null || { echo "autobrr stopped before it answered"; exit 1; }
+            sleep 1
+          done
+          kill "$pid"
+          wait "$pid"
+          if printf '%s\n' "$ADMIN_PASSWORD" | autobrrctl --config /config change-password "$ADMIN_USERNAME"; then
+            exit 0
+          fi
+          printf '%s\n' "$ADMIN_PASSWORD" | autobrrctl --config /config create-user "$ADMIN_USERNAME" && echo "created $ADMIN_USERNAME"
+      env:
+        - name: ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: bbe-media-admin
+              key: username
+        - name: ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: bbe-media-admin
+              key: password
+      resources:
+        requests:
+          memory: 32Mi
+          cpu: 20m
+        limits:
+          memory: 256Mi
+      volumeMounts:
+        - name: config
+          mountPath: /config
+    {{- if .Values.global.bbe.sso.enabled }}
+    - name: wait-for-authentik
+      image: "{{ .Values.autobrr.image.repository }}:{{ include "autobrr.image" . }}"
+      command:
+        - sh
+        - -c
+        - |
+          until curl -fsS -o /dev/null --cacert "$SSL_CERT_FILE" "${AUTOBRR__OIDC_ISSUER}.well-known/openid-configuration"; do
+            echo "Waiting for authentik's autobrr client at $AUTOBRR__OIDC_ISSUER"
+            sleep 10
+          done
+      envFrom:
+        - configMapRef:
+            name: bbe-media-autobrr
+      resources:
+        requests:
+          memory: 16Mi
+          cpu: 10m
+        limits:
+          memory: 64Mi
+      volumeMounts:
+        - name: ca
+          mountPath: /certificates
+          readOnly: true
+    {{- end }}
+  # authentik's address, which pods don't resolve
+  hostAliases: '{{ include "bbe-media.authHostAliases" . }}'
+  extraVolumes: |
+    {{- if .Values.global.bbe.sso.enabled }}
+    - name: ca
+      configMap:
+        name: bbe-ca-bundle
+    {{- end }}
+  extraVolumeMounts: |
+    {{- if .Values.global.bbe.sso.enabled }}
+    - name: ca
+      mountPath: /certificates
+      readOnly: true
+    {{- end }}
 
 # Seerr, which Jellyseerr became, at its latest release instead of the one its chart defaults to
 seerr-chart:

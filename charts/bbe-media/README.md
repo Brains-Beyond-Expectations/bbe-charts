@@ -10,6 +10,7 @@ A collection of charts for BBE cluster media, connected to each other when insta
 
 | Repository | Name | Version |
 |------------|------|---------|
+| https://brains-beyond-expectations.github.io/bbe-charts | autobrr | 0.4.0 |
 | https://brains-beyond-expectations.github.io/bbe-charts | bazarr | 0.4.0 |
 | https://brains-beyond-expectations.github.io/bbe-charts | prowlarr | 0.4.0 |
 | https://brains-beyond-expectations.github.io/bbe-charts | qbittorrent | 0.1.0 |
@@ -21,6 +22,16 @@ A collection of charts for BBE cluster media, connected to each other when insta
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| autobrr.autobrr.envFrom[0].configMapRef.name | string | `"bbe-media-autobrr"` |  |
+| autobrr.autobrr.envFrom[1].secretRef.name | string | `"bbe-media-autobrr"` |  |
+| autobrr.autobrr.envFrom[1].secretRef.optional | bool | `true` |  |
+| autobrr.autobrr.resources.limits.memory | string | `"256Mi"` |  |
+| autobrr.autobrr.resources.requests.cpu | string | `"20m"` |  |
+| autobrr.autobrr.resources.requests.memory | string | `"64Mi"` |  |
+| autobrr.extraInitContainers | string | `"- name: login\n  image: \"{{ .Values.autobrr.image.repository }}:{{ include \"autobrr.image\" . }}\"\n  command:\n    - sh\n    - -c\n    - |\n      AUTOBRR__HOST=127.0.0.1 autobrr --config /config &\n      pid=$!\n      until curl -fsS -o /dev/null http://127.0.0.1:7474/api/healthz/liveness; do\n        kill -0 \"$pid\" 2>/dev/null || { echo \"autobrr stopped before it answered\"; exit 1; }\n        sleep 1\n      done\n      kill \"$pid\"\n      wait \"$pid\"\n      if printf '%s\\n' \"$ADMIN_PASSWORD\" | autobrrctl --config /config change-password \"$ADMIN_USERNAME\"; then\n        exit 0\n      fi\n      printf '%s\\n' \"$ADMIN_PASSWORD\" | autobrrctl --config /config create-user \"$ADMIN_USERNAME\" && echo \"created $ADMIN_USERNAME\"\n  env:\n    - name: ADMIN_USERNAME\n      valueFrom:\n        secretKeyRef:\n          name: bbe-media-admin\n          key: username\n    - name: ADMIN_PASSWORD\n      valueFrom:\n        secretKeyRef:\n          name: bbe-media-admin\n          key: password\n  resources:\n    requests:\n      memory: 32Mi\n      cpu: 20m\n    limits:\n      memory: 256Mi\n  volumeMounts:\n    - name: config\n      mountPath: /config\n{{- if .Values.global.bbe.sso.enabled }}\n- name: wait-for-authentik\n  image: \"{{ .Values.autobrr.image.repository }}:{{ include \"autobrr.image\" . }}\"\n  command:\n    - sh\n    - -c\n    - |\n      until curl -fsS -o /dev/null --cacert \"$SSL_CERT_FILE\" \"${AUTOBRR__OIDC_ISSUER}.well-known/openid-configuration\"; do\n        echo \"Waiting for authentik's autobrr client at $AUTOBRR__OIDC_ISSUER\"\n        sleep 10\n      done\n  envFrom:\n    - configMapRef:\n        name: bbe-media-autobrr\n  resources:\n    requests:\n      memory: 16Mi\n      cpu: 10m\n    limits:\n      memory: 64Mi\n  volumeMounts:\n    - name: ca\n      mountPath: /certificates\n      readOnly: true\n{{- end }}\n"` |  |
+| autobrr.extraVolumeMounts | string | `"{{- if .Values.global.bbe.sso.enabled }}\n- name: ca\n  mountPath: /certificates\n  readOnly: true\n{{- end }}\n"` |  |
+| autobrr.extraVolumes | string | `"{{- if .Values.global.bbe.sso.enabled }}\n- name: ca\n  configMap:\n    name: bbe-ca-bundle\n{{- end }}\n"` |  |
+| autobrr.hostAliases | string | `"{{ include \"bbe-media.authHostAliases\" . }}"` |  |
 | bazarr.bazarr.env[0].name | string | `"DYNACONF_AUTH__APIKEY"` |  |
 | bazarr.bazarr.env[0].valueFrom.secretKeyRef.key | string | `"bazarr"` |  |
 | bazarr.bazarr.env[0].valueFrom.secretKeyRef.name | string | `"bbe-media-api-keys"` |  |

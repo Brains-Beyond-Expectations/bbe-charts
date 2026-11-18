@@ -12,7 +12,7 @@ tests:
       global.bbe.domain: lab.home.arpa
     asserts:
       - hasDocuments:
-          count: 7
+          count: 8
       - equal:
           path: spec.rules[0].host
           value: sonarr.lab.home.arpa
@@ -37,6 +37,32 @@ tests:
       - equal:
           path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
           value: bbe-media-sso@kubernetescrd
+
+  - it: should serve autobrr behind authentik's forward auth, listed with the apps managing the media
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: metadata.name
+      value: bbe-media-autobrr
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: autobrr.lab.home.arpa
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service
+          value:
+            name: bbe-media-autobrr
+            port:
+              number: 7474
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-media-sso@kubernetescrd
+      - equal:
+          path: metadata.annotations["gethomepage.dev/group"]
+          value: Manage
+      - equal:
+          path: metadata.annotations["gethomepage.dev/pod-selector"]
+          value: app.kubernetes.io/name=autobrr,app.kubernetes.io/instance=bbe-media
 
   - it: should leave Jellyfin and Seerr on their own logins
     asserts:

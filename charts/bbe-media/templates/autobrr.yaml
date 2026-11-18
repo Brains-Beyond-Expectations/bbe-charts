@@ -1,0 +1,47 @@
+{{- /*
+autobrr's settings, which it reads from its environment. With single sign-on, people sign in to it with authentik's
+OpenID Connect, as autobrr always asks for a login of its own: Traefik's forward auth lets admins through first, and
+authentik's autobrr client only lets admins in too. bbe's login stays for the setup, through autobrr's API
+*/ -}}
+{{- $domain := .Values.global.bbe.domain }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-autobrr
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+data:
+  # bbe upgrades it
+  AUTOBRR__CHECK_FOR_UPDATES: "false"
+  {{- if .Values.global.bbe.sso.enabled }}
+  AUTOBRR__OIDC_ENABLED: "true"
+  AUTOBRR__OIDC_ISSUER: https://auth.{{ $domain }}/application/o/autobrr/
+  AUTOBRR__OIDC_CLIENT_ID: autobrr
+  AUTOBRR__OIDC_REDIRECT_URL: https://autobrr.{{ $domain }}/api/auth/oidc/callback
+  # Its login page only offers authentik. bbe's login still works through its API
+  AUTOBRR__OIDC_DISABLE_BUILT_IN_LOGIN: "true"
+  # The public certificate authorities and bbe's, which authentik's name is served with, from trust-manager's
+  # `bbe-ca-bundle`
+  SSL_CERT_FILE: /certificates/ca-bundle.crt
+  {{- end }}
+{{- if .Values.global.bbe.sso.enabled }}
+{{- $auth := (lookup "v1" "Secret" "bbe-auth" "bbe-auth-authentik").data | default dict }}
+{{- if $auth }}
+{{- if not (get $auth "BBE_AUTOBRR_CLIENT_SECRET") }}
+{{- fail "bbe-auth has no OpenID Connect client for autobrr yet. Run `bbe upgrade` to upgrade bbe-auth first" }}
+{{- end }}
+---
+# autobrr's OIDC client secret, which bbe-auth generates for authentik. It's copied on every install and upgrade
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-autobrr
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-media.labels" . | nindent 4 }}
+type: Opaque
+data:
+  AUTOBRR__OIDC_CLIENT_SECRET: {{ get $auth "BBE_AUTOBRR_CLIENT_SECRET" }}
+{{- end }}
+{{- end }}

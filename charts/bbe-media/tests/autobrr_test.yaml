@@ -1,0 +1,240 @@
+suite: test autobrr
+values:
+  - ./values/required-values.yaml
+release:
+  name: bbe-media
+  namespace: bbe-media
+tests:
+  - it: should sign people in to autobrr with authentik's OpenID Connect, trusting bbe's certificate authority
+    template: templates/autobrr.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-media-autobrr
+      - equal:
+          path: data
+          value:
+            AUTOBRR__CHECK_FOR_UPDATES: "false"
+            AUTOBRR__OIDC_ENABLED: "true"
+            AUTOBRR__OIDC_ISSUER: https://auth.lab.home.arpa/application/o/autobrr/
+            AUTOBRR__OIDC_CLIENT_ID: autobrr
+            AUTOBRR__OIDC_REDIRECT_URL: https://autobrr.lab.home.arpa/api/auth/oidc/callback
+            AUTOBRR__OIDC_DISABLE_BUILT_IN_LOGIN: "true"
+            SSL_CERT_FILE: /certificates/ca-bundle.crt
+
+  - it: should leave autobrr on its own login without single sign-on
+    template: templates/autobrr.yaml
+    set:
+      global.bbe.sso.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: data
+          value:
+            AUTOBRR__CHECK_FOR_UPDATES: "false"
+
+  - it: should copy autobrr's OIDC client secret from bbe-auth
+    template: templates/autobrr.yaml
+    kubernetesProvider:
+      scheme:
+        "v1/Secret":
+          gvr:
+            version: "v1"
+            resource: "secrets"
+          namespaced: true
+        # The suite renders Jellyfin too, which looks for nodes offering a GPU
+        "v1/Node":
+          gvr:
+            version: "v1"
+            resource: "nodes"
+          namespaced: false
+      objects:
+        - apiVersion: v1
+          kind: Node
+          metadata:
+            name: with-gpu
+          status:
+            allocatable:
+              gpu.intel.com/i915: "2"
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: bbe-auth-authentik
+            namespace: bbe-auth
+          data:
+            BBE_AUTOBRR_CLIENT_SECRET: YXV0b2Jyci1zZWNyZXQ=
+    documentSelector:
+      path: kind
+      value: Secret
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-media-autobrr
+      - equal:
+          path: data
+          value:
+            AUTOBRR__OIDC_CLIENT_SECRET: YXV0b2Jyci1zZWNyZXQ=
+
+  - it: should refuse to install before bbe-auth has a client for autobrr
+    template: templates/autobrr.yaml
+    kubernetesProvider:
+      scheme:
+        "v1/Secret":
+          gvr:
+            version: "v1"
+            resource: "secrets"
+          namespaced: true
+        # The suite renders Jellyfin too, which looks for nodes offering a GPU
+        "v1/Node":
+          gvr:
+            version: "v1"
+            resource: "nodes"
+          namespaced: false
+      objects:
+        - apiVersion: v1
+          kind: Node
+          metadata:
+            name: with-gpu
+          status:
+            allocatable:
+              gpu.intel.com/i915: "2"
+        - apiVersion: v1
+          kind: Secret
+          metadata:
+            name: bbe-auth-authentik
+            namespace: bbe-auth
+          data:
+            BBE_JELLYFIN_LDAP_PASSWORD: bGRhcC1wYXNzd29yZA==
+    asserts:
+      - failedTemplate:
+          errorMessage: bbe-auth has no OpenID Connect client for autobrr yet. Run `bbe upgrade` to upgrade bbe-auth first
+
+  - it: should start autobrr with its settings, the client secret and the certificate authorities
+    template: charts/autobrr/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom
+          value:
+            - configMapRef:
+                name: bbe-media-autobrr
+            - secretRef:
+                name: bbe-media-autobrr
+                optional: true
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: ca
+            mountPath: /certificates
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: ca
+            configMap:
+              name: bbe-ca-bundle
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 64Mi
+
+  - it: should set bbe's login before autobrr starts, then wait for authentik's client
+    template: charts/autobrr/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: login
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: autobrrctl --config /config change-password "\$ADMIN_USERNAME"
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: autobrrctl --config /config create-user "\$ADMIN_USERNAME"
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: bbe-media-admin
+                key: password
+      - contains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: config
+            mountPath: /config
+      - equal:
+          path: spec.template.spec.initContainers[1].name
+          value: wait-for-authentik
+      - matchRegex:
+          path: spec.template.spec.initContainers[1].command[2]
+          pattern: \.well-known/openid-configuration
+
+  - it: should neither wait for authentik nor mount its certificate authorities without single sign-on
+    template: charts/autobrr/templates/deployment.yaml
+    set:
+      global.bbe.sso.enabled: false
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 1
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: config
+              persistentVolumeClaim:
+                claimName: bbe-media-autobrr-config
+
+  - it: should point authentik's address at Traefik's, as pods don't resolve the domain
+    template: charts/autobrr/templates/deployment.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    kubernetesProvider:
+      scheme:
+        "v1/Service":
+          gvr:
+            version: "v1"
+            resource: "services"
+          namespaced: true
+        # The suite renders Jellyfin too, which looks for nodes offering a GPU
+        "v1/Node":
+          gvr:
+            version: "v1"
+            resource: "nodes"
+          namespaced: false
+      objects:
+        - apiVersion: v1
+          kind: Node
+          metadata:
+            name: with-gpu
+          status:
+            allocatable:
+              gpu.intel.com/i915: "2"
+        - apiVersion: v1
+          kind: Service
+          metadata:
+            name: bbe-networking-traefik
+            namespace: bbe-networking
+          spec:
+            clusterIP: 10.96.0.20
+          status:
+            loadBalancer:
+              ingress:
+                - ip: 192.168.1.240
+    asserts:
+      - equal:
+          path: spec.template.spec.hostAliases
+          value:
+            - ip: 192.168.1.240
+              hostnames:
+                - auth.lab.home.arpa
+
+  - it: should leave authentik's address alone before Traefik has one
+    template: charts/autobrr/templates/deployment.yaml
+    asserts:
+      - notExists:
+          path: spec.template.spec.hostAliases

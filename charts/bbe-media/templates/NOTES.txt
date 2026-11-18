@@ -1,5 +1,6 @@
 {{- if .Values.bbe.media.ingress.enabled }}
-The apps are at https://<app>.{{ .Values.global.bbe.domain }}: sonarr, radarr, prowlarr, bazarr, qbittorrent, jellyfin and seerr.
+The apps are at https://<app>.{{ .Values.global.bbe.domain }}: sonarr, radarr, prowlarr, bazarr, qbittorrent, autobrr, jellyfin
+and seerr.
 {{- end }}
 {{- $gpu := .Values.bbe.media.jellyfin.transcoding.gpu }}
 {{- if eq (include "bbe-media.jellyfinGpu" .) "true" }}
@@ -11,11 +12,13 @@ Jellyfin transcodes on a GPU, so it only runs on a node offering {{ $gpu }}. If 
 Jellyfin transcodes on the CPU, as no node offered {{ $gpu }}. Once one does, bbe upgrade moves it onto a GPU.
 {{- end }}
 {{- if .Values.global.bbe.sso.enabled }}
-People sign in with their authentik account. Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent let in its admins.
+People sign in with their authentik account. Sonarr, Radarr, Prowlarr, Bazarr, qBittorrent and autobrr let in its
+admins, and autobrr asks them to sign in with authentik once more.
 Jellyfin lets in everyone in `users` and `admins`, with the same password in its TV and phone apps, and makes admins
 its administrators. Seerr signs people in through Jellyfin.
 
-bbe's own login stays, for when authentik can't sign anyone in. Jellyfin and Seerr accept it, and every app has it:
+bbe's own login stays, for when authentik can't sign anyone in. Jellyfin and Seerr accept it, and every app but
+autobrr has it on its page:
 {{- else }}
 
 Every app's web UI uses the same login:
@@ -29,7 +32,8 @@ first install. To follow along:
   kubectl logs -n {{ .Release.Namespace }} -f job/bbe-media-setup-{{ .Release.Revision }}
 {{- end }}
 
-Add indexers with `bbe configure {{ .Release.Name }}`, and Prowlarr shares them with Sonarr and Radarr.
+Add indexers with `bbe configure {{ .Release.Name }}`, and Prowlarr shares them with Sonarr and Radarr. autobrr hands
+the releases trackers announce to Sonarr, Radarr or qBittorrent, once its filters and trackers are set up in it.
 Seerr signs in with the same login, through Jellyfin.
 {{- if .Values.global.bbe.vpn.enabled }}
 

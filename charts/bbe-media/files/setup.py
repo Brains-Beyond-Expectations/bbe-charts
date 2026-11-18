@@ -509,6 +509,35 @@ def configure_bazarr_subtitles(bazarr):
             log(f"Bazarr: gave {len(without)} {kind} the `{BAZARR_PROFILE}` languages profile, and searches their subtitles")
 
 
+def configure_autobrr(autobrr, qbittorrent, arrs):
+    """Connects autobrr to what it hands releases to: Sonarr and Radarr, which pick what they want and download it with
+    qBittorrent, and qBittorrent itself, for filters that download straight away. Its filters, and the trackers whose
+    announcements they listen to, are set up in autobrr. The setup signs in with bbe's login, which autobrr's pod sets
+    up as it starts"""
+    autobrr.post("/api/auth/login", {"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD})
+
+    wanted = []
+    if qbittorrent is not None:
+        wanted.append({"name": "qBittorrent", "type": "QBITTORRENT", "host": qbittorrent.url,
+                       "username": ADMIN_USERNAME, "password": ADMIN_PASSWORD, "settings": {}})
+    for app in arrs:
+        wanted.append({"name": app.name, "type": app.name.upper(), "host": app.url, "username": "", "password": "",
+                       "settings": {"apikey": app.api_key}})
+
+    # bbe's connections are found again by their names. autobrr reads back credentials redacted, so only the rest is
+    # compared, and the credentials, which come from the chart's secrets and are kept across upgrades, are sent along
+    existing = {client["name"]: client for client in autobrr.get("/api/downloaders") or []}
+    for client in wanted:
+        current = existing.get(client["name"])
+        if current is None:
+            autobrr.post("/api/downloaders", {"enabled": True, "port": 0, "tls": False, "tls_skip_verify": False, **client})
+            log(f"autobrr: added {client['name']}")
+        elif any(current.get(key) != client[key] for key in ("type", "host", "username")):
+            settings = {**(current.get("settings") or {}), **client["settings"]}
+            autobrr.put("/api/downloaders", {**current, **client, "settings": settings})
+            log(f"autobrr: updated {client['name']}")
+
+
 def configure_jellyfin(jellyfin):
     """Completes the startup wizard with the bbe admin account and adds the TV and movie libraries"""
     info = jellyfin.get("/System/Info/Public")
@@ -679,12 +708,13 @@ def main():
     jellyfin = App("Jellyfin", os.environ["JELLYFIN_URL"]) if os.environ.get("JELLYFIN_URL") else None
     seerr = App("Seerr", os.environ["SEERR_URL"]) if os.environ.get("SEERR_URL") else None
     flaresolverr = App("FlareSolverr", FLARESOLVERR_URL) if FLARESOLVERR_URL else None
+    autobrr = App("autobrr", os.environ["AUTOBRR_URL"]) if os.environ.get("AUTOBRR_URL") else None
     arrs = [app for app in (sonarr, radarr) if app is not None]
 
     deadline = time.monotonic() + READY_TIMEOUT
     # Jellyfin 12 answers /health from its startup screen while the server is still loading, and 503 elsewhere until
     # it's done
-    readiness = [(sonarr, "/ping"), (radarr, "/ping"), (prowlarr, "/ping"), (bazarr, "/"), (qbittorrent, "/api/v2/app/version"), (jellyfin, "/System/Info/Public"), (seerr, "/api/v1/status"), (flaresolverr, "/health")]
+    readiness = [(sonarr, "/ping"), (radarr, "/ping"), (prowlarr, "/ping"), (bazarr, "/"), (qbittorrent, "/api/v2/app/version"), (jellyfin, "/System/Info/Public"), (seerr, "/api/v1/status"), (flaresolverr, "/health"), (autobrr, "/api/healthz/liveness")]
     for app, path in readiness:
         if app is not None:
             app.wait_until_ready(path, deadline)
@@ -706,6 +736,8 @@ def main():
         if flaresolverr:
             steps.append(("FlareSolverr", configure_prowlarr_flaresolverr, prowlarr))
         steps.append(("Prowlarr indexers", configure_prowlarr_indexers, prowlarr, arrs))
+    if autobrr:
+        steps.append(("autobrr", configure_autobrr, autobrr, qbittorrent, arrs))
     if bazarr and arrs:
         steps.append(("Bazarr", configure_bazarr, bazarr, arrs))
     if bazarr:

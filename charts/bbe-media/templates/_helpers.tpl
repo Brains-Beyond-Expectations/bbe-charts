@@ -201,3 +201,18 @@ CPU, nothing is done in hardware
 {{- dict "HardwareAccelerationType" "none" | toJson -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+authentik's address, for autobrr's pod, which signs people in with OpenID Connect. Pods don't resolve the domain, so
+it's pointed at Traefik's address, as authentik names its own in the tokens it gives out. Nothing without single
+sign-on, or before bbe-networking's Traefik has an address
+*/}}
+{{- define "bbe-media.authHostAliases" -}}
+{{- if .Values.global.bbe.sso.enabled }}
+{{- with lookup "v1" "Service" "bbe-networking" "bbe-networking-traefik" }}
+- ip: {{ (first (.status.loadBalancer.ingress | default (list dict))).ip | default .spec.clusterIP }}
+  hostnames:
+    - auth.{{ $.Values.global.bbe.domain }}
+{{- end }}
+{{- end }}
+{{- end -}}
