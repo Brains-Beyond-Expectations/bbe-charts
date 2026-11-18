@@ -1,0 +1,57 @@
+suite: test single sign-on
+values:
+  - ./values/required-values.yaml
+templates:
+  - sso.yaml
+release:
+  name: bbe-misc
+  namespace: bbe-misc
+tests:
+  - it: should remove authentik's headers anyone sent
+    documentSelector:
+      path: metadata.name
+      value: strip-sso-headers
+    asserts:
+      - equal:
+          path: spec.headers.customRequestHeaders
+          value:
+            X-authentik-username: ""
+            X-authentik-groups: ""
+            X-authentik-email: ""
+            X-authentik-name: ""
+            X-authentik-uid: ""
+
+  - it: should ask authentik over HTTPS, checking its certificate with bbe's certificate authority
+    documentSelector:
+      path: metadata.name
+      value: sso
+    asserts:
+      - equal:
+          path: spec.forwardAuth.address
+          value: https://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+      - equal:
+          path: spec.forwardAuth.tls.caSecret
+          value: bbe-ca-cert
+      - contains:
+          path: spec.forwardAuth.authResponseHeaders
+          content: X-authentik-username
+
+  - it: should hand Snipe-IT authentik's username in a variable no request can set
+    documentSelector:
+      path: kind
+      value: ConfigMap
+    asserts:
+      - equal:
+          path: metadata.name
+          value: bbe-misc-snipeit-sso
+      - equal:
+          path: data["bbe-sso.conf"]
+          value: |
+            SetEnvIf X-authentik-username "^(.+)$" AUTHENTIK_USERNAME=$1
+
+  - it: should leave single sign-on out without the ingress
+    set:
+      bbe.ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

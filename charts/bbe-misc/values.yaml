@@ -33,7 +33,7 @@ bbe:
         limits:
           # -- The memory to limit Snipe-IT to
           memory: 1Gi
-      # Snipe-IT's own admin, who signs in without authentik when it can't help. bbe's setup creates it
+      # Snipe-IT's own admin, which isn't in authentik and has a password of its own. bbe's setup creates it
       admin:
         # -- Snipe-IT's own admin username. It must not be someone's username in authentik
         username: snipeit-admin
@@ -56,7 +56,8 @@ bbe:
           # -- The memory to limit MariaDB to
           memory: 1Gi
   ingress:
-    # -- Whether to serve Snipe-IT at snipeit.<domain> through bbe-networking's Traefik
+    # -- Whether to serve Snipe-IT at snipeit.<domain> through bbe-networking's Traefik, behind authentik's forward auth,
+    # which signs people in to it. Its API isn't behind it, and takes API tokens
     enabled: true
   setup:
     # -- Whether to run the Job connecting Snipe-IT to authentik after every install and upgrade
@@ -68,7 +69,8 @@ bbe:
     # -- How long a failed setup waits before it's retried, in seconds. Kubernetes waits too, from 10 seconds at first,
     # doubling up to 6 minutes
     retryDelay: 300
-    # -- When the setup gives the people Snipe-IT created on their first sign-in their admin rights, as a cron schedule
+    # -- When the setup brings in authentik's `users` and `admins` from LDAP, so authentik can sign them in to Snipe-IT,
+    # and gives its admins their admin rights, as a cron schedule
     peopleSchedule: "*/10 * * * *"
     resources:
       requests:

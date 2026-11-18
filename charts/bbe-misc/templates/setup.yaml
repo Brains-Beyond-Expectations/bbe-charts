@@ -72,6 +72,9 @@ containers:
       # Where people change their password, as authentik's LDAP can't
       - name: PASSWORD_RESET_URL
         value: https://auth.{{ $root.Values.global.bbe.domain }}/if/user/#/settings
+      # Where signing out of Snipe-IT goes: authentik's sign-out for Snipe-IT's provider, on Snipe-IT's host
+      - name: LOGOUT_URL
+        value: {{ include "bbe-misc.snipeitUrl" $root }}/outpost.goauthentik.io/sign_out
     {{- with $root.Values.bbe.setup.resources }}
     resources:
       {{- toYaml . | nindent 6 }}
@@ -128,7 +131,8 @@ spec:
     spec:
       {{- include "bbe-misc.setupPod" (dict "root" . "mode" "setup") | nindent 6 }}
 ---
-# Snipe-IT creates people on their first sign-in, so this gives authentik's admins their admin rights
+# Snipe-IT only signs in someone authentik names once it has them, so this brings in authentik's `users` and `admins`
+# from LDAP, and gives its admins their admin rights
 apiVersion: batch/v1
 kind: CronJob
 metadata:

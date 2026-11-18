@@ -7,21 +7,54 @@ release:
   name: bbe-misc
   namespace: bbe-misc
 tests:
-  - it: should serve Snipe-IT under the domain, without forward auth, listed on the dashboard
+  - it: should serve Snipe-IT under the domain, behind forward auth, listed on the dashboard
     set:
       global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: metadata.name
+      value: bbe-misc-snipeit
     asserts:
       - equal:
           path: spec.rules[0].host
           value: snipeit.lab.home.arpa
       - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /
+      - equal:
           path: spec.tls[0].hosts[0]
           value: snipeit.lab.home.arpa
-      - notExists:
+      - equal:
           path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-misc-strip-sso-headers@kubernetescrd,bbe-misc-sso@kubernetescrd
       - equal:
           path: metadata.annotations["gethomepage.dev/group"]
           value: Keep
+
+  - it: should serve Snipe-IT's API without forward auth, removing authentik's headers
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: metadata.name
+      value: bbe-misc-snipeit-api
+    asserts:
+      - equal:
+          path: spec.rules[0]
+          value:
+            host: snipeit.lab.home.arpa
+            http:
+              paths:
+                - path: /api/
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: bbe-misc-snipeit
+                      port:
+                        number: 80
+      - equal:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          value: bbe-misc-strip-sso-headers@kubernetescrd
+      - notExists:
+          path: metadata.annotations["gethomepage.dev/enabled"]
 
   - it: should serve nothing when the ingress is off
     set:

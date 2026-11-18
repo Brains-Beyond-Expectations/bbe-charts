@@ -3,9 +3,10 @@
 /*
  * Sets Snipe-IT up for bbe, with Snipe-IT's own code, on its own image:
  * - setup: creates its own admin and its first settings, as its setup page would, so nobody has to go through it. Then
- *   signs people in against bbe-auth's LDAP, and runs the people part below.
- * - people: Snipe-IT creates people on their first sign-in, so this keeps exactly authentik's `admins` in Snipe-IT's
- *   `admins` group, which can do everything, among the people it created from LDAP.
+ *   signs people in with authentik's session, and against bbe-auth's LDAP, and runs the people part below.
+ * - people: Snipe-IT only signs in someone authentik names once it has them, so this brings in everyone in authentik's
+ *   `users` and `admins` from LDAP. Then it keeps exactly authentik's `admins` in Snipe-IT's `admins` group, which can
+ *   do everything, among the people it brought in from LDAP.
  *
  * It reads before it writes, so a second run changes nothing.
  */
@@ -20,6 +21,7 @@ use App\Models\Group;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -165,9 +167,13 @@ function first_settings(User $admin): void
 }
 
 /**
- * Signing in against authentik's LDAP, for people in `users` or `admins`. Snipe-IT finds them with its own account, then
- * binds as them, and creates them in its database on their first sign-in. Their password isn't copied to Snipe-IT,
- * so someone authentik stops letting in can't sign in with the one they had
+ * Signing in, for people in `users` or `admins`:
+ * - With authentik's session: Traefik's forward auth lets them through, and Apache hands Snipe-IT the username authentik
+ *   sent as AUTHENTIK_USERNAME. Snipe-IT signs them in on its login page, if it has them. Signing out of Snipe-IT signs
+ *   them out of its provider in authentik too, or its login page would sign them straight back in.
+ * - Against authentik's LDAP, with their password, on its login page. Snipe-IT finds them with its own account, then
+ *   binds as them, and creates them in its database on their first sign-in. Their password isn't copied to Snipe-IT,
+ *   so someone authentik stops letting in can't sign in with the one they had
  */
 function ldap_settings(): void
 {
@@ -194,6 +200,11 @@ function ldap_settings(): void
         'ldap_pw_sync' => '0',
         // authentik's LDAP can't change passwords, which people change in authentik
         'custom_forgot_pass_url' => setting('PASSWORD_RESET_URL'),
+        'login_remote_user_enabled' => '1',
+        'login_remote_user_header_name' => 'AUTHENTIK_USERNAME',
+        'login_remote_user_custom_logout_url' => setting('LOGOUT_URL'),
+        // Its login form stays, for its own admin and for signing in with a password
+        'login_common_disabled' => '0',
     ];
 
     $settings = Setting::getSettings();
@@ -215,7 +226,7 @@ function ldap_settings(): void
     }
     if ($changed) {
         save($settings, 'its LDAP settings');
-        log_line('Snipe-IT: signs people in with bbe-auth\'s LDAP ('.implode(', ', $changed).')');
+        log_line('Snipe-IT: signs people in with authentik\'s session and bbe-auth\'s LDAP ('.implode(', ', $changed).')');
     }
 }
 
@@ -307,13 +318,44 @@ function ldap_admins(): array
 }
 
 /**
- * Keeps exactly authentik's `admins` in Snipe-IT's `admins` group, among the people it created from LDAP. Its own admin
- * and people added in Snipe-IT itself are left alone
+ * Brings in everyone in authentik's `users` and `admins` from LDAP, with Snipe-IT's own LDAP sync, which reads the
+ * settings above. It adds the ones Snipe-IT doesn't have, and updates the rest. Someone who left those groups is left
+ * as they are, but can't sign in: authentik doesn't let them through, and LDAP doesn't find them
+ */
+function sync_people(): void
+{
+    Artisan::call('snipeit:ldap-sync', ['--json_summary' => true]);
+    $lines = array_values(array_filter(array_map('trim', explode("\n", Artisan::output()))));
+    $result = json_decode((string) end($lines), true);
+    if (! is_array($result)) {
+        throw new RuntimeException('Snipe-IT: its LDAP sync said '.implode(' ', $lines));
+    }
+    if ($result['error'] ?? true) {
+        throw new RuntimeException('Snipe-IT: its LDAP sync failed: '.($result['error_message'] ?? 'no reason given'));
+    }
+    $failed = [];
+    foreach ($result['summary'] ?? [] as $item) {
+        if (($item['status'] ?? '') === 'error') {
+            $failed[] = ($item['username'] ?? '?').' ('.($item['note'] ?? 'no reason given').')';
+        } elseif (($item['createorupdate'] ?? '') === 'created') {
+            log_line("Snipe-IT: brought in {$item['username']} from LDAP");
+        }
+    }
+    if ($failed) {
+        throw new RuntimeException('Snipe-IT: couldn\'t bring in '.implode(', ', $failed).' from LDAP');
+    }
+}
+
+/**
+ * Keeps exactly authentik's `admins` in Snipe-IT's `admins` group, among the people it brought in from LDAP. Its own
+ * admin and people added in Snipe-IT itself are left alone
  */
 function people(): void
 {
     $group = admin_group();
+    // Waits for bbe-auth's LDAP, which the sync then uses too
     $admins = ldap_admins();
+    sync_people();
     foreach (User::where('ldap_import', 1)->get() as $user) {
         $wanted = in_array(strtolower($user->username), $admins, true);
         $member = $user->groups()->where('permission_groups.id', $group->id)->exists();

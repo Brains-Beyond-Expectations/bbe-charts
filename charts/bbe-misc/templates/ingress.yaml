@@ -1,9 +1,14 @@
 {{- /*
-Snipe-IT is served at snipeit.<domain> with the domain's certificate, which bbe-networking makes Traefik's default. It
-isn't behind authentik's forward auth: it signs people in against authentik's LDAP itself, so `users` get in too.
-bbe-networking's dashboard lists it from its `gethomepage.dev/*` annotations
+Snipe-IT is served at snipeit.<domain> with the domain's certificate, which bbe-networking makes Traefik's default.
+bbe-networking's dashboard lists it from its `gethomepage.dev/*` annotations.
+
+It's behind authentik's forward auth, with Snipe-IT's own provider, and signs in whoever authentik names in
+X-authentik-username. Its API isn't, as the apps and scripts using it can't sign in through a browser: it checks their
+API token itself
 */ -}}
 {{- if .Values.bbe.ingress.enabled }}
+{{- $strip := printf "%s-strip-sso-headers@kubernetescrd" .Release.Namespace }}
+{{- $sso := printf "%s-sso@kubernetescrd" .Release.Namespace }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -18,6 +23,9 @@ metadata:
     gethomepage.dev/group: Keep
     gethomepage.dev/icon: snipe-it.png
     gethomepage.dev/pod-selector: app.kubernetes.io/component=snipeit,app.kubernetes.io/instance={{ .Release.Name }}
+    # Traefik removes authentik's headers anyone sent, then asks authentik, which sends whoever isn't signed in to its
+    # sign-in
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $strip }},{{ $sso }}
 spec:
   tls:
     - hosts:
@@ -27,6 +35,33 @@ spec:
       http:
         paths:
           - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-snipeit
+                port:
+                  number: 80
+---
+# Snipe-IT's API, without forward auth. Its path is longer than `/`, so Traefik picks this Ingress for it. authentik's
+# headers are still removed
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-snipeit-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $strip }}
+spec:
+  tls:
+    - hosts:
+        - snipeit.{{ .Values.global.bbe.domain }}
+  rules:
+    - host: snipeit.{{ .Values.global.bbe.domain }}
+      http:
+        paths:
+          - path: /api/
             pathType: Prefix
             backend:
               service:

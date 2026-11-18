@@ -292,7 +292,7 @@ tests:
           pattern: "target: !KeyOf forward-auth-books-app\\n      group: !KeyOf admins"
       - matchRegex:
           path: data["bbe.yaml"]
-          pattern: "providers:\\n        - !KeyOf forward-auth\\n        - !KeyOf forward-auth-books"
+          pattern: "providers:\\n        - !KeyOf forward-auth\\n        - !KeyOf forward-auth-books\\n        - !KeyOf forward-auth-snipeit"
 
   - it: should send the book library's sign-in back to authentik, on the library's host
     template: templates/ingress.yaml
@@ -317,6 +317,46 @@ tests:
                         name: https
       - notExists:
           path: metadata.annotations
+
+  - it: should put Snipe-IT behind forward auth of its own, for users and admins, served by the outpost
+    template: templates/blueprints.yaml
+    documentIndex: 0
+    asserts:
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: 'mode: forward_single\n      external_host: !Format \["https://snipeit.%s", !Context domain\]'
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "target: !KeyOf forward-auth-snipeit-app\\n      group: !KeyOf users"
+      - matchRegex:
+          path: data["bbe.yaml"]
+          pattern: "target: !KeyOf forward-auth-snipeit-app\\n      group: !KeyOf admins"
+
+  - it: should send Snipe-IT's sign-in back to authentik, on Snipe-IT's host
+    template: templates/ingress.yaml
+    set:
+      global.bbe.domain: lab.home.arpa
+    documentSelector:
+      path: metadata.name
+      value: bbe-auth-snipeit
+    asserts:
+      - equal:
+          path: spec.rules[0]
+          value:
+            host: snipeit.lab.home.arpa
+            http:
+              paths:
+                - path: /outpost.goauthentik.io/
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: bbe-auth-server
+                      port:
+                        name: https
+      - equal:
+          path: spec.tls[0].hosts
+          value:
+            - snipeit.lab.home.arpa
 
   - it: should give Open WebUI an OpenID Connect client, for users and admins
     template: templates/blueprints.yaml

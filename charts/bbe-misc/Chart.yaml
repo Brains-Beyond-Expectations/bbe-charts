@@ -20,7 +20,7 @@ annotations:
       description: Traefik and the domain's certificate, which Snipe-IT is served with
       package: bbe-networking
     - name: sso
-      description: authentik, whose LDAP people sign in to Snipe-IT with
+      description: authentik, which signs people in to Snipe-IT, with its session or its LDAP
       package: bbe-auth
   # Values bbe writes into bbe.yaml with these defaults, so a cluster set up from it behaves alike
   bbe/recorded-values: |

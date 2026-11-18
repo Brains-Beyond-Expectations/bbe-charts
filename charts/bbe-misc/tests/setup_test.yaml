@@ -97,8 +97,13 @@ tests:
           content:
             name: PASSWORD_RESET_URL
             value: https://auth.lab.home.arpa/if/user/#/settings
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOUT_URL
+            value: https://snipeit.lab.home.arpa/outpost.goauthentik.io/sign_out
 
-  - it: should keep the admins in line every 10 minutes, as Snipe-IT creates people on their first sign-in
+  - it: should bring people in from LDAP and keep the admins in line every 10 minutes
     documentSelector:
       path: kind
       value: CronJob
@@ -126,6 +131,12 @@ tests:
       - matchRegex:
           path: data["setup.php"]
           pattern: function people
+      - matchRegex:
+          path: data["setup.php"]
+          pattern: "Artisan::call\\('snipeit:ldap-sync'"
+      - matchRegex:
+          path: data["setup.php"]
+          pattern: "'login_remote_user_header_name' => 'AUTHENTIK_USERNAME'"
 
   - it: should skip the setup when it's off
     set:

@@ -1,0 +1,54 @@
+{{- if .Values.bbe.ingress.enabled }}
+{{- $headers := list "X-authentik-username" "X-authentik-groups" "X-authentik-email" "X-authentik-name" "X-authentik-uid" }}
+# Snipe-IT signs in whoever X-authentik-username names, so nobody may send it themselves. Traefik removes authentik's
+# headers from every request to Snipe-IT first, and only forward auth sets them again
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-sso-headers
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+spec:
+  headers:
+    customRequestHeaders:
+      {{- range $headers }}
+      {{ . }}: ""
+      {{- end }}
+---
+# Traefik asks bbe-auth's authentik whether a request may go through, with Snipe-IT's own provider, which lets in
+# `users` and `admins`. It sends whoever isn't signed in to authentik, and back to where they were going after
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: sso
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+spec:
+  forwardAuth:
+    address: https://bbe-auth-server.bbe-auth.svc.cluster.local/outpost.goauthentik.io/auth/traefik
+    # Over HTTPS, checking authentik's certificate with bbe's certificate authority, which trust-manager copies into
+    # every namespace
+    tls:
+      caSecret: bbe-ca-cert
+    # authentik sends people back to where they were going from the X-Forwarded-* headers
+    trustForwardHeader: true
+    authResponseHeaders:
+      {{- range $headers }}
+      - {{ . }}
+      {{- end }}
+---
+# Snipe-IT signs in whoever a server variable names, and refuses one named after a header (HTTP_*), which anyone could
+# send. Apache sets AUTHENTIK_USERNAME from the header forward auth sets
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-snipeit-sso
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "bbe-misc.labels" . | nindent 4 }}
+data:
+  bbe-sso.conf: |
+    {{- include "bbe-misc.snipeitSsoConf" . | nindent 4 }}
+{{- end }}

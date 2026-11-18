@@ -108,6 +108,38 @@ entries:
       group: !KeyOf admins
     attrs:
       order: 1
+  # Signing in to Snipe-IT, for everyone in `users` or `admins`, with a provider of its own like the book library's.
+  # Snipe-IT signs in whoever authentik names, as long as it has them from LDAP
+  - model: authentik_providers_proxy.proxyprovider
+    id: forward-auth-snipeit
+    identifiers:
+      name: Snipe-IT
+    attrs:
+      mode: forward_single
+      external_host: !Format ["https://snipeit.%s", !Context domain]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+  - model: authentik_core.application
+    id: forward-auth-snipeit-app
+    identifiers:
+      slug: snipe-it
+    attrs:
+      name: Snipe-IT
+      provider: !KeyOf forward-auth-snipeit
+      meta_launch_url: !Format ["https://snipeit.%s", !Context domain]
+      meta_description: Keeps track of the household's things, signed in with authentik
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf forward-auth-snipeit-app
+      group: !KeyOf users
+    attrs:
+      order: 0
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf forward-auth-snipeit-app
+      group: !KeyOf admins
+    attrs:
+      order: 1
   - model: authentik_outposts.outpost
     identifiers:
       managed: goauthentik.io/outposts/embedded
@@ -115,6 +147,7 @@ entries:
       providers:
         - !KeyOf forward-auth
         - !KeyOf forward-auth-books
+        - !KeyOf forward-auth-snipeit
       config:
         authentik_host: !Format ["https://auth.%s/", !Context domain]
         log_level: info

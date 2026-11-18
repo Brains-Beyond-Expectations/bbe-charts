@@ -120,3 +120,40 @@ tests:
       - equal:
           path: spec.selector["app.kubernetes.io/component"]
           value: snipeit
+
+  - it: should hand Apache the configuration setting authentik's username, and restart it when that changes
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: sso
+            mountPath: /etc/apache2/conf-enabled/bbe-sso.conf
+            subPath: bbe-sso.conf
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: sso
+            configMap:
+              name: bbe-misc-snipeit-sso
+      - exists:
+          path: spec.template.metadata.annotations["checksum/sso"]
+
+  - it: should leave Apache's configuration alone without the ingress
+    set:
+      bbe.ingress.enabled: false
+    documentSelector:
+      path: kind
+      value: Deployment
+    asserts:
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: sso
+            configMap:
+              name: bbe-misc-snipeit-sso
+      - notExists:
+          path: spec.template.metadata.annotations

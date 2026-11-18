@@ -37,6 +37,11 @@ spec:
       labels:
         {{- include "bbe-misc.labels" . | nindent 8 }}
         app.kubernetes.io/component: snipeit
+      {{- if .Values.bbe.ingress.enabled }}
+      # Apache reads its configuration as it starts
+      annotations:
+        checksum/sso: {{ include "bbe-misc.snipeitSsoConf" . | sha256sum }}
+      {{- end }}
     spec:
       initContainers:
         # Snipe-IT migrates its database as it starts, and carries on without it if MariaDB isn't answering yet.
@@ -106,6 +111,13 @@ spec:
             - name: ca
               mountPath: /certificates
               readOnly: true
+            {{- if .Values.bbe.ingress.enabled }}
+            # Hands Snipe-IT the person authentik signed in
+            - name: sso
+              mountPath: /etc/apache2/conf-enabled/bbe-sso.conf
+              subPath: bbe-sso.conf
+              readOnly: true
+            {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -113,6 +125,11 @@ spec:
         - name: ca
           secret:
             secretName: bbe-ca-cert
+        {{- if .Values.bbe.ingress.enabled }}
+        - name: sso
+          configMap:
+            name: {{ .Release.Name }}-snipeit-sso
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

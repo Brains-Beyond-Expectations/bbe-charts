@@ -13,6 +13,13 @@ https://snipeit.{{ .Values.global.bbe.domain }}
 {{- end -}}
 
 {{/*
+Apache's configuration handing Snipe-IT the username authentik's forward auth sent, in AUTHENTIK_USERNAME
+*/}}
+{{- define "bbe-misc.snipeitSsoConf" -}}
+SetEnvIf X-authentik-username "^(.+)$" AUTHENTIK_USERNAME=$1
+{{- end -}}
+
+{{/*
 Snipe-IT's settings, shared by the app and its setup, which boots Snipe-IT's own code
 */}}
 {{- define "bbe-misc.snipeitEnv" -}}

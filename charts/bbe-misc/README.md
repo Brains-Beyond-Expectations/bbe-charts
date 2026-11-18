@@ -10,7 +10,7 @@ Apps for the BBE cluster that belong to no other package, starting with Snipe-IT
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| bbe.ingress.enabled | bool | `true` | Whether to serve Snipe-IT at snipeit.<domain> through bbe-networking's Traefik |
+| bbe.ingress.enabled | bool | `true` | Whether to serve Snipe-IT at snipeit.<domain> through bbe-networking's Traefik, behind authentik's forward auth, which signs people in to it. Its API isn't behind it, and takes API tokens |
 | bbe.misc.mariadb.image.repository | string | `"mariadb"` | The MariaDB image |
 | bbe.misc.mariadb.image.tag | string | `"11.8.9"` | The MariaDB version, a long-term support release |
 | bbe.misc.mariadb.resources.limits.memory | string | `"1Gi"` | The memory to limit MariaDB to |
@@ -30,7 +30,7 @@ Apps for the BBE cluster that belong to no other package, starting with Snipe-IT
 | bbe.networkPolicy.enabled | bool | `true` | Whether only Traefik and bbe-misc's own pods may reach Snipe-IT and its database. The cluster's network has to enforce NetworkPolicies, which `bbe setup` turns on for the clusters it creates |
 | bbe.setup.backoffLimit | int | `10` | How many times the setup is retried when Snipe-IT couldn't be set up |
 | bbe.setup.enabled | bool | `true` | Whether to run the Job connecting Snipe-IT to authentik after every install and upgrade |
-| bbe.setup.peopleSchedule | string | `"*/10 * * * *"` | When the setup gives the people Snipe-IT created on their first sign-in their admin rights, as a cron schedule |
+| bbe.setup.peopleSchedule | string | `"*/10 * * * *"` | When the setup brings in authentik's `users` and `admins` from LDAP, so authentik can sign them in to Snipe-IT, and gives its admins their admin rights, as a cron schedule |
 | bbe.setup.readyTimeout | int | `1800` | How long the setup waits for Snipe-IT's database to be ready, in seconds |
 | bbe.setup.resources.limits.memory | string | `"256Mi"` | The amount of memory to limit the setup pod to |
 | bbe.setup.resources.requests.cpu | string | `"50m"` | The amount of CPU to request for the setup pod |

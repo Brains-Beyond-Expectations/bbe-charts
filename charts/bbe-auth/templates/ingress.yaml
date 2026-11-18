@@ -33,25 +33,26 @@ spec:
                 name: bbe-auth-server
                 port:
                   name: https
----
 {{- /*
-The book library's forward auth is for its host only, so authentik's sign-in comes back to
+The book library's and Snipe-IT's forward auth is for their host only, so authentik's sign-in comes back to
 /outpost.goauthentik.io/ on that host, to set its cookie there. Traefik sends that path to authentik, ahead of the
-library's own Ingress, as its path is longer
+app's own Ingress, as its path is longer
 */}}
+{{- range $name, $host := dict "books" "calibre" "snipeit" "snipeit" }}
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: bbe-auth-books
-  namespace: {{ .Release.Namespace }}
+  name: bbe-auth-{{ $name }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    {{- include "bbe-auth.labels" . | nindent 4 }}
+    {{- include "bbe-auth.labels" $ | nindent 4 }}
 spec:
   tls:
     - hosts:
-        - calibre.{{ .Values.global.bbe.domain }}
+        - {{ $host }}.{{ $.Values.global.bbe.domain }}
   rules:
-    - host: calibre.{{ .Values.global.bbe.domain }}
+    - host: {{ $host }}.{{ $.Values.global.bbe.domain }}
       http:
         paths:
           - path: /outpost.goauthentik.io/
@@ -61,3 +62,4 @@ spec:
                 name: bbe-auth-server
                 port:
                   name: https
+{{- end }}
