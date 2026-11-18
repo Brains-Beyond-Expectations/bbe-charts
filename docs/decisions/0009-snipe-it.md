@@ -20,7 +20,8 @@ Things that shaped what follows, read in Snipe-IT 8.8.3's source:
 - **SAML and OpenID Connect only sign in people already in its database.**
   - SAML is for the browser, and someone would have to create each person in Snipe-IT first.
   - OpenID Connect only checks API tokens.
-- **Its "remote user" sign-in only reads server variables,** and refuses headers. Traefik's forward auth can't reach it without changing Apache in the image.
+- **Its "remote user" sign-in only reads server variables,** and refuses ones named after a header (`HTTP_*`), which anyone could send. Apache in the image sets one from a header with a line of configuration (`SetEnvIf`) in its `conf-enabled` folder. It only signs in people already in its database, like SAML.
+- **Its LDAP sync** (`snipeit:ldap-sync`) adds and updates everyone its LDAP search finds, with the same settings and the same attribute mapping as its LDAP sign-in.
 - **Snipe-IT pins every link to `APP_URL`,** and refuses other names, unless it's told not to.
 
 ## Decision tree
@@ -32,8 +33,11 @@ flowchart TD
     Q1 -.->|rejected| B1[bbe-assets, a package<br/>of its own]
 
     Q2{How do people sign in?}
-    Q2 -->|chosen| A2[authentik's LDAP,<br/>which creates people]
-    Q2 -.->|rejected| B2[SAML or forward auth:<br/>only people already there]
+    Q2 -->|chosen, in the browser| A2[Forward auth, with Snipe-IT's own provider,<br/>and its remote user sign-in]
+    Q2 -->|chosen, on its login form| C2[authentik's LDAP]
+    Q2 -.->|rejected| B2[SAML; LDAP alone]
+    A2 --> Q6{Who does it have?}
+    Q6 -->|chosen| A6[Everyone in users and admins,<br/>from its LDAP sync every 10 minutes]
 
     A2 --> Q3{Who are its admins?}
     Q3 -->|chosen| A3[authentik's admins, kept in a<br/>Snipe-IT group every 10 minutes]
@@ -84,25 +88,36 @@ A StatefulSet with `mariadb:11.8.9`, a long-term support release, on a 2Gi volum
 
 Snipe-IT's own Docker setup uses MariaDB. Its SQLite support is only for its tests.
 
-### 4. People sign in with authentik's LDAP
+### 4. People sign in with authentik: its session in the browser, and its LDAP on Snipe-IT's login form
 
-Snipe-IT signs people in against bbe-auth's LDAP outpost, as Jellyfin and the book library do:
-- **Snipe-IT's own account:** it searches with `snipeit-ldap`, which bbe-auth's blueprint creates with the others. Its password is generated into `bbe-auth-authentik` and copied into `bbe-misc-auth`.
+Whoever is in authentik's `users` or `admins` gets in, and nobody else. Nobody is added to Snipe-IT by hand.
+
+**In the browser, Traefik's forward auth signs people in,** as for the book library ([0004](0004-book-library.md), decision 4), and Snipe-IT trusts who authentik names:
+- **Its own provider.** bbe-auth's forward auth for the domain only lets `admins` in ([0002](0002-single-sign-on.md), decision 7). So bbe-auth's blueprint adds a provider for `snipeit.<domain>` only (`forward_single`), which lets in `users` and `admins`. Its sign-in comes back to `/outpost.goauthentik.io/` on Snipe-IT's host, which bbe-auth's Ingress sends to authentik.
+- **Apache hands Snipe-IT the username** from `X-authentik-username` as the server variable `AUTHENTIK_USERNAME`, from a file mounted into its `conf-enabled` folder. Snipe-IT's remote user sign-in reads it (`login_remote_user_header_name`) on its login page, where it sends whoever isn't signed in.
+- **Only Traefik's forward auth sets that header.** A middleware removes authentik's headers from every request to Snipe-IT before forward auth, which sets them again. And Snipe-IT's NetworkPolicy only lets Traefik and bbe-misc's own pods reach it.
+- **Signing out of Snipe-IT signs out of its provider in authentik** (`login_remote_user_custom_logout_url`, at `/outpost.goauthentik.io/sign_out` on Snipe-IT's host). Its login page would otherwise sign them straight back in.
+- **Its API skips forward auth,** with authentik's headers still removed, as the apps and scripts using it can't sign in through a browser. It checks their API tokens itself.
+
+**Snipe-IT only signs in someone it already has,** so the people CronJob (decision 5) first brings in everyone in `users` and `admins` with Snipe-IT's own LDAP sync. Someone new waits up to 10 minutes, or signs in on the login form meanwhile.
+
+**Its login form checks passwords against bbe-auth's LDAP outpost,** as Jellyfin's does:
+- **Snipe-IT's own account:** it searches with `snipeit-ldap`, which bbe-auth's blueprint creates with the others. Its password is generated into `bbe-auth-authentik` and copied into `bbe-misc-auth`. The LDAP sync searches with it too.
 - **Only `users` and `admins`:** its search filter finds people in either group, then it binds as the person found.
-- **People are created on their first sign-in.** authentik's `displayName` goes into Snipe-IT's first name, its only required name, and `mail` into their email.
+- **People are created on their first sign-in,** if the sync hasn't brought them in yet. authentik's `displayName` goes into Snipe-IT's first name, its only required name, and `mail` into their email.
 - **Passwords aren't copied into Snipe-IT** (`ldap_pw_sync` off). Someone authentik stops letting in can't sign in with the password they had.
 - **"Forgot your password" leads to authentik's user settings,** as authentik's LDAP can't change passwords.
 
 Rejected:
-- **SAML**, which authentik can serve. Snipe-IT only signs in people already in its database, so someone would have to create each person in Snipe-IT first.
-- **Forward auth with Snipe-IT's remote user sign-in.** It only reads server variables, so its Apache would need changing, and it also only signs in people already there.
+- **SAML**, which authentik can serve. It also only signs in people already in its database, and people would still press its sign-in button, where forward auth signs them in when they open Snipe-IT.
+- **LDAP alone**, as first chosen. People typed their authentik password into Snipe-IT's own form, rather than being signed in by authentik's session like the other apps.
 
 ### 5. authentik's admins are Snipe-IT's admins
 
 - **Snipe-IT's `admins` group** can do everything (`superuser`). The setup keeps exactly authentik's `admins` in it, among the people Snipe-IT created from LDAP.
-- **A CronJob** runs that part of the setup every 10 minutes (`bbe.setup.peopleSchedule`), as Snipe-IT creates people on their first sign-in. Someone leaving `admins` in authentik leaves Snipe-IT's group the same way.
+- **A CronJob** runs that part of the setup every 10 minutes (`bbe.setup.peopleSchedule`), after Snipe-IT's LDAP sync brings in new people (decision 4). Someone leaving `admins` in authentik leaves Snipe-IT's group the same way.
 - **`users` get no rights.** They see what's checked out to them, and ask for what's requestable.
-- **Snipe-IT's own admin** (`bbe.misc.snipeit.admin.username`, `snipeit-admin`) isn't in LDAP. It signs in with its own password, generated into `bbe-misc-admin`, when authentik can't help.
+- **Snipe-IT's own admin** (`bbe.misc.snipeit.admin.username`, `snipeit-admin`) isn't in authentik. It has its own password, generated into `bbe-misc-admin`. With forward auth in front, its login form only shows for someone authentik let through whom Snipe-IT doesn't have yet, as it signs in whoever authentik names first. The setup creates it first, as Snipe-IT's setup page would.
 
 People added in Snipe-IT itself, and its own admin, are left alone.
 
@@ -112,8 +127,8 @@ The setup Job runs a PHP script on Snipe-IT's image, as Snipe-IT's own user. It 
 1. **Waits** until every migration in the image has run, as Snipe-IT migrates on start.
 2. **Creates Snipe-IT's own admin**, and keeps its password the one in `bbe-misc-admin`.
 3. **Saves the first settings** its setup page would, so nobody goes through it.
-4. **Sets up LDAP sign-in** (decision 4). The LDAP password is encrypted with Snipe-IT's key, as its wizard does.
-5. **Keeps the admins in line** (decision 5).
+4. **Sets up sign-in** (decision 4): remote user sign-in, and LDAP. The LDAP password is encrypted with Snipe-IT's key, as its wizard does.
+5. **Brings in people from LDAP, and keeps the admins in line** (decisions 4 and 5).
 
 It reads before it writes, so a second run changes nothing.
 
@@ -135,13 +150,16 @@ It's reached from outside through Tailscale, at the same name as at home ([0013]
 
 ## Consequences
 
-- **A new admin can do everything in Snipe-IT within 10 minutes** of being added to `admins`, or of their first sign-in.
+- **A new admin can do everything in Snipe-IT within 10 minutes** of being added to `admins`.
+- **Someone new is signed in by authentik's session within 10 minutes** of being added to `users` or `admins`. Until then, Snipe-IT shows them its login form, where their authentik password works.
+- **Snipe-IT trusts a server variable Apache sets from a header for who's signed in.** It's only safe while Traefik removes the header from what people send and only Traefik and bbe-misc's pods reach Snipe-IT. On a cluster that doesn't enforce NetworkPolicies, any pod reaching its Service could sign in as anyone.
+- **Snipe-IT can't be reached through Traefik while authentik is down,** its API aside.
 - **People removed from authentik stay in Snipe-IT**, with what's checked out to them, but can't sign in.
 - **Snipe-IT's key never changes.** Losing `bbe-misc-snipeit` makes the LDAP password unreadable, and LDAP sign-in stops until the setup runs again.
 - **Snipe-IT sends no email** until a mail server is set up.
 - **Uninstalling `bbe-misc`** deletes its namespace, with the inventory, its database and its files.
 - **bbe-auth changes with this:**
-  - the `snipeit-ldap` account;
+  - the `snipeit-ldap` account, and Snipe-IT's forward auth provider, with its Ingress for `/outpost.goauthentik.io/`;
   - its password in `bbe-auth-authentik`;
   - bbe-misc in the LDAP outpost's NetworkPolicy.
 - **What's verified, and what isn't:**

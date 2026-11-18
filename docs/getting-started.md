@@ -9,7 +9,7 @@ This guide takes you from a fresh BBE cluster to every app running, with your ho
 | bbe-storage | Longhorn, storage on the nodes' disks for the apps' databases | |
 | bbe-networking | Addresses and HTTPS for every app, a DNS server for the house, and a dashboard listing everything | `https://bbe.home.arpa` |
 | bbe-auth | authentik: one account per person for every app | `https://auth.bbe.home.arpa` |
-| bbe-media | Jellyfin to watch, Seerr to ask for shows and movies, and Sonarr, Radarr, Prowlarr, Bazarr and qBittorrent to get them | `https://jellyfin.bbe.home.arpa`, … |
+| bbe-media | Jellyfin to watch, Seerr to ask for shows and movies, and Sonarr, Radarr, Prowlarr, Bazarr, qBittorrent and autobrr to get them | `https://jellyfin.bbe.home.arpa`, … |
 | bbe-library | A book library to read and send to e-readers, and Shelfmark to find books | `https://calibre.bbe.home.arpa`, `https://shelfmark.bbe.home.arpa` |
 | bbe-music | Music Assistant to play music on the house's speakers, Lidarr to find albums, Soulseek, and SoulSync to keep a copy of your Spotify library | `https://music.bbe.home.arpa`, … |
 | bbe-gpu | The nodes' Intel GPUs, which Jellyfin transcodes on | |
@@ -177,6 +177,7 @@ Everyone then uses that one username and password everywhere: in the browser, in
   ```
   It still uses a GPU whenever a node offers one. The codecs Jellyfin decodes on the GPU are there too: the defaults suit Intel's 7th generation and newer. A node set up before bbe's image had the driver needs upgrading, as [decision record 0011](decisions/0011-gpu-transcoding.md) shows.
 - **Downloads:** qBittorrent seeds each torrent to a ratio of 2, then removes it. The library keeps its own copy. Change that with `bbe.media.seeding` in `bbe.yaml`.
+- **Grabbing releases as trackers announce them:** autobrr, at `https://autobrr.bbe.home.arpa`, for admins, with "Sign in with OpenID". It listens to your trackers' announce channels on IRC, and its filters hand what matches to Sonarr, Radarr or qBittorrent, which bbe connects it to. Add your trackers and filters in autobrr. Private trackers often want a torrent seeded for a while: if they do, raise or turn off the ratio above.
 
 ## 7. Books
 
@@ -310,9 +311,9 @@ bbe-observability keeps the cluster's metrics and the apps' logs for 15 days, an
 
 Snipe-IT keeps track of what the household has, who has it, and its receipts and warranties.
 
-- **Signing in:** at `https://snipeit.bbe.home.arpa`, with your authentik account. Snipe-IT creates your account the first time.
-- **What you see:** `users` see what's checked out to them. `admins` can do everything, within 10 minutes of their first sign-in.
-- **Snipe-IT's own admin**, for when authentik can't help, is `snipeit-admin`. Get its password with:
+- **Signing in:** at `https://snipeit.bbe.home.arpa`, where authentik signs you in. Snipe-IT brings in everyone in `users` and `admins` within 10 minutes of being added. Until then, it shows its login form, where your authentik username and password work.
+- **What you see:** `users` see what's checked out to them. `admins` can do everything.
+- **Snipe-IT's own admin**, `snipeit-admin`, isn't in authentik. Get its password with:
   ```
   kubectl get secret bbe-misc-admin -n bbe-misc -o jsonpath='{.data.password}' | base64 -d
   ```

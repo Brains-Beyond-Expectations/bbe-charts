@@ -100,7 +100,7 @@ Rejected: **forwarding a port to Traefik.** Every app, and every app's bugs, wou
 | Music Assistant | Yes | Yes |
 | authentik (`auth`) | Yes, as the sign-in | No, Access sends people to it (decision 4) |
 | Seerr, Shelfmark, Snipe-IT, Open WebUI | No | Through Tailscale |
-| Sonarr, Radarr, Prowlarr, Bazarr, Lidarr, qBittorrent, slskd, SoulSync | No | Managing the media is done through Tailscale |
+| Sonarr, Radarr, Prowlarr, Bazarr, Lidarr, qBittorrent, autobrr, slskd, SoulSync | No | Managing the media is done through Tailscale |
 | Grafana, the dashboard, Blocky | No | They're for the house's network, and Tailscale |
 
 Nothing is published by default. An app opts in with a setting naming its public host, under the package's `bbe/settings`. Opting in more apps later is the same setting, and the table here is what bbe offers.
