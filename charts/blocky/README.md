@@ -1,6 +1,6 @@
 # blocky
 
-![Version: 1.1.11](https://img.shields.io/badge/Version-1.1.11-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.36.0](https://img.shields.io/badge/AppVersion-v0.36.0-informational?style=flat-square)
+![Version: 1.1.12](https://img.shields.io/badge/Version-1.1.12-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.37.0](https://img.shields.io/badge/AppVersion-v0.37.0-informational?style=flat-square)
 
 A DNS proxy and ad-blocker for the local network
 
